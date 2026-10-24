@@ -8,6 +8,8 @@ import {
 } from '@/lib/firebase';
 import {getNandedDemoDatasetSummary} from '@/lib/nanded-demo-data';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const summary = getNandedDemoDatasetSummary();

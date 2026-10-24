@@ -3,20 +3,21 @@ import { getMessaging, SendResponse } from 'firebase-admin/messaging';
 import firebaseConfig from '../firebase-applet-config.json';
 import { getFcmTokensForRecipient, removeInvalidFcmToken } from './fcm-registry';
 
-// Initialize Firebase Admin SDK once on server if not initialized
-if (!getApps().length) {
-  try {
-    initializeApp({
-      projectId: firebaseConfig.projectId,
-      credential: applicationDefault(),
-    });
-  } catch {
+function ensureFirebaseAdminInitialized() {
+  if (!getApps().length) {
     try {
       initializeApp({
         projectId: firebaseConfig.projectId,
+        credential: applicationDefault(),
       });
-    } catch (err) {
-      console.warn('[Server FCM] Admin app init deferred:', err);
+    } catch {
+      try {
+        initializeApp({
+          projectId: firebaseConfig.projectId,
+        });
+      } catch (err) {
+        console.warn('[Server FCM] Admin app init deferred:', err);
+      }
     }
   }
 }
@@ -124,6 +125,7 @@ async function sendFcmMulticast(
   const errors: string[] = [];
 
   try {
+    ensureFirebaseAdminInitialized();
     const messaging = getMessaging();
 
     const response = await messaging.sendEachForMulticast({

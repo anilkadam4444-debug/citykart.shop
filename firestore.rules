@@ -250,6 +250,20 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+
+    // ===============================================================
+    // FCM Push Notification Tokens (/fcm_tokens/{tokenId})
+    // ===============================================================
+    match /fcm_tokens/{tokenId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===============================================================
+    // Connection Health Check (/test/{docId})
+    // ===============================================================
+    match /test/{docId} {
+      allow read: if true;
+    }
   }
 }
 

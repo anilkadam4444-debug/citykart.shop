@@ -351,6 +351,35 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "sellerId", "orderId", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "DeletedStoreRecord": {
+      "title": "Deleted Store Record",
+      "description": "Tombstone record for permanently deleted stores.",
+      "type": "object",
+      "properties": {
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "deletedAt": { "type": "string" },
+        "deletedByUid": { "type": "string" },
+        "deletedByPhone": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "required": ["storeId", "storeName", "deletedAt"]
+    },
+    "FcmTokenRecord": {
+      "title": "FCM Token Record",
+      "description": "Device registration token for web push notifications.",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "uid": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "buyerPhone": { "type": "string" },
+        "role": { "type": "string", "enum": ["BUYER", "SELLER", "BOTH"] },
+        "userAgent": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["token", "updatedAt"]
     }
   },
   "firestore": {
@@ -417,6 +446,14 @@
     "/locationRequests/{requestId}": {
       "schema": { "$ref": "#/entities/LocationRequest" },
       "description": "Missing location requests and custom approved cities for worldwide discovery."
+    },
+    "/deleted_stores/{storeId}": {
+      "schema": { "$ref": "#/entities/DeletedStoreRecord" },
+      "description": "Tombstone records for permanently deleted stores."
+    },
+    "/fcm_tokens/{tokenId}": {
+      "schema": { "$ref": "#/entities/FcmTokenRecord" },
+      "description": "Registered FCM device tokens for push notifications."
     }
   }
 }
