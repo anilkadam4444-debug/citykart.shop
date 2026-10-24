@@ -1,0 +1,6 @@
+{
+  "name": "Citykart | Global Intra-City Local Commerce Platform",
+  "description": "Hyperlocal intra-city commerce connecting verified local stores across major global cities with real-time inventory, store onboarding, autosaved product listing, and Cash/UPI on delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

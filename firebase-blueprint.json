@@ -1,0 +1,422 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "User Account",
+      "description": "Buyer or Seller account authenticated via Firebase Phone Authentication.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID or Firebase Auth UID" },
+        "uid": { "type": "string", "description": "Firebase Authentication UID" },
+        "phoneE164": { "type": "string", "description": "Verified mobile phone number in E.164 format" },
+        "maskedPhone": { "type": "string", "description": "Masked phone number for display" },
+        "countryCode": { "type": "string", "description": "ISO 3166-1 alpha-2 country code" },
+        "fullName": { "type": "string", "description": "Full name of the buyer or seller" },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["BUYER", "SELLER", "ADMIN"] }
+        },
+        "sellerId": { "type": "string", "description": "Linked seller profile ID if user is a seller" },
+        "storeIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string", "description": "ISO date when account was created" }
+      },
+      "required": ["id", "phoneE164", "countryCode", "fullName", "roles", "storeIds", "createdAt"]
+    },
+    "SellerProfile": {
+      "title": "Seller Profile",
+      "description": "Merchant profile linked to a verified mobile number.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "businessOwnerName": { "type": "string" },
+        "phoneE164": { "type": "string" },
+        "phoneCountryCode": { "type": "string" },
+        "phoneVerified": { "type": "boolean" },
+        "migrationRequired": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["SELLER"] },
+        "storeIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["id", "businessOwnerName", "role", "storeIds"]
+    },
+    "LocalStore": {
+      "title": "Local Store",
+      "description": "Hyperlocal retail storefront registered in any city, town, district, or village worldwide.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "category": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "country": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "district": { "type": "string" },
+        "localityType": { "type": "string", "enum": ["CITY", "TOWN", "VILLAGE", "LOCALITY"] },
+        "cityId": { "type": "string" },
+        "cityName": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "city": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "address": { "type": "string" },
+        "locationVerified": { "type": "boolean" },
+        "locationSource": { "type": "string", "enum": ["VERIFIED_DIRECTORY", "GEOCODED", "USER_PROVIDED"] },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "USER_PROVIDED_UNVERIFIED", "INCOMPLETE"] },
+        "operatingHours": { "type": "string" },
+        "avgDispatchMins": { "type": "number" },
+        "rating": { "type": "number" },
+        "verifiedSince": { "type": "string" },
+        "specialty": { "type": "string" },
+        "upiHandle": { "type": "string" },
+        "activeSkus": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "sellerId", "name", "categoryId", "category", "country", "stateRegion", "cityId", "cityName", "neighborhood", "address", "isActive"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product listed by a local store.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "city": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "stock": { "type": "number" },
+        "isAvailable": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "storeId", "storeName", "name", "categoryId", "category", "price", "stock", "isAvailable"]
+    },
+    "OrderRecord": {
+      "title": "Order Record",
+      "description": "Customer order placed with a local store.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "buyerUid": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "subtotal": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "discount": { "type": "number" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "currentStepIndex": { "type": "number" },
+        "termsAcknowledged": { "type": "boolean" },
+        "termsVersion": { "type": "string" },
+        "termsAcknowledgedAt": { "type": "string" },
+        "termsDocumentId": { "type": "string" },
+        "checkoutAcknowledgementVersion": { "type": "string" }
+      },
+      "required": ["id", "storeId", "storeName", "sellerId", "total", "paymentMethod"]
+    },
+    "MerchantSubscription": {
+      "title": "Merchant Subscription",
+      "description": "Subscription tier record for a registered seller storefront.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "planId": { "type": "string", "enum": ["FREE", "GROWTH", "BUSINESS_PRO"] },
+        "billingCycle": { "type": "string", "enum": ["MONTHLY", "ANNUAL"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "TRIALING", "PAST_DUE", "CANCELED", "EXPIRED"] },
+        "currency": { "type": "string" },
+        "currentPrice": { "type": "number" },
+        "currentPeriodStart": { "type": "string" },
+        "currentPeriodEnd": { "type": "string" },
+        "cancelAtPeriodEnd": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "storeId", "planId", "status", "currentPeriodStart", "currentPeriodEnd"]
+    },
+    "BillingTransaction": {
+      "title": "Billing Transaction",
+      "description": "Immutable ledger record of subscription payments, ad placements, or service fees.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["SUBSCRIPTION", "AD_CAMPAIGN", "SERVICE_ORDER"] },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "taxAmount": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["SUCCESS", "PENDING", "FAILED", "REFUNDED"] },
+        "paymentGateway": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "storeId", "type", "totalAmount", "status", "invoiceNumber", "createdAt"]
+    },
+    "FeaturedCampaign": {
+      "title": "Featured Campaign",
+      "description": "Paid advertising placement for featured store or sponsored product.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "type": { "type": "string", "enum": ["FEATURED_STORE", "SPONSORED_PRODUCT"] },
+        "targetProductId": { "type": "string" },
+        "cityId": { "type": "string" },
+        "cityName": { "type": "string" },
+        "status": { "type": "string", "enum": ["DRAFT", "ACTIVE", "SCHEDULED", "PAUSED", "COMPLETED", "REJECTED"] },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "durationDays": { "type": "number" },
+        "budgetInr": { "type": "number" },
+        "impressions": { "type": "number" },
+        "clicks": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "storeId", "type", "cityId", "status", "startDate", "endDate", "budgetInr"]
+    },
+    "MerchantServiceOrder": {
+      "title": "Merchant Service Order",
+      "description": "Value-added onboarding or catalogue service booked by a seller.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "serviceType": { "type": "string", "enum": ["CATALOGUE_SETUP", "BULK_UPLOAD", "CUSTOM_DOMAIN", "PHOTOGRAPHY_ASSIST"] },
+        "title": { "type": "string" },
+        "amountInr": { "type": "number" },
+        "status": { "type": "string", "enum": ["SUBMITTED", "IN_REVIEW", "IN_PROGRESS", "COMPLETED", "CANCELLED"] },
+        "contactPhone": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "storeId", "serviceType", "amountInr", "status", "createdAt"]
+    },
+    "LocationCountry": {
+      "title": "Location Country",
+      "description": "Canonical country record in the global location directory.",
+      "type": "object",
+      "properties": {
+        "countryId": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "regionLabel": { "type": "string" },
+        "districtLabel": { "type": "string" },
+        "postalLabel": { "type": "string" },
+        "currencyCode": { "type": "string" },
+        "source": { "type": "string" },
+        "version": { "type": "string" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["countryId", "code", "name", "active", "updatedAt"]
+    },
+    "LocationRegion": {
+      "title": "Location Region",
+      "description": "Canonical administrative region, state, or province record.",
+      "type": "object",
+      "properties": {
+        "regionId": { "type": "string" },
+        "countryId": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "regionType": { "type": "string" },
+        "source": { "type": "string" },
+        "version": { "type": "string" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["regionId", "countryId", "countryCode", "code", "name", "active", "updatedAt"]
+    },
+    "LocationCity": {
+      "title": "Location City",
+      "description": "Canonical city, town, or village populated place record.",
+      "type": "object",
+      "properties": {
+        "cityId": { "type": "string" },
+        "countryId": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "regionId": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "district": { "type": "string" },
+        "cityName": { "type": "string" },
+        "searchNormalized": { "type": "string" },
+        "featureClass": { "type": "string" },
+        "featureCode": { "type": "string" },
+        "population": { "type": "number" },
+        "localityType": { "type": "string", "enum": ["CITY", "TOWN", "VILLAGE", "LOCALITY"] },
+        "postalCode": { "type": "string" },
+        "source": { "type": "string" },
+        "version": { "type": "string" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["cityId", "countryId", "countryCode", "stateRegion", "cityName", "active", "updatedAt"]
+    },
+    "LocationImportRun": {
+      "title": "Location Import Run",
+      "description": "Audit record of dataset import and sync executions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sourceUrl": { "type": "string" },
+        "license": { "type": "string" },
+        "version": { "type": "string" },
+        "importedCount": { "type": "number" },
+        "updatedCount": { "type": "number" },
+        "skippedCount": { "type": "number" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "sourceUrl", "license", "importedCount", "status", "timestamp"]
+    },
+    "LocationMissingRequest": {
+      "title": "Location Missing Request",
+      "description": "Request submitted for a missing town or village.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "country": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "district": { "type": "string" },
+        "cityName": { "type": "string" },
+        "canonicalId": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "requestedBy": { "type": "string" },
+        "requesterPhone": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "country", "stateRegion", "cityName", "canonicalId", "status", "createdAt"]
+    },
+    "LocationRequest": {
+      "title": "Location Request",
+      "description": "User or merchant submission requesting a missing town, village, or city to be canonically registered in the URBANDIRECT global location directory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "country": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "district": { "type": "string" },
+        "localityType": { "type": "string", "enum": ["CITY", "TOWN", "VILLAGE", "LOCALITY"] },
+        "cityName": { "type": "string" },
+        "canonicalId": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "requestedBy": { "type": "string" },
+        "requesterPhone": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "country", "stateRegion", "cityName", "canonicalId", "status", "createdAt"]
+    },
+    "SellerNotification": {
+      "title": "Seller Notification",
+      "description": "In-app seller order alert notification record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "sellerUid": { "type": "string" },
+        "orderId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["NEW_ORDER", "ORDER_CANCELLED", "ORDER_STATUS_CHANGED"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "orderId", "title", "message", "type", "isRead", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/sellerNotifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/SellerNotification" },
+      "description": "In-app order alert notifications for registered sellers."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Authenticated buyer and seller user profiles keyed by Firebase Auth UID or user ID."
+    },
+    "/sellers/{sellerId}": {
+      "schema": { "$ref": "#/entities/SellerProfile" },
+      "description": "Seller profiles keyed by sellerId."
+    },
+    "/stores/{storeId}": {
+      "schema": { "$ref": "#/entities/LocalStore" },
+      "description": "Publicly discoverable local stores keyed by storeId."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Publicly discoverable store products keyed by productId."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/OrderRecord" },
+      "description": "Orders accessible to the buyer who placed them or the seller who fulfills them."
+    },
+    "/merchantSubscriptions/{subscriptionId}": {
+      "schema": { "$ref": "#/entities/MerchantSubscription" },
+      "description": "Merchant SaaS subscription records keyed by subscriptionId."
+    },
+    "/billingTransactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/BillingTransaction" },
+      "description": "Financial ledger transactions and invoices."
+    },
+    "/featuredCampaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/FeaturedCampaign" },
+      "description": "Promoted store and sponsored product advertising campaigns."
+    },
+    "/merchantServiceOrders/{orderId}": {
+      "schema": { "$ref": "#/entities/MerchantServiceOrder" },
+      "description": "Assisted catalogue digitisation, bulk import, and domain orders."
+    },
+    "/locationCountries/{countryId}": {
+      "schema": { "$ref": "#/entities/LocationCountry" },
+      "description": "Canonical country records in the global location directory."
+    },
+    "/locationRegions/{regionId}": {
+      "schema": { "$ref": "#/entities/LocationRegion" },
+      "description": "Canonical state and province administrative division records."
+    },
+    "/locationCities/{cityId}": {
+      "schema": { "$ref": "#/entities/LocationCity" },
+      "description": "Canonical city, town, and village populated place records."
+    },
+    "/locationImportRuns/{importId}": {
+      "schema": { "$ref": "#/entities/LocationImportRun" },
+      "description": "Dataset import execution ledger logs."
+    },
+    "/locationMissingRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/LocationMissingRequest" },
+      "description": "Controlled missing location requests."
+    },
+    "/locationRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/LocationRequest" },
+      "description": "Missing location requests and custom approved cities for worldwide discovery."
+    }
+  }
+}
