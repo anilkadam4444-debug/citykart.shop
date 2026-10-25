@@ -18,15 +18,19 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isAuthenticated()
-        && request.auth.token.phone_number == '+918329306616'
         && (
-          request.auth.token.role == 'super_admin'
+          request.auth.token.phone_number == '+918329306616'
+          || request.auth.token.role == 'super_admin'
           || request.auth.token.super_admin == true
           || (
             exists(/databases/$(database)/documents/admins/$(request.auth.uid))
             && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin'
             && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'ACTIVE'
-            && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.phoneE164 == '+918329306616'
+          )
+          || (
+            exists(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number))
+            && get(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number)).data.role == 'super_admin'
+            && get(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number)).data.status == 'ACTIVE'
           )
         );
     }
@@ -70,7 +74,7 @@ service cloud.firestore {
 
     // ===============================================================
     // Admin Authorizations (/adminAuthorizations/{phoneId})
-    // Controlled exclusively by the verified Platform Owner Super Admin (+918329306616)
+    // Controlled exclusively by verified Super Admins (+918329306616 Platform Owner)
     // Protected Invariant: +918329306616 can NEVER be revoked or downgraded
     // ===============================================================
     match /adminAuthorizations/{phoneId} {
@@ -80,12 +84,20 @@ service cloud.firestore {
         && request.resource.data.phoneE164 == phoneId
         && request.resource.data.role in ['admin', 'super_admin']
         && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'];
-      allow update: if isSuperAdmin()
+      allow update: if (isSuperAdmin()
         && isValidString(phoneId, 4, 24)
         && request.resource.data.phoneE164 == resource.data.phoneE164
         && (phoneId != '+918329306616' || (request.resource.data.role == 'super_admin' && request.resource.data.status == 'ACTIVE'))
         && request.resource.data.role in ['admin', 'super_admin']
-        && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'];
+        && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'])
+        || (
+          isAuthenticated()
+          && request.auth.token.phone_number == phoneId
+          && resource.data.status != 'REVOKED'
+          && request.resource.data.phoneE164 == resource.data.phoneE164
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == 'ACTIVE'
+        );
       allow delete: if false;
     }
 

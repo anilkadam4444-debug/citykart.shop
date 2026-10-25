@@ -558,7 +558,18 @@ export function SuperAdminDashboard() {
     setActionBanner(null);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/admin/action', {
+      const actionType = String(payload.action || '');
+      const isGovernanceAction = [
+        'INVITE_ADMIN',
+        'REVOKE_ADMIN',
+        'REACTIVATE_ADMIN',
+        'UPDATE_ADMIN',
+      ].includes(actionType);
+      const targetEndpoint = isGovernanceAction
+        ? '/api/admin/management'
+        : '/api/admin/action';
+
+      const res = await fetch(targetEndpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -752,6 +763,67 @@ export function SuperAdminDashboard() {
     mergedSellers,
   ]);
 
+  // Super Admin Authorization & Governance State Derivations
+  const isSuperAdmin = useMemo(() => {
+    return (
+      authenticatedUser?.phoneE164 === DESIGNATED_OWNER_PHONE ||
+      dashboardData?.isSuperAdmin === true ||
+      dashboardData?.adminRole === 'super_admin'
+    );
+  }, [authenticatedUser?.phoneE164, dashboardData?.isSuperAdmin, dashboardData?.adminRole]);
+
+  const allAdminAuthorizations = useMemo((): AdminAuthorizationRecord[] => {
+    const list = dashboardData?.adminAuthorizations || [];
+    const hasOwner = list.some((a) => a.phoneE164 === DESIGNATED_OWNER_PHONE);
+    if (!hasOwner) {
+      return [
+        {
+          id: DESIGNATED_OWNER_PHONE,
+          phoneE164: DESIGNATED_OWNER_PHONE,
+          name: 'Platform Owner',
+          designation: 'Chief Platform Administrator',
+          role: 'super_admin',
+          status: 'ACTIVE',
+          isPermanentSuperAdmin: true,
+          invitedByUid: 'SYSTEM_BOOTSTRAP',
+          invitedByPhone: DESIGNATED_OWNER_PHONE,
+          invitedAt: new Date().toISOString(),
+          activatedAt: new Date().toISOString(),
+          customClaimsSynced: true,
+          updatedAt: new Date().toISOString(),
+        },
+        ...list,
+      ];
+    }
+    return list;
+  }, [dashboardData?.adminAuthorizations]);
+
+  const filteredAdmins = useMemo(() => {
+    return allAdminAuthorizations.filter((adm) => {
+      if (adminStatusFilter !== 'ALL' && adm.status !== adminStatusFilter) {
+        return false;
+      }
+      if (adminSearchQuery.trim()) {
+        const q = adminSearchQuery.trim().toLowerCase();
+        const matchesName = adm.name.toLowerCase().includes(q);
+        const matchesPhone = adm.phoneE164.toLowerCase().includes(q);
+        const matchesDesig = (adm.designation || '').toLowerCase().includes(q);
+        return matchesName || matchesPhone || matchesDesig;
+      }
+      return true;
+    });
+  }, [allAdminAuthorizations, adminStatusFilter, adminSearchQuery]);
+
+  const adminAuditLogs = useMemo(() => {
+    const logs = dashboardData?.auditLogs || [];
+    return logs.filter(
+      (l) =>
+        l.targetType === 'ADMIN_USER' ||
+        l.action.includes('ADMIN') ||
+        l.action.includes('INVITE') ||
+        l.action.includes('REVOKE')
+    );
+  }, [dashboardData?.auditLogs]);
 
   // Confirm Modal Execution Handler
   const handleConfirmConsequentialAction = async () => {
