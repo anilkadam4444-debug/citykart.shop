@@ -70,14 +70,30 @@ jobs:
           fi
 
       - name: Deploy via Firebase Action (Service Account)
+        id: deploy-action
         if: env.AUTH_MODE == 'SERVICE_ACCOUNT'
+        continue-on-error: true
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
           channelId: live
           projectId: urbandirectintracity
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      - name: Fallback Direct Firebase CLI Deploy
+        if: env.AUTH_MODE == 'SERVICE_ACCOUNT' && steps.deploy-action.outcome != 'success'
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+        run: |
+          echo "Primary action deploy did not complete; executing direct Firebase CLI deploy..."
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}' > "$RUNNER_TEMP/firebase_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase_sa.json"
+          npx firebase-tools deploy --only hosting --project urbandirectintracity --non-interactive
 
       - name: Deploy via Firebase CLI (Token)
         if: env.AUTH_MODE == 'TOKEN'
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
         run: npx firebase-tools deploy --only hosting --project urbandirectintracity --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive

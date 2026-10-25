@@ -59,3 +59,5 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
           projectId: urbandirectintracity
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
