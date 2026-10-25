@@ -53,9 +53,9 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
 
       - name: Deploy to Firebase Hosting (Preview Channel)
-        if: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' }}"
+        if: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' || secrets.GCP_SA_KEY != '' || secrets.FIREBASE_CREDENTIALS != '' || secrets.SERVICE_ACCOUNT_KEY != '' }}"
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
           projectId: urbandirectintracity

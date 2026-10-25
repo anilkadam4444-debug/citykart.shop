@@ -55,17 +55,17 @@ jobs:
       - name: Verify Firebase Authentication Secret
         id: check-secret
         env:
-          HAS_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
-          HAS_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' }}
+          SA_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
+          TOKEN_SECRET: ${{ secrets.FIREBASE_TOKEN }}
         run: |
-          if [ "$HAS_SA" = "true" ]; then
+          if [ -n "$SA_SECRET" ]; then
             echo "Deploying using Firebase Service Account."
             echo "AUTH_MODE=SERVICE_ACCOUNT" >> $GITHUB_ENV
-          elif [ "$HAS_TOKEN" = "true" ]; then
+          elif [ -n "$TOKEN_SECRET" ]; then
             echo "Deploying using FIREBASE_TOKEN CLI token."
             echo "AUTH_MODE=TOKEN" >> $GITHUB_ENV
           else
-            echo "::error title=Missing Secret::The secret 'FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY' or 'FIREBASE_SERVICE_ACCOUNT' was not found in your GitHub repository Secrets. Please add it under Settings > Secrets and variables > Actions."
+            echo "::error title=Missing Secret::No Firebase deployment secret was found in your GitHub repository Secrets. Please add 'FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY' (or 'FIREBASE_SERVICE_ACCOUNT') in GitHub under Settings > Secrets and variables > Actions."
             exit 1
           fi
 
@@ -74,7 +74,7 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
           channelId: live
           projectId: urbandirectintracity
 
