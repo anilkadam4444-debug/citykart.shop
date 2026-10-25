@@ -11,24 +11,48 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Ensure package-lock.json exists
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "package-lock.json not found in repository. Generating lockfile..."
+            npm i --package-lock-only
+          else
+            echo "Found existing package-lock.json"
+          fi
+
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node_modules-
+
+      - name: Install dependencies using package-lock.json
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --prefer-offline || npm install
+          else
+            npm install
+          fi
 
       - name: Build Next.js application
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
 
-      - name: Deploy to Firebase Hosting (Live Channel)
+      - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
