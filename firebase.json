@@ -1,0 +1,11 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "databases": [
+      {
+        "database": "ai-studio-urbandirectgloba-e84b263b-d482-4469-8ff3-92b474ec82f9",
+        "rules": "firestore.rules"
+      }
+    ]
+  }
+}

@@ -1,58 +1,84 @@
-// Firebase Cloud Messaging Service Worker for Citykart.shop
-// Handles background push notifications when the web app is minimized or closed.
+// Firebase Cloud Messaging Service Worker for Citykart.shop (urbandirectintracity)
+importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
 
-importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
-
-// Initialize Firebase inside the Service Worker
 firebase.initializeApp({
-  projectId: "urbandirectintracity",
-  appId: "1:397772731387:web:0896d9396c3966a283915e",
-  apiKey: "AIzaSyDxbT6rWpl3mrVT5RcwNHVT_T_gecLubkA",
+  apiKey: "AIzaSyA2u0hT4A9w4bQxX_rB8u_9x1tY7jZ8s7A",
   authDomain: "urbandirectintracity.firebaseapp.com",
+  projectId: "urbandirectintracity",
+  storageBucket: "urbandirectintracity.firebasestorage.app",
   messagingSenderId: "397772731387",
-  storageBucket: "urbandirectintracity.firebasestorage.app"
+  appId: "1:397772731387:web:0896d9396c3966a283915e"
 });
 
 const messaging = firebase.messaging();
 
-// Background message handler
 messaging.onBackgroundMessage((payload) => {
-  console.log('[Citykart FCM SW] Received background message:', payload);
+  const data = payload.data || {};
+  const orderId = data.orderId || 'latest';
+  const recipientRole = data.recipientRole || 'SELLER';
 
-  const notificationTitle = payload.notification?.title || payload.data?.title || 'Citykart Notification';
+  // If the FCM payload already includes a top-level `notification` block,
+  // the browser displays it automatically using the `webpush.fcmOptions.link` and `tag`.
+  // Only call `showNotification` manually for data-only background messages to prevent duplicate alerts.
+  if (payload.notification) {
+    return;
+  }
+
+  const notificationTitle =
+    data.title || 'New Order Update — Citykart.shop';
+  const notificationBody =
+    data.body || 'Tap to view your order details on Citykart.shop';
+
+  const defaultClickAction =
+    recipientRole === 'BUYER'
+      ? `/orders?orderId=${encodeURIComponent(orderId)}`
+      : `/seller/dashboard?section=orders&orderId=${encodeURIComponent(orderId)}`;
+
   const notificationOptions = {
-    body: payload.notification?.body || payload.data?.body || 'You have a new update on Citykart.',
+    body: notificationBody,
     icon: '/citykart-icon.png',
     badge: '/citykart-icon.png',
+    tag: `citykart-order-${orderId}-${recipientRole}`,
+    renotify: false,
     data: {
-      orderId: payload.data?.orderId || '',
-      url: payload.data?.url || (payload.data?.orderId ? `/?orderId=${payload.data.orderId}` : '/'),
+      ...data,
+      clickAction: data.clickAction || defaultClickAction,
     },
-    tag: payload.data?.orderId ? `order-${payload.data.orderId}` : 'citykart-notif',
-    renotify: true,
   };
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Notification click handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const data = event.notification.data || {};
+  const orderId = data.orderId || '';
+  const recipientRole = data.recipientRole || '';
 
-  const targetUrl = event.notification.data?.url || '/';
+  let targetUrl = data.clickAction || '/';
+  if (!data.clickAction && orderId) {
+    targetUrl =
+      recipientRole === 'BUYER'
+        ? `/orders?orderId=${encodeURIComponent(orderId)}`
+        : `/seller/dashboard?section=orders&orderId=${encodeURIComponent(orderId)}`;
+  }
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(targetUrl);
-          return client.focus();
+    clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            if ('navigate' in client) {
+              return client.navigate(targetUrl).then((c) => (c ? c.focus() : null));
+            }
+            return client.focus();
+          }
         }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
-    })
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      })
   );
 });

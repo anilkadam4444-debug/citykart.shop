@@ -1,180 +1,323 @@
-import { initializeApp, getApps, applicationDefault } from 'firebase-admin/app';
-import { getMessaging, SendResponse } from 'firebase-admin/messaging';
-import firebaseConfig from '../firebase-applet-config.json';
-import { getFcmTokensForRecipient, removeInvalidFcmToken } from './fcm-registry';
+import {
+  applicationDefault,
+  cert,
+  getApps,
+  initializeApp,
+} from 'firebase-admin/app';
+import {getMessaging} from 'firebase-admin/messaging';
+import {OrderRecord} from './catalog-data';
+import {
+  getFcmTokensForRecipient,
+  removeInvalidFcmToken,
+} from './fcm-registry';
+import {db} from './firebase';
+import {doc, setDoc} from 'firebase/firestore';
 
-function ensureFirebaseAdminInitialized() {
-  if (!getApps().length) {
-    try {
-      initializeApp({
-        projectId: firebaseConfig.projectId,
-        credential: applicationDefault(),
-      });
-    } catch {
-      try {
+let adminInitialized = false;
+let hasExplicitServiceAccount = false;
+
+// Idempotency guard to ensure each new order triggers push notifications at most once
+const dispatchedNewOrderIds = new Set<string>();
+
+function ensureFirebaseAdminInitialized(): boolean {
+  if (adminInitialized) return true;
+  try {
+    if (getApps().length === 0) {
+      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      if (serviceAccountJson && serviceAccountJson.trim().startsWith('{')) {
+        const parsedCert = JSON.parse(serviceAccountJson);
         initializeApp({
-          projectId: firebaseConfig.projectId,
+          credential: cert(parsedCert),
+          projectId: 'urbandirectintracity',
         });
-      } catch (err) {
-        console.warn('[Server FCM] Admin app init deferred:', err);
+        hasExplicitServiceAccount = true;
+      } else {
+        try {
+          initializeApp({
+            credential: applicationDefault(),
+            projectId: 'urbandirectintracity',
+          });
+        } catch {
+          initializeApp({
+            projectId: 'urbandirectintracity',
+          });
+        }
       }
     }
+    adminInitialized = true;
+    return true;
+  } catch (err) {
+    console.warn(
+      '[Server FCM] Firebase Admin initialization warning:',
+      err instanceof Error ? err.message : String(err)
+    );
+    return false;
   }
 }
 
-// Idempotency tracking set to ensure a single order creation event never sends duplicate push notifications
-const sentOrderPushSet = new Set<string>();
+export type PushDeliveryStatus =
+  | 'ACCEPTED_BY_FCM'
+  | 'IN_APP_QUEUED_NO_FCM_TOKENS'
+  | 'IN_APP_QUEUED_FCM_CREDENTIALS_REQUIRED'
+  | 'DUPLICATE_SKIPPED'
+  | 'FCM_SEND_FAILED';
 
-export interface OrderPushPayload {
-  orderId: string;
-  sellerId: string;
-  sellerUid?: string;
-  buyerUid?: string;
-  buyerPhone?: string;
-  storeName: string;
-  itemCount: number;
-  totalAmount: number;
-  customerName: string;
-}
-
-export interface PushDeliveryResult {
+export interface NewOrderNotificationResult {
+  status: PushDeliveryStatus;
+  idempotentSkip: boolean;
+  inAppSellerNotificationPersisted: boolean;
   sellerTokensFound: number;
-  buyerTokensFound: number;
   sellerSuccessCount: number;
+  buyerTokensFound: number;
   buyerSuccessCount: number;
   errors: string[];
-  idempotentSkipped?: boolean;
 }
 
-export async function sendNewOrderPushNotifications(payload: OrderPushPayload): Promise<PushDeliveryResult> {
-  const pushKey = `order-push-${payload.orderId}`;
-
-  // Idempotency check: avoid repeated pushes for the same order
-  if (sentOrderPushSet.has(pushKey)) {
+export async function sendNewOrderPushNotifications(
+  order: OrderRecord
+): Promise<NewOrderNotificationResult> {
+  if (dispatchedNewOrderIds.has(order.id)) {
     return {
+      status: 'DUPLICATE_SKIPPED',
+      idempotentSkip: true,
+      inAppSellerNotificationPersisted: true,
       sellerTokensFound: 0,
-      buyerTokensFound: 0,
       sellerSuccessCount: 0,
+      buyerTokensFound: 0,
       buyerSuccessCount: 0,
       errors: [],
-      idempotentSkipped: true,
+    };
+  }
+  dispatchedNewOrderIds.add(order.id);
+
+  const errors: string[] = [];
+  let inAppPersisted = false;
+
+  try {
+    const notifId = `notif-${order.id}`;
+    await setDoc(
+      doc(db, 'sellerNotifications', notifId),
+      {
+        id: notifId,
+        sellerId: order.sellerId,
+        sellerUid: order.sellerUid || order.sellerId,
+        storeId: order.storeId,
+        orderId: order.id,
+        title: `New Order #${order.id} Received!`,
+        message: `${order.customer.fullName} ordered ${order.items.reduce(
+          (sum, i) => sum + i.quantity,
+          0
+        )} item(s) worth ₹${order.total} (${order.paymentMethod.replace(
+          /_/g,
+          ' '
+        )}).`,
+        createdAt: order.createdAtIso || new Date().toISOString(),
+        isRead: false,
+        type: 'NEW_ORDER',
+      },
+      {merge: true}
+    );
+    inAppPersisted = true;
+  } catch (err) {
+    console.warn(
+      '[Server FCM] Could not persist sellerNotification to Firestore:',
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+
+  const [sellerTokens, buyerTokens] = await Promise.all([
+    getFcmTokensForRecipient({
+      sellerId: order.sellerId,
+      sellerUid: order.sellerUid,
+    }),
+    getFcmTokensForRecipient({
+      buyerUid: order.buyerUid,
+      buyerPhone: order.customer.phone,
+    }),
+  ]);
+
+  let sellerSuccessCount = 0;
+  let buyerSuccessCount = 0;
+
+  if (sellerTokens.length === 0 && buyerTokens.length === 0) {
+    return {
+      status: 'IN_APP_QUEUED_NO_FCM_TOKENS',
+      idempotentSkip: false,
+      inAppSellerNotificationPersisted: inAppPersisted,
+      sellerTokensFound: 0,
+      sellerSuccessCount: 0,
+      buyerTokensFound: 0,
+      buyerSuccessCount: 0,
+      errors: [],
     };
   }
 
-  sentOrderPushSet.add(pushKey);
+  if (!ensureFirebaseAdminInitialized()) {
+    return {
+      status: 'IN_APP_QUEUED_FCM_CREDENTIALS_REQUIRED',
+      idempotentSkip: false,
+      inAppSellerNotificationPersisted: inAppPersisted,
+      sellerTokensFound: sellerTokens.length,
+      sellerSuccessCount: 0,
+      buyerTokensFound: buyerTokens.length,
+      buyerSuccessCount: 0,
+      errors: ['Firebase Admin SDK could not be initialized.'],
+    };
+  }
 
-  const result: PushDeliveryResult = {
-    sellerTokensFound: 0,
-    buyerTokensFound: 0,
-    sellerSuccessCount: 0,
-    buyerSuccessCount: 0,
-    errors: [],
-  };
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const sellerClickAction = `/seller/dashboard?section=orders&orderId=${encodeURIComponent(
+    order.id
+  )}`;
+  const buyerClickAction = `/orders?orderId=${encodeURIComponent(order.id)}`;
 
-  // 1. Fetch Tokens for Seller & Buyer
-  const [sellerTokens, buyerTokens] = await Promise.all([
-    getFcmTokensForRecipient({ sellerId: payload.sellerId, sellerUid: payload.sellerUid }),
-    getFcmTokensForRecipient({ buyerUid: payload.buyerUid, buyerPhone: payload.buyerPhone }),
-  ]);
-
-  result.sellerTokensFound = sellerTokens.length;
-  result.buyerTokensFound = buyerTokens.length;
-
-  // 2. Dispatch Push to Seller Device(s)
   if (sellerTokens.length > 0) {
-    const title = `🚨 New Order #${payload.orderId}`;
-    const body = `New order from ${payload.customerName} for ${payload.itemCount} item(s) (₹${payload.totalAmount}) at ${payload.storeName}.`;
+    const sellerTitle = `New Order #${order.id} — ₹${order.total}`;
+    const sellerBody = `${order.customer.fullName} ordered ${itemCount} item(s) from ${order.storeName}.`;
 
-    const sellerRes = await sendFcmMulticast(sellerTokens, {
-      title,
-      body,
-      orderId: payload.orderId,
-      recipientType: 'SELLER',
-      url: `/?view=seller_dashboard&orderId=${payload.orderId}`,
-    });
-
-    result.sellerSuccessCount = sellerRes.successCount;
-    result.errors.push(...sellerRes.errors);
-  }
-
-  // 3. Dispatch Confirmation Push to Buyer Device(s)
-  if (buyerTokens.length > 0) {
-    const title = `🎉 Order Placed #${payload.orderId}`;
-    const body = `Your order with ${payload.storeName} for ₹${payload.totalAmount} has been received and confirmed!`;
-
-    const buyerRes = await sendFcmMulticast(buyerTokens, {
-      title,
-      body,
-      orderId: payload.orderId,
-      recipientType: 'BUYER',
-      url: `/?view=buyer_orders&orderId=${payload.orderId}`,
-    });
-
-    result.buyerSuccessCount = buyerRes.successCount;
-    result.errors.push(...buyerRes.errors);
-  }
-
-  return result;
-}
-
-async function sendFcmMulticast(
-  tokens: string[],
-  dataPayload: { title: string; body: string; orderId: string; recipientType: string; url: string }
-): Promise<{ successCount: number; errors: string[] }> {
-  let successCount = 0;
-  const errors: string[] = [];
-
-  try {
-    ensureFirebaseAdminInitialized();
-    const messaging = getMessaging();
-
-    const response = await messaging.sendEachForMulticast({
-      tokens,
-      notification: {
-        title: dataPayload.title,
-        body: dataPayload.body,
-      },
-      data: {
-        title: dataPayload.title,
-        body: dataPayload.body,
-        orderId: dataPayload.orderId,
-        recipientType: dataPayload.recipientType,
-        url: dataPayload.url,
-      },
-      webpush: {
+    try {
+      const sellerResponse = await getMessaging().sendEachForMulticast({
+        tokens: sellerTokens,
         notification: {
-          title: dataPayload.title,
-          body: dataPayload.body,
-          icon: '/citykart-icon.png',
-          badge: '/citykart-icon.png',
+          title: sellerTitle,
+          body: sellerBody,
         },
-        fcmOptions: {
-          link: dataPayload.url,
+        data: {
+          orderId: String(order.id),
+          storeId: String(order.storeId),
+          storeName: String(order.storeName),
+          sellerId: String(order.sellerId),
+          totalAmount: String(order.total),
+          currency: 'INR',
+          status: String(order.orderStatus || 'NEW'),
+          eventType: 'NEW_ORDER',
+          recipientRole: 'SELLER',
+          title: sellerTitle,
+          body: sellerBody,
+          clickAction: sellerClickAction,
+          timestamp: new Date().toISOString(),
         },
-      },
-    });
+        webpush: {
+          notification: {
+            title: sellerTitle,
+            body: sellerBody,
+            icon: '/citykart-icon.png',
+            badge: '/citykart-icon.png',
+            tag: `citykart-order-${order.id}-SELLER`,
+            renotify: false,
+          },
+          fcmOptions: {
+            link: sellerClickAction,
+          },
+        },
+      });
 
-    successCount = response.successCount;
+      sellerSuccessCount = sellerResponse.successCount;
 
-    // Clean up invalid or unregistered tokens
-    response.responses.forEach((res: SendResponse, idx: number) => {
-      if (!res.success && res.error) {
-        const errCode = res.error.code;
-        if (
-          errCode === 'messaging/invalid-registration-token' ||
-          errCode === 'messaging/registration-token-not-registered'
-        ) {
-          void removeInvalidFcmToken(tokens[idx]);
-        } else {
-          errors.push(`Token [${tokens[idx].slice(0, 8)}...]: ${res.error.message}`);
+      sellerResponse.responses.forEach((resp, idx) => {
+        if (!resp.success && resp.error) {
+          const code = resp.error.code;
+          errors.push(`Seller FCM [${code}]: ${resp.error.message}`);
+          if (
+            code === 'messaging/invalid-registration-token' ||
+            code === 'messaging/registration-token-not-registered'
+          ) {
+            void removeInvalidFcmToken(sellerTokens[idx]);
+          }
         }
-      }
-    });
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn('[Server FCM] Multicast delivery notice:', errMsg);
-    errors.push(`FCM delivery error: ${errMsg}`);
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`Seller FCM dispatch notice: ${msg}`);
+    }
   }
 
-  return { successCount, errors };
+  if (buyerTokens.length > 0) {
+    const buyerTitle = `Order Confirmed #${order.id}`;
+    const buyerBody = `${order.storeName} received your order of ₹${order.total} (${itemCount} item(s)).`;
+
+    try {
+      const buyerResponse = await getMessaging().sendEachForMulticast({
+        tokens: buyerTokens,
+        notification: {
+          title: buyerTitle,
+          body: buyerBody,
+        },
+        data: {
+          orderId: String(order.id),
+          storeId: String(order.storeId),
+          storeName: String(order.storeName),
+          sellerId: String(order.sellerId),
+          totalAmount: String(order.total),
+          currency: 'INR',
+          status: String(order.orderStatus || 'NEW'),
+          eventType: 'ORDER_PLACED_CONFIRMATION',
+          recipientRole: 'BUYER',
+          title: buyerTitle,
+          body: buyerBody,
+          clickAction: buyerClickAction,
+          timestamp: new Date().toISOString(),
+        },
+        webpush: {
+          notification: {
+            title: buyerTitle,
+            body: buyerBody,
+            icon: '/citykart-icon.png',
+            badge: '/citykart-icon.png',
+            tag: `citykart-order-${order.id}-BUYER`,
+            renotify: false,
+          },
+          fcmOptions: {
+            link: buyerClickAction,
+          },
+        },
+      });
+
+      buyerSuccessCount = buyerResponse.successCount;
+
+      buyerResponse.responses.forEach((resp, idx) => {
+        if (!resp.success && resp.error) {
+          const code = resp.error.code;
+          errors.push(`Buyer FCM [${code}]: ${resp.error.message}`);
+          if (
+            code === 'messaging/invalid-registration-token' ||
+            code === 'messaging/registration-token-not-registered'
+          ) {
+            void removeInvalidFcmToken(buyerTokens[idx]);
+          }
+        }
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`Buyer FCM dispatch notice: ${msg}`);
+    }
+  }
+
+  const totalSuccess = sellerSuccessCount + buyerSuccessCount;
+  let status: PushDeliveryStatus = 'ACCEPTED_BY_FCM';
+  if (totalSuccess === 0) {
+    const isCredentialError =
+      !hasExplicitServiceAccount &&
+      errors.some(
+        (e) =>
+          e.includes('credential') ||
+          e.includes('authentication') ||
+          e.includes('access token') ||
+          e.includes('Permission')
+      );
+    status = isCredentialError
+      ? 'IN_APP_QUEUED_FCM_CREDENTIALS_REQUIRED'
+      : 'FCM_SEND_FAILED';
+  }
+
+  return {
+    status,
+    idempotentSkip: false,
+    inAppSellerNotificationPersisted: inAppPersisted,
+    sellerTokensFound: sellerTokens.length,
+    sellerSuccessCount,
+    buyerTokensFound: buyerTokens.length,
+    buyerSuccessCount,
+    errors,
+  };
 }

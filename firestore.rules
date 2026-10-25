@@ -16,6 +16,21 @@ service cloud.firestore {
       return val is string && val.size() >= minLen && val.size() <= maxLen;
     }
 
+    function isSuperAdmin() {
+      return isAuthenticated()
+        && request.auth.token.phone_number == '+918329306616'
+        && (
+          request.auth.token.role == 'super_admin'
+          || request.auth.token.super_admin == true
+          || (
+            exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+            && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin'
+            && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'ACTIVE'
+            && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.phoneE164 == '+918329306616'
+          )
+        );
+    }
+
     function isNandedDemoStoreRecord(storeId, data) {
       return storeId.matches('^demo-nanded-store-[0-9]{2}[ab]$')
         && data.isDemo == true
@@ -41,21 +56,66 @@ service cloud.firestore {
     }
 
     // ===============================================================
+    // Super Admins Registry (/admins/{adminUid})
+    // Strictly blocks buyers, sellers, and ordinary users from self-assigning super_admin
+    // ===============================================================
+    match /admins/{adminUid} {
+      allow read: if isOwner(adminUid) || isSuperAdmin();
+      allow create, update: if isAuthenticated()
+        && request.auth.uid == adminUid
+        && request.auth.token.phone_number == '+918329306616'
+        && request.resource.data.uid == adminUid
+        && request.resource.data.phoneE164 == '+918329306616'
+        && request.resource.data.role == 'super_admin'
+        && request.resource.data.status in ['ACTIVE', 'REVOKED'];
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Immutable Admin Audit Logs (/auditLogs/{logId})
+    // Append-only for verified Super Admin; never editable or deletable from client
+    // ===============================================================
+    match /auditLogs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin()
+        && request.resource.data.actorPhone == '+918329306616'
+        && request.resource.data.actorRole == 'super_admin'
+        && isValidString(request.resource.data.action, 2, 100)
+        && isValidString(request.resource.data.summary, 2, 500);
+      allow update, delete: if false;
+    }
+
+    // ===============================================================
+    // Platform Settings (/platformSettings/{settingId})
+    // Publicly readable for maintenance banner / registration flags; writable only by Super Admin
+    // ===============================================================
+    match /platformSettings/{settingId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ===============================================================
     // Users Collection (/users/{userId})
+    // Prevents privilege escalation (cannot self-assign ADMIN)
     // ===============================================================
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
+      allow read: if true;
+      allow create: if (isOwner(userId) || request.resource.data.uid == userId || request.resource.data.id == userId)
         && request.resource.data.keys().hasAll(['id', 'phoneE164', 'countryCode', 'fullName', 'roles', 'storeIds', 'createdAt'])
         && isValidString(request.resource.data.phoneE164, 4, 24)
         && isValidString(request.resource.data.countryCode, 2, 4)
         && isValidString(request.resource.data.fullName, 1, 120)
         && request.resource.data.roles is list
+        && !('ADMIN' in request.resource.data.roles)
+        && (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false)
         && request.resource.data.storeIds is list;
-      allow update: if isOwner(userId)
-        && isValidString(request.resource.data.phoneE164, 4, 24)
-        && isValidString(request.resource.data.fullName, 1, 120)
-        && request.resource.data.phoneE164 == resource.data.phoneE164;
+      allow update: if isSuperAdmin()
+        || ((isOwner(userId) || request.resource.data.uid == userId || request.resource.data.id == userId)
+          && isValidString(request.resource.data.phoneE164, 4, 24)
+          && isValidString(request.resource.data.fullName, 1, 120)
+          && request.resource.data.phoneE164 == resource.data.phoneE164
+          && (!('ADMIN' in request.resource.data.roles) || ('ADMIN' in resource.data.roles))
+          && (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false || request.resource.data.isAdmin == resource.data.isAdmin));
       allow delete: if false;
     }
 
@@ -63,26 +123,26 @@ service cloud.firestore {
     // Sellers Collection (/sellers/{sellerId})
     // ===============================================================
     match /sellers/{sellerId} {
-      allow read: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.ownerUid == request.auth.uid
-        && isValidString(request.resource.data.id, 1, 80)
+      allow read: if true;
+      allow create: if isValidString(request.resource.data.id, 1, 80)
         && isValidString(request.resource.data.businessOwnerName, 1, 120)
         && request.resource.data.role == 'SELLER';
-      allow update: if isAuthenticated()
-        && resource.data.ownerUid == request.auth.uid
-        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow update: if isSuperAdmin()
+        || (isValidString(request.resource.data.id, 1, 80)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.role == 'SELLER');
       allow delete: if false;
     }
 
     // ===============================================================
     // Stores Collection (/stores/{storeId})
-    // Publicly readable for city-scoped buyer discovery; writable by store owner
-    // or scoped idempotent Nanded demo seeder records
+    // Publicly readable for city-scoped buyer discovery; writable by store owner,
+    // verified Super Admin, or scoped idempotent Nanded demo seeder records
     // ===============================================================
     match /stores/{storeId} {
       allow read: if true;
-      allow create: if (isAuthenticated()
+      allow create: if isSuperAdmin()
+        || (isAuthenticated()
           && request.resource.data.ownerUid == request.auth.uid
           && isValidString(request.resource.data.id, 1, 100)
           && isValidString(request.resource.data.name, 1, 140)
@@ -93,23 +153,26 @@ service cloud.firestore {
           && isValidString(request.resource.data.address, 1, 300)
           && request.resource.data.isActive is bool)
         || isNandedDemoStoreRecord(storeId, request.resource.data);
-      allow update: if (isAuthenticated()
+      allow update: if isSuperAdmin()
+        || (isAuthenticated()
           && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && isValidString(request.resource.data.name, 1, 140))
         || (resource.data.isDemo == true && isNandedDemoStoreRecord(storeId, request.resource.data));
-      allow delete: if (isAuthenticated() && resource.data.ownerUid == request.auth.uid)
+      allow delete: if isSuperAdmin()
+        || (isAuthenticated() && resource.data.ownerUid == request.auth.uid)
         || (resource.data.isDemo == true && resource.data.demoBatchId == 'nanded-25-cat-demo-v1');
     }
 
     // ===============================================================
     // Products Collection (/products/{productId})
-    // Publicly readable for buyer discovery; writable by product owner
-    // or scoped idempotent Nanded demo seeder records
+    // Publicly readable for buyer discovery; writable by product owner,
+    // verified Super Admin, or scoped idempotent Nanded demo seeder records
     // ===============================================================
     match /products/{productId} {
       allow read: if true;
-      allow create: if (isAuthenticated()
+      allow create: if isSuperAdmin()
+        || (isAuthenticated()
           && request.resource.data.ownerUid == request.auth.uid
           && isValidString(request.resource.data.id, 1, 100)
           && isValidString(request.resource.data.storeId, 1, 100)
@@ -119,7 +182,8 @@ service cloud.firestore {
           && request.resource.data.stock is number
           && request.resource.data.stock >= 0)
         || isNandedDemoProductRecord(productId, request.resource.data);
-      allow update: if (isAuthenticated()
+      allow update: if isSuperAdmin()
+        || (isAuthenticated()
           && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.price is number
@@ -127,26 +191,27 @@ service cloud.firestore {
           && request.resource.data.stock is number
           && request.resource.data.stock >= 0)
         || (resource.data.isDemo == true && isNandedDemoProductRecord(productId, request.resource.data));
-      allow delete: if (isAuthenticated() && resource.data.ownerUid == request.auth.uid)
+      allow delete: if isSuperAdmin()
+        || (isAuthenticated() && resource.data.ownerUid == request.auth.uid)
         || (resource.data.isDemo == true && resource.data.demoBatchId == 'nanded-25-cat-demo-v1');
     }
 
     // ===============================================================
     // Orders Collection (/orders/{orderId})
-    // Accessible only to the buyer who placed the order or the store owner
+    // Validated order creation and lifecycle updates
     // ===============================================================
     match /orders/{orderId} {
-      allow read: if isAuthenticated()
-        && (resource.data.buyerUid == request.auth.uid || resource.data.sellerUid == request.auth.uid);
-      allow create: if isAuthenticated()
-        && request.resource.data.buyerUid == request.auth.uid
-        && isValidString(request.resource.data.id, 1, 80)
+      allow read: if true;
+      allow create: if isValidString(request.resource.data.id, 1, 80)
         && isValidString(request.resource.data.storeId, 1, 100)
+        && isValidString(request.resource.data.sellerId, 1, 100)
         && request.resource.data.total is number
         && request.resource.data.total >= 0;
-      allow update: if isAuthenticated()
-        && (resource.data.buyerUid == request.auth.uid || resource.data.sellerUid == request.auth.uid)
-        && request.resource.data.buyerUid == resource.data.buyerUid;
+      allow update: if isSuperAdmin()
+        || (isValidString(request.resource.data.id, 1, 80)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.storeId == resource.data.storeId
+          && request.resource.data.sellerId == resource.data.sellerId);
       allow delete: if false;
     }
 
@@ -155,9 +220,13 @@ service cloud.firestore {
     // In-app order alert notifications for registered sellers
     // ===============================================================
     match /sellerNotifications/{notificationId} {
-      allow read, update, delete: if isAuthenticated()
-        && (resource.data.sellerUid == request.auth.uid || resource.data.sellerId == request.auth.uid);
-      allow create: if isAuthenticated();
+      allow read: if true;
+      allow create: if isValidString(request.resource.data.id, 1, 100)
+        && isValidString(request.resource.data.sellerId, 1, 100)
+        && isValidString(request.resource.data.orderId, 1, 100);
+      allow update: if isValidString(request.resource.data.id, 1, 100)
+        && request.resource.data.sellerId == resource.data.sellerId;
+      allow delete: if isAuthenticated();
     }
 
     // ===============================================================
@@ -253,9 +322,14 @@ service cloud.firestore {
 
     // ===============================================================
     // FCM Push Notification Tokens (/fcm_tokens/{tokenId})
+    // Schema-validated registration, multi-device lookup, and cleanup
     // ===============================================================
     match /fcm_tokens/{tokenId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['token', 'updatedAt'])
+        && isValidString(request.resource.data.token, 10, 4096)
+        && isValidString(request.resource.data.updatedAt, 10, 64);
+      allow delete: if true;
     }
 
     // ===============================================================

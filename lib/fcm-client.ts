@@ -1,130 +1,200 @@
-import { firebaseApp } from './firebase';
+'use client';
 
-export interface FcmInitResult {
-  supported: boolean;
-  permission: NotificationPermission;
-  token: string | null;
-  error: string | null;
+import {firebaseApp as app} from './firebase';
+import {registerFcmToken, removeInvalidFcmToken} from './fcm-registry';
+
+const FCM_TOKEN_STORAGE_KEY = 'urbandirect_fcm_device_token_v1';
+const FCM_DEVICE_ID_STORAGE_KEY = 'urbandirect_fcm_device_id_v1';
+
+function getOrCreateBrowserDeviceId(): string {
+  if (typeof window === 'undefined') return 'ssr';
+  try {
+    const existing = window.localStorage.getItem(FCM_DEVICE_ID_STORAGE_KEY);
+    if (existing) return existing;
+    const generated = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(FCM_DEVICE_ID_STORAGE_KEY, generated);
+    return generated;
+  } catch {
+    return `dev-${Date.now()}`;
+  }
 }
 
-export async function requestAndRegisterFcmToken(params?: {
+export async function requestAndRegisterFcmToken(params: {
   uid?: string;
   sellerId?: string;
   buyerPhone?: string;
   role?: 'BUYER' | 'SELLER' | 'BOTH';
-}): Promise<FcmInitResult> {
-  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in window)) {
-    return {
-      supported: false,
-      permission: 'denied',
-      token: null,
-      error: 'Push notifications are not supported in this browser environment.',
-    };
+}): Promise<string | null> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return null;
   }
 
   try {
-    const { getMessaging, getToken, isSupported } = await import('firebase/messaging');
+    const {isSupported, getMessaging, getToken} = await import(
+      'firebase/messaging'
+    );
     const supported = await isSupported();
     if (!supported) {
-      return {
-        supported: false,
-        permission: Notification.permission,
-        token: null,
-        error: 'Firebase Cloud Messaging is not supported in this browser.',
-      };
+      return null;
     }
 
-    // 1. Request Notification Permission
-    const permission = await Notification.requestPermission();
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+
     if (permission !== 'granted') {
-      return {
-        supported: true,
-        permission,
-        token: null,
-        error: 'Notification permission was denied by the user.',
-      };
+      const previousToken = window.localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+      if (previousToken) {
+        await unregisterCurrentDeviceFcmToken();
+      }
+      return null;
     }
 
-    // 2. Register Service Worker
-    const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    await navigator.serviceWorker.ready;
+    const messaging = getMessaging(app);
 
-    // 3. Obtain FCM Token
-    const messaging = getMessaging(firebaseApp);
+    let swRegistration: ServiceWorkerRegistration | undefined;
+    if ('serviceWorker' in navigator) {
+      try {
+        swRegistration = await navigator.serviceWorker.register(
+          '/firebase-messaging-sw.js',
+          {scope: '/'}
+        );
+        await navigator.serviceWorker.ready;
+      } catch (swErr) {
+        console.warn('[FCM Client] Service worker registration warning:', swErr);
+      }
+    }
+
+    const vapidKey =
+      process.env.NEXT_PUBLIC_FIREBASE_WEB_PUSH_CERTIFICATE_KEY?.trim() ||
+      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim();
     const token = await getToken(messaging, {
       serviceWorkerRegistration: swRegistration,
+      ...(vapidKey ? {vapidKey} : {}),
     });
 
     if (!token) {
-      return {
-        supported: true,
-        permission,
-        token: null,
-        error: 'Failed to retrieve FCM registration token from Firebase.',
-      };
+      return null;
     }
 
-    // 4. Save Token on Server Registry and Firestore
+    const deviceId = getOrCreateBrowserDeviceId();
+    const previousToken = window.localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+    if (previousToken && previousToken !== token) {
+      void removeInvalidFcmToken(previousToken);
+    }
+    try {
+      window.localStorage.setItem(FCM_TOKEN_STORAGE_KEY, token);
+    } catch {
+      // Ignore storage error
+    }
+
+    await registerFcmToken({
+      token,
+      uid: params.uid,
+      sellerId: params.sellerId,
+      buyerPhone: params.buyerPhone,
+      role: params.role || 'BUYER',
+      deviceId,
+      userAgent:
+        typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    });
+
     await fetch('/api/fcm/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         action: 'REGISTER',
         token,
-        uid: params?.uid,
-        sellerId: params?.sellerId,
-        buyerPhone: params?.buyerPhone,
-        role: params?.role || 'BUYER',
+        uid: params.uid,
+        sellerId: params.sellerId,
+        buyerPhone: params.buyerPhone,
+        role: params.role || 'BUYER',
+        deviceId,
       }),
     });
 
-    return {
-      supported: true,
-      permission,
-      token,
-      error: null,
-    };
+    return token;
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn('[FCM Client] Registration notice:', errMsg);
-    return {
-      supported: true,
-      permission: typeof Notification !== 'undefined' ? Notification.permission : 'denied',
-      token: null,
-      error: errMsg,
-    };
+    console.warn(
+      '[FCM Client] Could not acquire or register FCM token:',
+      err instanceof Error ? err.message : String(err)
+    );
+    return null;
+  }
+}
+
+export async function unregisterCurrentDeviceFcmToken(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const storedToken = window.localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+    if (storedToken) {
+      window.localStorage.removeItem(FCM_TOKEN_STORAGE_KEY);
+      await removeInvalidFcmToken(storedToken);
+      await fetch('/api/fcm/token', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          action: 'UNREGISTER',
+          token: storedToken,
+        }),
+      });
+    }
+
+    const {isSupported, getMessaging, deleteToken} = await import(
+      'firebase/messaging'
+    );
+    if (await isSupported()) {
+      const messaging = getMessaging(app);
+      await deleteToken(messaging);
+    }
+  } catch {
+    // Ignore cleanup errors on logout
   }
 }
 
 export function subscribeToForegroundMessages(
-  onForegroundNotification: (payload: { title: string; body: string; orderId?: string }) => void
+  onNotification: (payload: {
+    title: string;
+    body: string;
+    data?: Record<string, string>;
+  }) => void
 ): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  let unsubscribe: (() => void) | null = null;
+  let unsubscribeFn: (() => void) | null = null;
+  let cancelled = false;
 
-  void (async () => {
-    try {
-      const { getMessaging, onMessage, isSupported } = await import('firebase/messaging');
-      const supported = await isSupported();
-      if (!supported) return;
-
-      const messaging = getMessaging(firebaseApp);
-      unsubscribe = onMessage(messaging, (payload) => {
-        console.log('[FCM Client] Foreground message received:', payload);
-        const title = payload.notification?.title || payload.data?.title || 'Citykart Notification';
-        const body = payload.notification?.body || payload.data?.body || '';
-        const orderId = payload.data?.orderId;
-        onForegroundNotification({ title, body, orderId });
-      });
-    } catch (err) {
-      console.warn('[FCM Client] Foreground listener subscription warning:', err);
-    }
-  })();
+  import('firebase/messaging')
+    .then(({isSupported, getMessaging, onMessage}) =>
+      isSupported().then((supported) => {
+        if (!supported || cancelled) return;
+        const messaging = getMessaging(app);
+        unsubscribeFn = onMessage(messaging, (payload) => {
+          const title =
+            payload.notification?.title ||
+            payload.data?.title ||
+            'Citykart Order Update';
+          const body =
+            payload.notification?.body ||
+            payload.data?.body ||
+            'You have a new order update.';
+          onNotification({
+            title,
+            body,
+            data: payload.data as Record<string, string> | undefined,
+          });
+        });
+      })
+    )
+    .catch(() => {
+      // Ignore if unsupported in current browser environment
+    });
 
   return () => {
-    if (unsubscribe) {
-      unsubscribe();
+    cancelled = true;
+    if (unsubscribeFn) {
+      unsubscribeFn();
     }
   };
 }

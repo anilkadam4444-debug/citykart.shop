@@ -2,11 +2,46 @@
 @import "tw-animate-css";
 
 @theme inline {
-  --font-sans: var(--font-sans), system-ui, sans-serif;
-  --font-mono: var(--font-mono), monospace;
+  --font-sans: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* Custom subtle scrollbar for sidebar category browsing */
+:root {
+  /* Citykart Master Brand Design Tokens */
+  --ck-blue: #003B8E;
+  --ck-blue-hover: #002D6E;
+  --ck-blue-bright: #0052CC;
+  --ck-blue-tint: #EFF6FF;
+  --ck-orange: #F96302;
+  --ck-orange-hover: #E05500;
+  --ck-orange-tint: #FFF7ED;
+  --ck-emerald: #15803D;
+  --ck-emerald-tint: #F0FDF4;
+  --ck-canvas: #F8FAFC;
+  --ck-surface: #FFFFFF;
+  --ck-surface-muted: #F1F5F9;
+  --ck-border: #E2E8F0;
+  --ck-border-strong: #CBD5E1;
+  --ck-text-primary: #0F172A;
+  --ck-text-secondary: #334155;
+  --ck-text-muted: #64748B;
+}
+
+/* Premium Card & Elevation Styles */
+.ck-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ck-card:hover {
+  border-color: rgba(0, 59, 142, 0.35);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.08), 0 8px 12px -6px rgba(15, 23, 42, 0.04);
+  transform: translateY(-2px);
+}
+
+/* Custom subtle scrollbar for drawers and panels */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -17,12 +52,12 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(168, 162, 158, 0.35);
+  background: rgba(148, 163, 184, 0.45);
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 113, 108, 0.6);
+  background: rgba(100, 116, 139, 0.7);
 }
 
 /* Hardware accelerated transitions */
@@ -32,4 +67,9 @@
 
 .smooth-lift:hover {
   transform: translateY(-2px);
+}
+
+/* Tabular numerals utility for prices, quantities, and timers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

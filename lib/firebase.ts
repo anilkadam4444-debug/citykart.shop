@@ -5,6 +5,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
   signOut as firebaseSignOut,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -17,6 +18,7 @@ import {
   query,
   where,
   getDocFromServer,
+  setLogLevel,
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import {
@@ -26,11 +28,6 @@ import {
   SellerProfile,
   UserAccount,
 } from './catalog-data';
-import {
-  NANDED_DEMO_BATCH_ID,
-  NANDED_DEMO_PRODUCTS,
-  NANDED_DEMO_STORES,
-} from './nanded-demo-data';
 
 // Initialize Firebase App strictly connected to project `urbandirectintracity`
 export const firebaseApp =
@@ -42,6 +39,13 @@ export const db = getFirestore(
   firebaseApp,
   firebaseConfig.firestoreDatabaseId
 );
+
+// Suppress benign idle GrpcConnection stream timeout logs in console
+try {
+  setLogLevel('error');
+} catch {
+  // Ignore in environments where log level cannot be mutated
+}
 
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId; // 'urbandirectintracity'
 export const FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId;
@@ -121,8 +125,24 @@ export async function testFirestoreConnection(): Promise<void> {
   }
 }
 
-export {RecaptchaVerifier, signInWithPhoneNumber, firebaseSignOut};
+export {RecaptchaVerifier, signInWithPhoneNumber, firebaseSignOut, onAuthStateChanged};
 export type {ConfirmationResult};
+
+export function removeUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined) as unknown as T;
+  }
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+    if (val !== undefined) {
+      cleaned[key] = removeUndefined(val);
+    }
+  }
+  return cleaned as T;
+}
 
 /**
  * Persist or fetch an authenticated user profile in Firestore (/users/{uid})
@@ -131,20 +151,23 @@ export type {ConfirmationResult};
 export async function syncUserAccountToFirestore(
   user: UserAccount
 ): Promise<void> {
-  if (typeof window === 'undefined' || !auth.currentUser) return;
-  const uid = auth.currentUser.uid;
+  const uid = auth.currentUser?.uid || user.uid || user.id;
+  if (!uid) return;
+  const sanitizedRoles = Array.isArray(user.roles)
+    ? user.roles.filter((r) => r === 'BUYER' || r === 'SELLER')
+    : ['BUYER'];
   const path = `users/${uid}`;
   try {
-    await setDoc(
-      doc(db, 'users', uid),
-      {
-        ...user,
-        id: user.id || uid,
-        uid,
-        sellerId: user.sellerId || '',
-      },
-      {merge: true}
-    );
+    const rawPayload: Record<string, unknown> = {
+      ...user,
+      id: user.id || uid,
+      uid,
+      roles: sanitizedRoles.length > 0 ? sanitizedRoles : ['BUYER'],
+      isAdmin: false,
+      sellerId: user.sellerId || '',
+    };
+    const cleanedPayload = removeUndefined(rawPayload);
+    await setDoc(doc(db, 'users', uid), cleanedPayload, {merge: true});
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -153,7 +176,7 @@ export async function syncUserAccountToFirestore(
 export async function fetchUserAccountFromFirestore(
   uid: string
 ): Promise<UserAccount | null> {
-  if (typeof window === 'undefined' || !auth.currentUser) return null;
+  if (!uid) return null;
   const path = `users/${uid}`;
   try {
     const snap = await getDoc(doc(db, 'users', uid));
@@ -166,24 +189,51 @@ export async function fetchUserAccountFromFirestore(
   return null;
 }
 
+export async function findUserAccountByPhoneInFirestore(
+  phoneE164: string
+): Promise<UserAccount | null> {
+  if (!phoneE164) return null;
+  const path = 'users';
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('phoneE164', '==', phoneE164)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      return snap.docs[0].data() as UserAccount;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+  return null;
+}
+
 export async function syncSellerProfileToFirestore(
-  seller: SellerProfile
+  seller: SellerProfile,
+  explicitUid?: string
 ): Promise<void> {
-  if (typeof window === 'undefined' || !auth.currentUser) return;
+  const sellerWithUid = seller as SellerProfile & {ownerUid?: string};
+  const ownerUid =
+    auth.currentUser?.uid || explicitUid || sellerWithUid.ownerUid || seller.id;
+  if (!seller.id) return;
   const path = `sellers/${seller.id}`;
   try {
     await setDoc(
       doc(db, 'sellers', seller.id),
-      {
+      removeUndefined({
         ...seller,
-        ownerUid: auth.currentUser.uid,
-      },
+        role: 'SELLER',
+        ownerUid,
+      }),
       {merge: true}
     );
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
+
+export default firebaseApp;
 
 export async function syncStoreToFirestore(store: LocalStore): Promise<void> {
   if (typeof window === 'undefined') return;
@@ -192,10 +242,10 @@ export async function syncStoreToFirestore(store: LocalStore): Promise<void> {
   try {
     await setDoc(
       doc(db, 'stores', store.id),
-      {
+      removeUndefined({
         ...store,
         ownerUid,
-      },
+      }),
       {merge: true}
     );
   } catch (error) {
@@ -210,10 +260,10 @@ export async function syncProductToFirestore(product: Product): Promise<void> {
   try {
     await setDoc(
       doc(db, 'products', product.id),
-      {
+      removeUndefined({
         ...product,
         ownerUid,
-      },
+      }),
       {merge: true}
     );
   } catch (error) {
@@ -222,15 +272,16 @@ export async function syncProductToFirestore(product: Product): Promise<void> {
 }
 
 export async function syncOrderToFirestore(order: OrderRecord): Promise<void> {
-  if (typeof window === 'undefined' || !auth.currentUser) return;
+  if (!order.id) return;
   const path = `orders/${order.id}`;
+  const buyerUid = auth.currentUser?.uid || order.buyerUid || '';
   try {
     await setDoc(
       doc(db, 'orders', order.id),
-      {
+      removeUndefined({
         ...order,
-        buyerUid: auth.currentUser.uid,
-      },
+        buyerUid,
+      }),
       {merge: true}
     );
   } catch (error) {
@@ -266,85 +317,6 @@ export async function fetchStoresAndProductsFromFirestore(): Promise<{
   }
 }
 
-/**
- * Repeatable, idempotent seeder that writes the 50 Nanded demo stores and
- * 75 Nanded demo products into Firestore (`urbandirectintracity`) using stable IDs
- * (`demo-nanded-store-01a`..`25b` and `demo-nanded-prod-01a`..`25c`) and
- * `isDemo: true`, `demoBatchId: 'nanded-25-cat-demo-v1'`.
- * Never overwrites or deletes non-demo records.
- */
-export async function seedNandedDemoCatalogToFirestore(): Promise<{
-  storesWritten: number;
-  productsWritten: number;
-  batchId: string;
-}> {
-  const storeBatch = writeBatch(db);
-  for (const store of NANDED_DEMO_STORES) {
-    storeBatch.set(doc(db, 'stores', store.id), store, {merge: true});
-  }
-  await storeBatch.commit();
-
-  const productBatch = writeBatch(db);
-  for (const product of NANDED_DEMO_PRODUCTS) {
-    productBatch.set(doc(db, 'products', product.id), product, {merge: true});
-  }
-  await productBatch.commit();
-
-  return {
-    storesWritten: NANDED_DEMO_STORES.length,
-    productsWritten: NANDED_DEMO_PRODUCTS.length,
-    batchId: NANDED_DEMO_BATCH_ID,
-  };
-}
-
-/**
- * Safely removes only records tagged with `isDemo == true` and
- * `demoBatchId == 'nanded-25-cat-demo-v1'` without affecting real sellers.
- */
-export async function removeNandedDemoCatalogFromFirestore(): Promise<{
-  storesRemoved: number;
-  productsRemoved: number;
-}> {
-  const storesQ = query(
-    collection(db, 'stores'),
-    where('demoBatchId', '==', NANDED_DEMO_BATCH_ID)
-  );
-  const productsQ = query(
-    collection(db, 'products'),
-    where('demoBatchId', '==', NANDED_DEMO_BATCH_ID)
-  );
-
-  const [storesSnap, productsSnap] = await Promise.all([
-    getDocs(storesQ),
-    getDocs(productsQ),
-  ]);
-
-  let storesRemoved = 0;
-  if (!storesSnap.empty) {
-    const b1 = writeBatch(db);
-    storesSnap.forEach((d) => {
-      if (d.data().isDemo === true) {
-        b1.delete(d.ref);
-        storesRemoved++;
-      }
-    });
-    await b1.commit();
-  }
-
-  let productsRemoved = 0;
-  if (!productsSnap.empty) {
-    const b2 = writeBatch(db);
-    productsSnap.forEach((d) => {
-      if (d.data().isDemo === true) {
-        b2.delete(d.ref);
-        productsRemoved++;
-      }
-    });
-    await b2.commit();
-  }
-
-  return {storesRemoved, productsRemoved};
-}
 
 /**
  * Permanently deletes a single product document from Firestore (/products/{productId}).

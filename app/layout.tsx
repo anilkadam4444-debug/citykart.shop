@@ -83,7 +83,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="en" className={`${plusJakarta.variable} ${spaceMono.variable}`}>
       <body
         suppressHydrationWarning
-        className="bg-[#FAF9F6] text-stone-900 antialiased selection:bg-stone-900 selection:text-white font-sans"
+        className="bg-[#F8FAFC] text-slate-900 antialiased selection:bg-[#003B8E] selection:text-white font-sans"
       >
         <script
           type="application/ld+json"

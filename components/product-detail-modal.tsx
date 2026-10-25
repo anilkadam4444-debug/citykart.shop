@@ -11,6 +11,8 @@ import {
   MapPin,
   AlertCircle,
   Store,
+  ShieldCheck,
+  ShoppingBag,
 } from 'lucide-react';
 import {
   CustomerShoppingLocation,
@@ -66,7 +68,7 @@ export function ProductDetailModal({
     : {
         isDeliverable: true,
         statusLabel: `Delivers in ${product.city}`,
-        reasonDetail: `Delivered by the store in about ${product.deliveryMins} minutes`,
+        reasonDetail: `Delivered directly by the store in about ${product.deliveryMins} minutes`,
       };
 
   const handleAdd = (instantCheckout = false) => {
@@ -81,32 +83,37 @@ export function ProductDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-stone-950/55 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pdp-title"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-4xl bg-[#FAF9F6] border border-stone-200 rounded-xl shadow-2xl overflow-hidden my-auto"
+        className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Simple Top Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 bg-white">
-          <div className="flex items-center gap-2 text-xs text-stone-600">
-            <CategoryIcon
-              categoryIdOrName={product.categoryId || product.category}
-              className="w-4 h-4 text-stone-700"
-            />
-            <span>{product.category}</span>
-            <span aria-hidden="true">·</span>
-            <span>{product.city}</span>
+        {/* Top Breadcrumb Bar */}
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-slate-50/80">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <span className="w-6 h-6 rounded-md bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#003B8E]">
+              <CategoryIcon
+                categoryIdOrName={product.categoryId || product.category}
+                className="w-3.5 h-3.5"
+              />
+            </span>
+            <span className="font-semibold text-slate-800">{product.category}</span>
+            <span aria-hidden="true" className="text-slate-300">/</span>
+            <span className="inline-flex items-center gap-1 text-slate-600">
+              <MapPin className="w-3 h-3 text-[#003B8E]" />
+              {product.city}
+            </span>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close product details"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 rounded-lg hover:bg-stone-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200/70 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span>Close</span>
             <X className="w-4 h-4" />
@@ -114,9 +121,9 @@ export function ProductDetailModal({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-          {/* Left Column: Product Photo */}
-          <div className="lg:col-span-6 bg-[#EFECE6] p-6 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-stone-200">
-            <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden">
+          {/* Left Column: Studio Product Gallery */}
+          <div className="lg:col-span-6 bg-slate-100/70 p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200">
+            <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-white border border-slate-200/80 shadow-xs">
               <ProductStudioArtwork
                 preset={product.artworkPreset}
                 customImageUrl={product.customImageUrl}
@@ -126,39 +133,43 @@ export function ProductDetailModal({
               />
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-stone-300/60">
-              <div className="flex items-center gap-1 p-1 bg-stone-200/75 rounded-lg">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200/80">
+              <div className="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl">
                 {(
                   [
-                    {id: 'front', label: 'Main view'},
-                    {id: 'scale', label: 'Size view'},
-                    {id: 'detail', label: 'Close-up'},
+                    {id: 'front', label: 'Studio View'},
+                    {id: 'scale', label: 'Pack Scale'},
+                    {id: 'detail', label: 'Close-Up'},
                   ] as const
                 ).map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setViewAngle(tab.id)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                       viewAngle === tab.id
-                        ? 'bg-white text-stone-900 shadow-xs'
-                        : 'text-stone-600 hover:text-stone-900'
+                        ? 'bg-white text-[#003B8E] shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     {tab.label}
                   </button>
                 ))}
               </div>
+              <span className="text-[11px] font-medium text-slate-500 inline-flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Direct store stock
+              </span>
             </div>
           </div>
 
-          {/* Right Column: Clear Purchase Details */}
-          <div className="lg:col-span-6 p-6 sm:p-8 flex flex-col justify-between bg-[#FAF9F6]">
+          {/* Right Column: Conversion & Store Details */}
+          <div className="lg:col-span-6 p-6 sm:p-8 flex flex-col justify-between bg-white">
             <div>
-              {/* Store Name & Link */}
-              <div className="flex items-center justify-between gap-2 text-xs text-stone-600 mb-2">
-                <span className="inline-flex items-center gap-1.5 font-medium text-stone-800">
-                  <Store className="w-3.5 h-3.5" />
+              {/* Store Identity Header */}
+              <div className="flex items-center justify-between gap-2 text-xs mb-3">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-[#003B8E] bg-blue-50/90 border border-blue-200/70 px-2.5 py-1 rounded-md">
+                  <Store className="w-3.5 h-3.5 shrink-0" />
                   <span>Sold by {product.storeName}</span>
                 </span>
                 {onViewStore && (
@@ -168,33 +179,37 @@ export function ProductDetailModal({
                       onClose();
                       onViewStore(product.storeId);
                     }}
-                    className="text-stone-700 underline hover:text-stone-900 cursor-pointer"
+                    className="text-xs font-semibold text-[#003B8E] hover:underline inline-flex items-center gap-1 cursor-pointer"
                   >
-                    View store
+                    <span>Visit store</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 )}
               </div>
 
-              {/* Product Title & Price */}
+              {/* Product Title */}
               <h2
                 id="pdp-title"
-                className="text-2xl font-semibold tracking-tight text-stone-900 text-balance"
+                className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 text-balance leading-snug"
               >
                 {product.name}
               </h2>
 
-              <div className="mt-3 flex flex-wrap items-baseline gap-3">
-                <span className="text-2xl font-semibold font-mono tabular-nums text-stone-900">
+              {/* Price & Stock Row */}
+              <div className="mt-3.5 flex flex-wrap items-baseline gap-3 pb-4 border-b border-slate-100">
+                <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-slate-900">
                   {formatCurrency(product.price, product.currency)}
                 </span>
                 {product.unit && (
-                  <span className="text-xs font-medium text-stone-500">
-                    ({product.unit})
+                  <span className="text-xs font-semibold text-slate-500">
+                    per {product.unit}
                   </span>
                 )}
                 <span
-                  className={`text-xs font-medium ${
-                    isInStock ? 'text-emerald-800' : 'text-red-700'
+                  className={`ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-md border ${
+                    isInStock
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
+                      : 'bg-red-50 text-red-700 border-red-200'
                   }`}
                 >
                   {isInStock
@@ -205,35 +220,38 @@ export function ProductDetailModal({
 
               {/* Delivery Availability Box */}
               <div
-                className={`mt-4 p-3.5 rounded-lg border text-xs ${
+                className={`mt-4 p-3.5 rounded-xl border text-xs ${
                   eligibility.isDeliverable
-                    ? 'bg-white border-stone-200 text-stone-700'
+                    ? 'bg-slate-50 border-slate-200/90 text-slate-700'
                     : 'bg-amber-50/90 border-amber-200 text-amber-900'
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-semibold">
+                <div className="flex items-center gap-1.5 font-semibold text-slate-900">
                   {eligibility.isDeliverable ? (
-                    <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                   )}
                   <span>{eligibility.statusLabel}</span>
                 </div>
-                <p className="mt-1 text-stone-600">{eligibility.reasonDetail}</p>
+                <p className="mt-1 text-slate-600 leading-relaxed">
+                  {eligibility.reasonDetail}
+                </p>
               </div>
 
-              <p className="mt-4 text-sm text-stone-600 leading-relaxed">
+              {/* Description */}
+              <p className="mt-4 text-sm text-slate-600 leading-relaxed">
                 {product.description}
               </p>
 
               {/* Option Selector (if more than 1 option) */}
               {product.variants.length > 1 && (
-                <div className="mt-5 pt-4 border-t border-stone-200">
+                <div className="mt-5 pt-4 border-t border-slate-100">
                   <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="font-medium text-stone-700">
-                      Choose option
+                    <span className="font-semibold text-slate-700">
+                      Select pack / option
                     </span>
-                    <span className="text-stone-500">{activeVariant}</span>
+                    <span className="font-medium text-[#003B8E]">{activeVariant}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {product.variants.map((variant) => (
@@ -241,10 +259,10 @@ export function ProductDetailModal({
                         key={variant}
                         type="button"
                         onClick={() => setSelectedVariant(variant)}
-                        className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                        className={`px-3.5 py-2 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                           activeVariant === variant
-                            ? 'border-stone-900 bg-stone-900 text-white'
-                            : 'border-stone-300 bg-white text-stone-700 hover:border-stone-500'
+                            ? 'border-[#003B8E] bg-[#003B8E] text-white shadow-2xs'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:text-slate-900'
                         }`}
                       >
                         {variant}
@@ -255,21 +273,21 @@ export function ProductDetailModal({
               )}
 
               {/* Quantity & Total */}
-              <div className="mt-5 flex items-center justify-between gap-4">
+              <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
                 <div>
-                  <span className="block text-xs font-medium text-stone-700 mb-1">
+                  <span className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Quantity
                   </span>
-                  <div className="inline-flex items-center border border-stone-300 rounded-lg bg-white">
+                  <div className="inline-flex items-center border border-slate-300 rounded-xl bg-slate-50">
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       aria-label="Decrease quantity"
-                      className="p-2.5 text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+                      className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-white rounded-l-xl transition-colors cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="px-4 text-sm font-mono tabular-nums font-medium text-stone-900">
+                    <span className="px-4 text-sm font-mono tabular-nums font-bold text-slate-900">
                       {quantity}
                     </span>
                     <button
@@ -279,7 +297,7 @@ export function ProductDetailModal({
                         setQuantity((q) => Math.min(Math.max(1, product.stock), q + 1))
                       }
                       aria-label="Increase quantity"
-                      className="p-2.5 text-stone-600 hover:text-stone-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-white rounded-r-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -287,29 +305,34 @@ export function ProductDetailModal({
                 </div>
 
                 <div className="text-right">
-                  <div className="text-xs text-stone-500">Total price</div>
-                  <div className="text-lg font-semibold font-mono tabular-nums text-stone-900">
+                  <div className="text-xs font-medium text-slate-500">Order subtotal</div>
+                  <div className="text-xl font-bold font-mono tabular-nums text-slate-900">
                     {formatCurrency(product.price * quantity, product.currency)}
                   </div>
                 </div>
               </div>
 
-              {/* Primary Actions */}
-              <div className="mt-6 space-y-2.5">
+              {/* Primary Commerce Actions */}
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   disabled={!isInStock}
                   onClick={() => handleAdd(false)}
-                  className="w-full py-3 px-5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:bg-stone-300 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+                  className={`w-full py-3 px-4 rounded-xl text-white text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
+                    justAdded
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-300'
+                  }`}
                 >
                   {justAdded ? (
                     <>
                       <Check className="w-4 h-4" />
-                      <span>Added to cart</span>
+                      <span>Added to Cart</span>
                     </>
                   ) : (
                     <>
-                      <span>Add to cart</span>
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Add to Cart</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-mono tabular-nums">
                         {formatCurrency(
@@ -325,24 +348,24 @@ export function ProductDetailModal({
                   type="button"
                   disabled={!isInStock}
                   onClick={() => handleAdd(true)}
-                  className="w-full py-2.5 px-5 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 text-stone-900 text-xs font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
                 >
-                  <span>Buy now (Pay on delivery)</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Buy Now (Pay at Door)</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Store Info Footer */}
-            <div className="mt-6 pt-4 border-t border-stone-200 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500">
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-stone-700" />
-                <span>Store location: {product.neighborhood}, {product.city}</span>
+            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#003B8E]" />
+                <span>Store neighborhood: <strong className="font-medium text-slate-700">{product.neighborhood}, {product.city}</strong></span>
               </span>
               {store && (
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-stone-700" />
-                  <span>Open: {store.operatingHours}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#003B8E]" />
+                  <span>Hours: <strong className="font-medium text-slate-700">{store.operatingHours}</strong></span>
                 </span>
               )}
             </div>

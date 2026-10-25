@@ -10,14 +10,12 @@ import React, {
   useSyncExternalStore,
 } from 'react';
 import {Check} from 'lucide-react';
+import {usePathname, useRouter} from 'next/navigation';
 import {
   AUTHORITATIVE_STORE_CATEGORIES,
   CartItem,
   CategoryDefinition,
   CustomerShoppingLocation,
-  INITIAL_PRODUCTS,
-  INITIAL_SELLERS,
-  INITIAL_STORES,
   isStoreLocationComplete,
   LocalStore,
   normalizeCityId,
@@ -28,9 +26,16 @@ import {
   UserAccount,
 } from '@/lib/catalog-data';
 import {
+  INITIAL_PRODUCTS,
+  INITIAL_SELLERS,
+  INITIAL_STORES,
+} from '@/lib/initial-data';
+
+import {
   MobileOtpAuthModal,
   OtpAuthContextMode,
 } from '@/components/mobile-otp-auth-modal';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   auth,
   deleteProductFromFirestore,
@@ -190,9 +195,12 @@ import { SellerNotification } from '@/lib/orders-registry';
 
 export interface UrbanDirectContextValue {
   isMounted: boolean;
+  isAuthReady: boolean;
   sellers: SellerProfile[];
   stores: LocalStore[];
+  setStores: React.Dispatch<React.SetStateAction<LocalStore[]>>;
   products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   orders: OrderRecord[];
   sellerNotifications: SellerNotification[];
   unreadNotificationCount: number;
@@ -206,6 +214,7 @@ export interface UrbanDirectContextValue {
   setIsLocationModalOpen: (open: boolean) => void;
   handleConfirmBuyerLocation: (newLoc: CustomerShoppingLocation) => void;
   authenticatedUser: UserAccount | null;
+  setAuthenticatedUser: React.Dispatch<React.SetStateAction<UserAccount | null>>;
   userOwnedStores: LocalStore[];
   hasSellerRole: boolean;
   hasCompletedStore: boolean;
@@ -220,6 +229,7 @@ export interface UrbanDirectContextValue {
     storeId: string,
     storeNameConfirm: string
   ) => Promise<{ success: boolean; message?: string }>;
+  permanentlyDeleteStore: (storeId: string) => Promise<void>;
   handleAddProduct: (newProduct: Product) => void;
   handleUpdateProduct: (updatedProduct: Product) => void;
   handleDeleteProduct: (productId: string) => void;
@@ -258,11 +268,14 @@ export interface UrbanDirectContextValue {
 const UrbanDirectContext = createContext<UrbanDirectContextValue | null>(null);
 
 export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
+  const router = useRouter();
+  const pathname = usePathname();
   const isMounted = useSyncExternalStore(
     subscribeNoop,
     getClientMountedSnapshot,
     getServerMountedSnapshot
   );
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
 
   const [sellers, setSellers] = useState<SellerProfile[]>(() => {
     if (typeof window === 'undefined') return INITIAL_SELLERS;
@@ -414,6 +427,89 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     }, 3200);
   };
 
+  // Restore and verify server session on mount & Firebase Auth state change
+  useEffect(() => {
+    if (!isMounted) return;
+    let active = true;
+
+    const verifyAndRestoreSession = async () => {
+      try {
+        const res = await fetch('/api/auth/otp', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        const data = await res.json();
+
+        if (!active) return;
+
+        if (res.status === 403 && data?.suspended) {
+          setAuthenticatedUser(null);
+          try {
+            window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+          } catch {}
+          setIsAuthReady(true);
+          return;
+        }
+
+        if (data?.ok && data?.authenticated && data?.user) {
+          const serverVerifiedUser = data.user as UserAccount;
+          setAuthenticatedUser(serverVerifiedUser);
+          try {
+            window.localStorage.setItem(
+              AUTH_USER_STORAGE_KEY,
+              JSON.stringify(serverVerifiedUser)
+            );
+          } catch {}
+        } else if (authenticatedUser?.phoneE164) {
+          // If localStorage has a session from before server restart, re-verify with server
+          const reVerifyRes = await fetch('/api/auth/otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              action: 'RESOLVE_FIREBASE_USER',
+              phoneE164: authenticatedUser.phoneE164,
+              countryCode: authenticatedUser.countryCode || 'IN',
+              maskedPhone: authenticatedUser.maskedPhone,
+              firebaseUid:
+                auth.currentUser?.uid ||
+                authenticatedUser.uid ||
+                authenticatedUser.id ||
+                `firebase-phone-${authenticatedUser.phoneE164.replace(/[^0-9]/g, '')}`,
+            }),
+          });
+          const reVerifyData = await reVerifyRes.json();
+          if (active && reVerifyRes.ok && reVerifyData?.user) {
+            const restoredUser = reVerifyData.user as UserAccount;
+            setAuthenticatedUser(restoredUser);
+            try {
+              window.localStorage.setItem(
+                AUTH_USER_STORAGE_KEY,
+                JSON.stringify(restoredUser)
+              );
+            } catch {}
+          }
+        }
+      } catch {
+        // Ignore network errors during initial check
+      } finally {
+        if (active) {
+          setIsAuthReady(true);
+        }
+      }
+    };
+
+    const unsubscribeAuth = onAuthStateChanged(auth, () => {
+      void verifyAndRestoreSession();
+    });
+
+    void verifyAndRestoreSession();
+
+    return () => {
+      active = false;
+      unsubscribeAuth();
+    };
+  }, [isMounted, authenticatedUser?.phoneE164, authenticatedUser?.countryCode, authenticatedUser?.maskedPhone, authenticatedUser?.uid, authenticatedUser?.id]);
+
   // Automated FCM Device Registration & Real-Time Foreground Push Listener
   useEffect(() => {
     if (!isMounted) return;
@@ -460,11 +556,26 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
         user.storeIds.includes(st.id)
     );
 
+    // Strictly preserve server-verified `isAdmin` and `role: 'super_admin'`
+    const isVerifiedSuperAdmin =
+      user.phoneE164 === '+918329306616' &&
+      user.role === 'super_admin' &&
+      user.isAdmin === true;
+
     const enrichedUser: UserAccount =
       matchedSeller || matchedStores.length > 0
         ? {
             ...user,
-            roles: Array.from(new Set([...user.roles, 'BUYER', 'SELLER'])),
+            roles: Array.from(
+              new Set([
+                ...user.roles,
+                'BUYER',
+                'SELLER',
+                ...(isVerifiedSuperAdmin ? (['ADMIN'] as const) : []),
+              ])
+            ),
+            isAdmin: isVerifiedSuperAdmin,
+            role: isVerifiedSuperAdmin ? 'super_admin' : undefined,
             sellerId: user.sellerId || matchedSeller?.id,
             storeIds: Array.from(
               new Set([
@@ -474,7 +585,11 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
               ])
             ),
           }
-        : user;
+        : {
+            ...user,
+            isAdmin: isVerifiedSuperAdmin,
+            role: isVerifiedSuperAdmin ? 'super_admin' : undefined,
+          };
 
     setAuthenticatedUser(enrichedUser);
     try {
@@ -484,6 +599,24 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
       );
     } catch {
       // Ignore quota errors
+    }
+
+    setAuthModalState((prev) => ({...prev, isOpen: false}));
+
+    // AUTOMATIC REDIRECT FOR DESIGNATED PLATFORM OWNER (+918329306616)
+    // When both phone identity (+918329306616) and trusted server role (super_admin) pass,
+    // automatically redirect to the Super Admin Dashboard (/admin) from any login entry point.
+    if (isVerifiedSuperAdmin || enrichedUser.phoneE164 === '+918329306616') {
+      authSuccessCallbackRef.current = undefined;
+      showToast(
+        isVerifiedSuperAdmin
+          ? 'Verified Platform Owner (+918329306616) · Redirecting to Super Admin Dashboard...'
+          : 'Verified Platform Owner (+918329306616) · Opening Super Admin Role Activation...'
+      );
+      if (pathname !== '/admin') {
+        router.push('/admin');
+      }
+      return;
     }
 
     if (migratedSellerId) {
@@ -506,8 +639,6 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     } else {
       showToast(`Signed in via mobile OTP (${enrichedUser.phoneE164})`);
     }
-
-    setAuthModalState((prev) => ({...prev, isOpen: false}));
 
     if (authSuccessCallbackRef.current) {
       const cb = authSuccessCallbackRef.current;
@@ -836,6 +967,51 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
       success: true,
       message: `Store "${storeToDelete.name}" deleted successfully.`,
     };
+  };
+
+  const permanentlyDeleteStore = async (storeId: string) => {
+    // 1. Direct Firestore cleanup (products + store document)
+    void deleteStoreAndProductsFromFirestore(storeId);
+
+    // 2. Add to local deleted stores registry (tombstone)
+    const updatedDeleted = new Set(deletedStoreIds);
+    updatedDeleted.add(storeId);
+    setDeletedStoreIds(updatedDeleted);
+    try {
+      window.localStorage.setItem(
+        DELETED_STORES_STORAGE_KEY,
+        JSON.stringify(Array.from(updatedDeleted))
+      );
+    } catch {
+      // Ignore storage error
+    }
+
+    // 3. Filter stores state
+    setStores((prev) => prev.filter((s) => s.id !== storeId));
+
+    // 4. Filter products state
+    setProducts((prev) => prev.filter((p) => p.storeId !== storeId));
+
+    // 5. Cleanup cart
+    setCart((prev) => prev.filter((item) => item.product.storeId !== storeId));
+
+    // 6. Update authenticatedUser storeIds if they owned it
+    if (authenticatedUser && authenticatedUser.storeIds.includes(storeId)) {
+      const updatedUser: UserAccount = {
+        ...authenticatedUser,
+        storeIds: authenticatedUser.storeIds.filter((id) => id !== storeId),
+      };
+      setAuthenticatedUser(updatedUser);
+      try {
+        window.localStorage.setItem(
+          AUTH_USER_STORAGE_KEY,
+          JSON.stringify(updatedUser)
+        );
+      } catch {}
+      void syncUserAccountToFirestore(updatedUser);
+    }
+
+    showToast(`Store ${storeId} permanently removed.`);
   };
 
   const handleAddProduct = (newProduct: Product) => {
@@ -1278,9 +1454,12 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
 
   const value: UrbanDirectContextValue = {
     isMounted,
+    isAuthReady,
     sellers,
     stores,
+    setStores,
     products,
+    setProducts,
     orders,
     sellerNotifications,
     unreadNotificationCount,
@@ -1294,6 +1473,7 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     setIsLocationModalOpen,
     handleConfirmBuyerLocation,
     authenticatedUser,
+    setAuthenticatedUser,
     userOwnedStores,
     hasSellerRole,
     hasCompletedStore,
@@ -1302,6 +1482,7 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     handleAddSellerAndStore,
     handleUpdateStoreSettings,
     handleDeleteStore,
+    permanentlyDeleteStore,
     handleAddProduct,
     handleUpdateProduct,
     handleDeleteProduct,
@@ -1326,8 +1507,10 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
 
       {/* Global Toast Notice */}
       {toastNotice && (
-        <div className="fixed bottom-5 right-5 z-50 bg-stone-900 text-white px-4 py-2.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2">
-          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        <div className="fixed bottom-5 right-5 z-50 bg-[#0F172A] text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700/80 text-xs font-semibold flex items-center gap-2.5">
+          <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+            <Check className="w-3.5 h-3.5 text-emerald-400" />
+          </span>
           <span>{toastNotice}</span>
         </div>
       )}
@@ -1350,9 +1533,12 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
 
 const DEFAULT_FALLBACK_CONTEXT: UrbanDirectContextValue = {
   isMounted: false,
+  isAuthReady: false,
   sellers: INITIAL_SELLERS,
   stores: INITIAL_STORES,
+  setStores: () => {},
   products: INITIAL_PRODUCTS,
+  setProducts: () => {},
   orders: [INITIAL_DEMO_ORDER],
   sellerNotifications: [],
   unreadNotificationCount: 0,
@@ -1366,6 +1552,7 @@ const DEFAULT_FALLBACK_CONTEXT: UrbanDirectContextValue = {
   setIsLocationModalOpen: () => {},
   handleConfirmBuyerLocation: () => {},
   authenticatedUser: null,
+  setAuthenticatedUser: () => {},
   userOwnedStores: [],
   hasSellerRole: false,
   hasCompletedStore: false,
@@ -1374,6 +1561,7 @@ const DEFAULT_FALLBACK_CONTEXT: UrbanDirectContextValue = {
   handleAddSellerAndStore: async () => {},
   handleUpdateStoreSettings: () => {},
   handleDeleteStore: async () => ({ success: false }),
+  permanentlyDeleteStore: async () => {},
   handleAddProduct: () => {},
   handleUpdateProduct: () => {},
   handleDeleteProduct: () => {},

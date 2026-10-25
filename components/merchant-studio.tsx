@@ -29,6 +29,7 @@ import {
   Bell,
   Trash2,
   AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
 import { useUrbanDirect } from '@/components/urbandirect-provider';
 import {
@@ -697,11 +698,13 @@ export function MerchantStudio({
     if (!storeNeighborhood.trim() && loc.defaultLocality) {
       setStoreNeighborhood(loc.defaultLocality);
     }
-    if (loc.postalCodes && loc.postalCodes.length > 0 && !storePostalCode) {
-      setStorePostalCode(loc.postalCodes[0]);
+    if (loc.postalCode && !storePostalCode) {
+      setStorePostalCode(loc.postalCode);
     }
-    setStoreLat(String(loc.coordinates.lat));
-    setStoreLng(String(loc.coordinates.lng));
+    if (loc.coordinates) {
+      setStoreLat(String(loc.coordinates.lat));
+      setStoreLng(String(loc.coordinates.lng));
+    }
     setStoreLocationSource(loc.locationSource || 'VERIFIED_DIRECTORY');
     setLocationSearchResults([]);
     setLocationSearchQuery('');
@@ -718,11 +721,13 @@ export function MerchantStudio({
     if (!settingsNeighborhood.trim() && loc.defaultLocality) {
       setSettingsNeighborhood(loc.defaultLocality);
     }
-    if (loc.postalCodes && loc.postalCodes.length > 0 && !settingsPostalCode) {
-      setSettingsPostalCode(loc.postalCodes[0]);
+    if (loc.postalCode && !settingsPostalCode) {
+      setSettingsPostalCode(loc.postalCode);
     }
-    setSettingsLat(String(loc.coordinates.lat));
-    setSettingsLng(String(loc.coordinates.lng));
+    if (loc.coordinates) {
+      setSettingsLat(String(loc.coordinates.lat));
+      setSettingsLng(String(loc.coordinates.lng));
+    }
     setSettingsLocationSource(loc.locationSource || 'VERIFIED_DIRECTORY');
     setSettingsVerificationStatus('VERIFIED');
     setLocationSearchResults([]);
@@ -1193,20 +1198,20 @@ export function MerchantStudio({
   );
 
   return (
-    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs">
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
       {/* Top Bar of Seller Dashboard / Store Setup */}
-      <div className="px-6 py-4 bg-[#FAF9F6] border-b border-stone-200 flex flex-wrap items-center justify-between gap-4">
+      <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-stone-900 text-white flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#003B8E] text-white flex items-center justify-center shrink-0 shadow-2xs">
             <Store className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs text-stone-500">
+            <div className="text-xs font-semibold text-slate-500">
               {mode === 'ONBOARDING_ONLY'
                 ? 'New Store Registration'
                 : 'Seller Dashboard'}
             </div>
-            <h2 className="text-base font-semibold text-stone-900">
+            <h2 className="text-base font-extrabold text-slate-900">
               {mode === 'ONBOARDING_ONLY'
                 ? 'Open your store on Citykart'
                 : isAdmin
@@ -1217,9 +1222,19 @@ export function MerchantStudio({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {mode === 'DASHBOARD' && authenticatedUser?.roles.includes('ADMIN') && (
+          {authenticatedUser?.phoneE164 === '+918329306616' && (
+            <a
+              href="/admin"
+              className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#F96302]" />
+              <span>Super Admin Console →</span>
+            </a>
+          )}
+
+          {mode === 'DASHBOARD' && authenticatedUser?.phoneE164 === '+918329306616' && (
             <div className="flex items-center gap-2 text-xs">
-              <label htmlFor="seller-switcher" className="text-stone-600">
+              <label htmlFor="seller-switcher" className="text-slate-600 font-semibold">
                 Store account:
               </label>
               <select
@@ -1235,7 +1250,7 @@ export function MerchantStudio({
                     syncSellerStoreSettings(val);
                   }
                 }}
-                className="px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-medium text-stone-900"
+                className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
               >
                 {sellers.map((seller) => {
                   const st = stores.find((s) => s.sellerId === seller.id);
@@ -1254,7 +1269,7 @@ export function MerchantStudio({
           )}
 
           {authenticatedUser && (
-            <div className="px-3 py-1.5 text-xs font-medium text-stone-800 bg-white border border-stone-300 rounded-lg inline-flex items-center gap-1.5">
+            <div className="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-emerald-700" />
               <span className="font-mono">{authenticatedUser.phoneE164}</span>
             </div>
@@ -1264,7 +1279,7 @@ export function MerchantStudio({
             <button
               type="button"
               onClick={onBackToShopping}
-              className="px-3.5 py-1.5 text-xs font-medium text-white bg-stone-900 hover:bg-stone-800 rounded-lg transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-xl transition-colors cursor-pointer"
             >
               ← Back to shopping
             </button>
@@ -1312,7 +1327,7 @@ export function MerchantStudio({
       >
         {/* Left Navigation Sidebar (Shown in DASHBOARD mode) */}
         {mode === 'DASHBOARD' && (
-          <aside className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-stone-200 bg-[#FAF9F6]/60 p-4">
+          <aside className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/70 p-4">
             <nav
               aria-label="Store management navigation"
               className="flex lg:flex-col gap-1 overflow-x-auto"
@@ -1381,10 +1396,10 @@ export function MerchantStudio({
                           | 'settings'
                       )
                     }
-                    className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                       isCurrent
-                        ? 'bg-stone-900 text-white'
-                        : 'text-stone-700 hover:bg-stone-200/70'
+                        ? 'bg-[#003B8E] text-white shadow-xs'
+                        : 'text-slate-700 hover:bg-slate-200/70'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -1392,7 +1407,7 @@ export function MerchantStudio({
                       <span>{item.label}</span>
                     </div>
                     {item.hasBadge && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="w-2 h-2 rounded-full bg-[#F96302] shrink-0" />
                     )}
                   </button>
                 );
@@ -1400,11 +1415,11 @@ export function MerchantStudio({
             </nav>
 
             {/* Quick Primary Action inside Sidebar */}
-            <div className="hidden lg:block mt-6 pt-6 border-t border-stone-200 space-y-2">
+            <div className="hidden lg:block mt-6 pt-6 border-t border-slate-200 space-y-2">
               <button
                 type="button"
                 onClick={() => setActiveSection('add-product')}
-                className="w-full py-2.5 px-4 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add product</span>
@@ -1423,14 +1438,14 @@ export function MerchantStudio({
         >
           {publishBanner && (
             <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-4 text-xs text-emerald-900">
-              <div className="flex items-center gap-2 font-medium">
+              <div className="flex items-center gap-2 font-bold">
                 <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                 <span>{publishBanner}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setPublishBanner(null)}
-                className="text-emerald-800 underline cursor-pointer"
+                className="text-emerald-800 underline cursor-pointer font-semibold"
               >
                 Dismiss
               </button>
@@ -1442,10 +1457,10 @@ export function MerchantStudio({
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xl font-semibold text-stone-900">
+                  <h3 className="text-xl font-extrabold text-slate-900">
                     Welcome back, {activeSeller?.businessOwnerName}
                   </h3>
-                  <p className="text-xs text-stone-600 mt-0.5">
+                  <p className="text-xs text-slate-600 mt-0.5">
                     Here is what is happening at{' '}
                     <strong>{primarySellerStore?.name}</strong> today.
                   </p>
@@ -1454,7 +1469,7 @@ export function MerchantStudio({
                 <button
                   type="button"
                   onClick={() => setActiveSection('add-product')}
-                  className="px-4 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition-colors inline-flex items-center gap-1.5 self-start cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 self-start cursor-pointer shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add product</span>
@@ -1466,15 +1481,15 @@ export function MerchantStudio({
                 <button
                   type="button"
                   onClick={() => setActiveSection('orders')}
-                  className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200 text-left hover:border-stone-400 transition-colors cursor-pointer"
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left hover:border-[#003B8E]/40 transition-colors cursor-pointer"
                 >
-                  <div className="text-xs text-stone-500">
+                  <div className="text-xs font-semibold text-slate-500">
                     New orders to prepare
                   </div>
-                  <div className="mt-1 text-2xl font-semibold font-mono tabular-nums text-stone-900">
+                  <div className="mt-1 text-2xl font-extrabold font-mono tabular-nums text-slate-900">
                     {newOrdersCount}
                   </div>
-                  <div className="mt-2 text-xs text-stone-700 underline">
+                  <div className="mt-2 text-xs font-bold text-[#003B8E] hover:underline">
                     View orders →
                   </div>
                 </button>
@@ -1482,15 +1497,15 @@ export function MerchantStudio({
                 <button
                   type="button"
                   onClick={() => setActiveSection('orders')}
-                  className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200 text-left hover:border-stone-400 transition-colors cursor-pointer"
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left hover:border-[#003B8E]/40 transition-colors cursor-pointer"
                 >
-                  <div className="text-xs text-stone-500">
+                  <div className="text-xs font-semibold text-slate-500">
                     Being prepared or out for delivery
                   </div>
-                  <div className="mt-1 text-2xl font-semibold font-mono tabular-nums text-stone-900">
+                  <div className="mt-1 text-2xl font-extrabold font-mono tabular-nums text-slate-900">
                     {activeDeliveryOrdersCount}
                   </div>
-                  <div className="mt-2 text-xs text-stone-700 underline">
+                  <div className="mt-2 text-xs font-bold text-[#003B8E] hover:underline">
                     Update delivery status →
                   </div>
                 </button>
@@ -1498,13 +1513,13 @@ export function MerchantStudio({
                 <button
                   type="button"
                   onClick={() => setActiveSection('orders')}
-                  className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200 text-left hover:border-stone-400 transition-colors cursor-pointer"
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left hover:border-[#003B8E]/40 transition-colors cursor-pointer"
                 >
-                  <div className="text-xs text-stone-500">Total orders</div>
-                  <div className="mt-1 text-2xl font-semibold font-mono tabular-nums text-stone-900">
+                  <div className="text-xs font-semibold text-slate-500">Total orders</div>
+                  <div className="mt-1 text-2xl font-extrabold font-mono tabular-nums text-slate-900">
                     {authorizedOrders.length}
                   </div>
-                  <div className="mt-2 text-xs text-stone-600">
+                  <div className="mt-2 text-xs text-slate-600">
                     Since store opened
                   </div>
                 </button>
@@ -1512,15 +1527,15 @@ export function MerchantStudio({
                 <button
                   type="button"
                   onClick={() => setActiveSection('products')}
-                  className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200 text-left hover:border-stone-400 transition-colors cursor-pointer"
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left hover:border-[#003B8E]/40 transition-colors cursor-pointer"
                 >
-                  <div className="text-xs text-stone-500">
+                  <div className="text-xs font-semibold text-slate-500">
                     Out of stock products
                   </div>
-                  <div className="mt-1 text-2xl font-semibold font-mono tabular-nums text-stone-900">
+                  <div className="mt-1 text-2xl font-extrabold font-mono tabular-nums text-slate-900">
                     {outOfStockProducts.length}
                   </div>
-                  <div className="mt-2 text-xs text-stone-700 underline">
+                  <div className="mt-2 text-xs font-bold text-[#003B8E] hover:underline">
                     Manage products →
                   </div>
                 </button>
@@ -1528,10 +1543,10 @@ export function MerchantStudio({
 
               {/* Store Status & Delivery Coverage Card */}
               {primarySellerStore && (
-                <div className="p-5 rounded-xl bg-[#FAF9F6] border border-stone-200 space-y-3">
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-stone-900">
+                      <span className="text-sm font-extrabold text-slate-900">
                         Store status:{' '}
                         {primarySellerStore.isActive
                           ? 'Open for orders'
@@ -1541,21 +1556,21 @@ export function MerchantStudio({
                     <button
                       type="button"
                       onClick={() => setActiveSection('my-store')}
-                      className="text-xs font-medium text-stone-700 underline hover:text-stone-900 cursor-pointer"
+                      className="text-xs font-bold text-[#003B8E] underline hover:text-[#002D6E] cursor-pointer"
                     >
                       Edit store details
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-stone-600 pt-2 border-t border-stone-200/80">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600 pt-2 border-t border-slate-200/80">
                     <div>
-                      <span className="font-medium text-stone-900 block">
+                      <span className="font-bold text-slate-900 block">
                         Category
                       </span>
                       <span>{primarySellerStore.category}</span>
                     </div>
                     <div>
-                      <span className="font-medium text-stone-900 block">
+                      <span className="font-bold text-slate-900 block">
                         Where you deliver
                       </span>
                       <span>
@@ -1567,7 +1582,7 @@ export function MerchantStudio({
                       </span>
                     </div>
                     <div>
-                      <span className="font-medium text-stone-900 block">
+                      <span className="font-bold text-slate-900 block">
                         Opening hours
                       </span>
                       <span>{primarySellerStore.operatingHours}</span>
@@ -1590,7 +1605,7 @@ export function MerchantStudio({
                   <button
                     type="button"
                     onClick={() => setActiveSection('products')}
-                    className="px-3 py-1.5 bg-amber-900 text-white rounded-md font-medium cursor-pointer shrink-0"
+                    className="px-3 py-1.5 bg-amber-900 text-white rounded-md font-bold cursor-pointer shrink-0"
                   >
                     Update stock
                   </button>
@@ -2554,7 +2569,7 @@ export function MerchantStudio({
                     <button
                       type="submit"
                       disabled={isPublishingProduct || isUploadingImage}
-                      className="px-5 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white text-xs font-medium transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                      className="px-5 py-2.5 rounded-xl bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-400 text-white text-xs font-bold transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
                     >
                       {isPublishingProduct ? (
                         <>
@@ -2571,7 +2586,7 @@ export function MerchantStudio({
                     <button
                       type="button"
                       onClick={handleResetDraft}
-                      className="px-3 py-2 text-xs text-stone-600 hover:text-stone-900 inline-flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Load sample item</span>
@@ -2580,8 +2595,8 @@ export function MerchantStudio({
                 </form>
 
                 {/* Live Preview */}
-                <div className="lg:col-span-5 bg-[#FAF9F6] border border-stone-200 rounded-xl p-5">
-                  <div className="text-xs font-medium text-stone-600 mb-3">
+                <div className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                  <div className="text-xs font-bold text-slate-600 mb-3">
                     How customers will see your product
                   </div>
                   <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
@@ -3412,12 +3427,12 @@ export function MerchantStudio({
               )}
 
               {/* Wizard Navigation Buttons */}
-              <div className="pt-4 border-t border-stone-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
                 {onboardingStep > 1 ? (
                   <button
                     type="button"
                     onClick={() => setOnboardingStep((s) => Math.max(1, s - 1))}
-                    className="px-4 py-2.5 rounded-lg border border-stone-300 text-xs font-medium text-stone-700 hover:bg-stone-100 inline-flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Back</span>
@@ -3430,7 +3445,7 @@ export function MerchantStudio({
                   <button
                     type="button"
                     onClick={handleNextOnboardingStep}
-                    className="px-5 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <span>Save and continue</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -3441,7 +3456,7 @@ export function MerchantStudio({
                       type="button"
                       disabled={isSubmittingOnboarding}
                       onClick={() => handleFinishStoreOnboarding(true)}
-                      className="px-5 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-5 py-2.5 rounded-xl bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-400 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       {isSubmittingOnboarding ? (
                         <>
@@ -3451,7 +3466,7 @@ export function MerchantStudio({
                       ) : (
                         <>
                           <Plus className="w-4 h-4" />
-                          <span>Open store & add first product</span>
+                          <span>Open store &amp; add first product</span>
                         </>
                       )}
                     </button>
@@ -3459,7 +3474,7 @@ export function MerchantStudio({
                       type="button"
                       disabled={isSubmittingOnboarding}
                       onClick={() => handleFinishStoreOnboarding(false)}
-                      className="px-4 py-2.5 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 disabled:opacity-50 text-xs font-medium text-stone-800 cursor-pointer"
+                      className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50 text-xs font-bold text-slate-800 cursor-pointer"
                     >
                       Finish setup
                     </button>

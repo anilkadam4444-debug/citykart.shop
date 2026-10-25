@@ -38,9 +38,11 @@ export interface CityDef {
   district?: string;
   postalCode?: string;
   localityType?: 'CITY' | 'TOWN' | 'VILLAGE' | 'LOCALITY';
-  defaultLocality?: string;
+  locationSource?: 'VERIFIED_DIRECTORY' | 'GEOCODED' | 'USER_PROVIDED';
+  defaultLocality: string;
   coordinates?: { lat: number; lng: number };
 }
+
 
 export const GLOBAL_COUNTRIES: CountryDef[] = [
   {

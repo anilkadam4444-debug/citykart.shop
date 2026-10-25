@@ -308,6 +308,8 @@ export interface MerchantServiceOrder {
   updatedAt: string;
 }
 
+
+
 export interface PlatformRevenueMetrics {
   mrrInr: number;
   arrInr: number;
@@ -318,4 +320,175 @@ export interface PlatformRevenueMetrics {
   totalServiceOrdersRevenueInr: number;
   grossPlatformRevenueInr: number;
   transactionCount: number;
+  activePaidSubscriptions: number;
+  subscriptionRevenueCollected: number;
+  adAndServiceRevenueCollected: number;
+
+  // Marketplace KPIs (Required with defaults)
+  buyersCount: number;
+  sellersCount: number;
+  activeStoresCount: number;
+  suspendedStoresCount: number;
+  publishedProductsCount: number;
+  unpublishedProductsCount: number;
+  totalOrders: number;
+  awaitingOrders: number;
+  inProgressOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  grossOrderValueGmv: number;
+  successfulTxCount: number;
+  failedTxCount: number;
+  totalRefunds: number;
+  netPlatformCollections: number;
 }
+
+import { LocalStore, UserAccount, Product, OrderRecord, SellerProfile } from './catalog-data';
+
+/**
+ * Calculates platform-wide or city-filtered revenue and marketplace metrics.
+ * Centralized logic to be shared between Admin dashboards.
+ */
+export function calculatePlatformRevenueMetrics(
+  stores: LocalStore[],
+  subscriptions: Record<string, MerchantSubscription>,
+  transactions: BillingTransaction[],
+  cityFilter: string = 'ALL',
+  extra?: {
+    users?: UserAccount[];
+    products?: Product[];
+    orders?: OrderRecord[];
+    sellers?: SellerProfile[];
+  }
+): PlatformRevenueMetrics {
+  const activeSubscribersByPlan: Record<SubscriptionTierId, number> = {
+    FREE: 0,
+    GROWTH: 0,
+    BUSINESS_PRO: 0,
+  };
+
+  let mrrInr = 0;
+  let arrInr = 0;
+  let activePaidSubscriptions = 0;
+
+  const eligibleStoreIds = new Set(
+    cityFilter === 'ALL'
+      ? stores.map((s) => s.id)
+      : stores.filter((s) => s.cityId === cityFilter).map((s) => s.id)
+  );
+
+  stores.forEach((st) => {
+    if (eligibleStoreIds.has(st.id)) {
+      const sub = subscriptions[st.id];
+      const tier = (sub?.planId || 'FREE') as SubscriptionTierId;
+      activeSubscribersByPlan[tier] = (activeSubscribersByPlan[tier] || 0) + 1;
+
+      if (sub && sub.status === 'ACTIVE') {
+        if (tier !== 'FREE') {
+          activePaidSubscriptions++;
+        }
+        const plan = SUBSCRIPTION_PLANS[tier];
+        if (sub.billingCycle === 'ANNUAL') {
+          mrrInr += Math.round(plan.annualPriceInr / 12);
+          arrInr += plan.annualPriceInr;
+        } else {
+          mrrInr += plan.monthlyPriceInr;
+          arrInr += plan.monthlyPriceInr * 12;
+        }
+      }
+    }
+  });
+
+  const filteredTransactions = cityFilter === 'ALL'
+    ? transactions
+    : transactions.filter((tx) => eligibleStoreIds.has(tx.storeId));
+
+  let totalAdCampaignRevenueInr = 0;
+  let totalServiceOrdersRevenueInr = 0;
+  let subscriptionRevenueCollected = 0;
+  let adAndServiceRevenueCollected = 0;
+  let grossPlatformRevenueInr = 0;
+  let successfulTxCount = 0;
+  let failedTxCount = 0;
+  let totalRefunds = 0;
+
+  filteredTransactions.forEach((tx) => {
+    if (tx.status === 'SUCCESS') {
+      successfulTxCount++;
+      grossPlatformRevenueInr += tx.totalAmount;
+      if (tx.type === 'SUBSCRIPTION') {
+        subscriptionRevenueCollected += tx.totalAmount;
+      } else {
+        adAndServiceRevenueCollected += tx.totalAmount;
+        if (tx.type === 'AD_CAMPAIGN') {
+          totalAdCampaignRevenueInr += tx.totalAmount;
+        } else if (tx.type === 'SERVICE_ORDER') {
+          totalServiceOrdersRevenueInr += tx.totalAmount;
+        }
+      }
+    } else if (tx.status === 'FAILED') {
+      failedTxCount++;
+    } else if (tx.status === 'REFUNDED') {
+      totalRefunds += tx.totalAmount;
+    }
+  });
+
+  const netPlatformCollections = Math.max(0, grossPlatformRevenueInr - totalRefunds);
+
+  // Marketplace Metrics (only if extra data is provided)
+  const metrics: PlatformRevenueMetrics = {
+    mrrInr,
+    arrInr,
+    totalSubscribers: stores.length,
+    activeSubscribersByPlan,
+    monthlyPaidChurnRatePercent: 0,
+    totalAdCampaignRevenueInr,
+    totalServiceOrdersRevenueInr,
+    grossPlatformRevenueInr,
+    transactionCount: filteredTransactions.length,
+    activePaidSubscriptions,
+    subscriptionRevenueCollected,
+    adAndServiceRevenueCollected,
+    successfulTxCount,
+    failedTxCount,
+    totalRefunds,
+    netPlatformCollections,
+    // Defaults for marketplace KPIs
+    buyersCount: 0,
+    sellersCount: 0,
+    activeStoresCount: stores.filter((s) => s.isActive && !s.isSuspended).length,
+    suspendedStoresCount: stores.filter((s) => s.isSuspended || !s.isActive).length,
+    publishedProductsCount: 0,
+    unpublishedProductsCount: 0,
+    totalOrders: 0,
+    awaitingOrders: 0,
+    inProgressOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    grossOrderValueGmv: 0,
+  };
+
+  if (extra) {
+    if (extra.users) {
+      metrics.buyersCount = extra.users.filter((u) => u.roles.includes('BUYER')).length;
+    }
+    if (extra.sellers) {
+      metrics.sellersCount = extra.sellers.length;
+    }
+    if (extra.products) {
+      metrics.publishedProductsCount = extra.products.filter((p) => p.isAvailable && !p.adminUnpublished).length;
+      metrics.unpublishedProductsCount = extra.products.filter((p) => p.adminUnpublished).length;
+    }
+    if (extra.orders) {
+      metrics.totalOrders = extra.orders.length;
+      metrics.awaitingOrders = extra.orders.filter((o) => o.currentStepIndex === 0 && o.orderStatus !== 'CANCELLED').length;
+      metrics.inProgressOrders = extra.orders.filter((o) => (o.currentStepIndex === 1 || o.currentStepIndex === 2) && o.orderStatus !== 'CANCELLED').length;
+      metrics.completedOrders = extra.orders.filter((o) => o.currentStepIndex >= 3 && o.orderStatus !== 'CANCELLED').length;
+      metrics.cancelledOrders = extra.orders.filter((o) => o.orderStatus === 'CANCELLED').length;
+      metrics.grossOrderValueGmv = extra.orders.filter((o) => o.orderStatus !== 'CANCELLED').reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+    }
+  }
+
+  return metrics;
+}
+

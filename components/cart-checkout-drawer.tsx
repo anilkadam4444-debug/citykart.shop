@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Store as StoreIcon,
   Loader2,
+  MapPin,
 } from 'lucide-react';
 import {
   CartItem,
@@ -331,44 +332,44 @@ export function CartCheckoutDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-stone-950/50 backdrop-blur-[2px] flex justify-end"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex justify-end"
       role="dialog"
       aria-modal="true"
       aria-label="Shopping cart and checkout"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#FAF9F6] h-full flex flex-col justify-between border-l border-stone-200 shadow-2xl overflow-hidden"
+        className="w-full max-w-lg bg-[#F8FAFC] h-full flex flex-col justify-between border-l border-slate-200 shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Drawer Header */}
-        <div className="px-6 py-4 bg-white border-b border-stone-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {step === 'checkout' && (
               <button
                 type="button"
                 onClick={() => setStep('cart')}
-                className="p-1.5 -ml-1.5 text-stone-600 hover:text-stone-900 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
+                className="p-1.5 -ml-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                 aria-label="Back to cart"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
             <div>
-              <h2 className="text-base font-semibold text-stone-900">
-                {step === 'cart' && 'Your shopping cart'}
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                {step === 'cart' && 'Your Shopping Cart'}
                 {step === 'checkout' && `Checkout · ${activeStore?.name || 'Local Store'}`}
-                {step === 'confirmed' && `Order #${confirmedOrder?.id} confirmed`}
+                {step === 'confirmed' && `Order #${confirmedOrder?.id} Confirmed`}
               </h2>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-slate-500">
                 {step === 'cart' &&
                   (uniqueStoreIds.length > 1
-                    ? `Items from ${uniqueStoreIds.length} local stores (separate suborders)`
-                    : 'Review your items before proceeding')}
+                    ? `Items from ${uniqueStoreIds.length} local stores (separate store orders)`
+                    : 'Review your neighborhood store items before checkout')}
                 {step === 'checkout' &&
-                  'Pay at door upon delivery · Verified merchant order'}
+                  'Pay at door upon delivery · Direct local merchant fulfillment'}
                 {step === 'confirmed' &&
-                  'The store has received and confirmed your order'}
+                  'The neighborhood store has received and confirmed your order'}
               </p>
             </div>
           </div>
@@ -377,7 +378,7 @@ export function CartCheckoutDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close cart"
-            className="p-2 text-stone-500 hover:text-stone-900 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
+            className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -385,21 +386,21 @@ export function CartCheckoutDrawer({
 
         {/* Free Delivery Progress Bar (per active store) */}
         {step !== 'confirmed' && checkoutItems.length > 0 && activeStore && (
-          <div className="px-6 py-3 bg-[#F3F1EC] border-b border-stone-200">
+          <div className="px-6 py-3 bg-blue-50/70 border-b border-blue-200/60">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-stone-700 font-medium">
+              <span className="text-slate-800 font-semibold">
                 {remainingForFreeDelivery === 0
-                  ? `Free local delivery from ${activeStore.name}!`
+                  ? `Free local delivery unlocked from ${activeStore.name}!`
                   : `Add ${formatCurrency(remainingForFreeDelivery)} more for free delivery from ${activeStore.name}`}
               </span>
-              <span className="font-mono tabular-nums text-stone-500">
+              <span className="font-mono tabular-nums font-semibold text-[#003B8E]">
                 {formatCurrency(Math.min(subtotal, freeThreshold))} /{' '}
                 {formatCurrency(freeThreshold)}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-stone-300/80 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-blue-200/70 rounded-full overflow-hidden">
               <div
-                className="h-full bg-stone-900 transition-transform duration-200 origin-left"
+                className="h-full bg-[#003B8E] transition-transform duration-200 origin-left"
                 style={{
                   transform: `scaleX(${Math.min(1, subtotal / freeThreshold)})`,
                 }}
@@ -409,29 +410,36 @@ export function CartCheckoutDrawer({
         )}
 
         {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 custom-scrollbar">
           {step === 'confirmed' && confirmedOrder ? (
             <div className="space-y-5">
-              <div className="p-5 rounded-xl bg-white border border-stone-200 space-y-3">
-                <div className="flex items-center gap-2.5 text-stone-900">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
-                  <span className="text-sm font-semibold">
-                    Order placed successfully (#{confirmedOrder.id})
-                  </span>
+              <div className="p-5 rounded-2xl bg-white border border-emerald-200 shadow-xs space-y-3">
+                <div className="flex items-center gap-2.5 text-slate-900">
+                  <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold block">
+                      Order placed successfully (#{confirmedOrder.id})
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-semibold">
+                      Direct Store Dispatch Active
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-stone-600 leading-relaxed">
-                  <strong>{confirmedOrder.storeName}</strong> has received your
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  <strong className="text-slate-900">{confirmedOrder.storeName}</strong> has received your
                   order. Your items are being prepared for delivery to{' '}
-                  <strong>
+                  <strong className="text-slate-900">
                     {confirmedOrder.customer.locality},{' '}
                     {confirmedOrder.customer.city}
                   </strong>
                   .
                 </p>
-                <div className="pt-2 border-t border-stone-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
+                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span>Ordered at {confirmedOrder.createdAt}</span>
                   <span>·</span>
-                  <span>
+                  <span className="font-medium text-slate-700">
                     Payment:{' '}
                     {confirmedOrder.paymentMethod === 'UPI_ON_DELIVERY'
                       ? `UPI on delivery (${confirmedOrder.upiId || 'Scan QR at door'})`
@@ -443,53 +451,54 @@ export function CartCheckoutDrawer({
               </div>
 
               {/* Delivery Recipient Details */}
-              <div className="p-5 rounded-xl bg-white border border-stone-200 space-y-2 text-xs">
-                <div className="font-semibold text-stone-900 text-sm">
-                  Delivery address
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 text-xs shadow-2xs">
+                <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-[#003B8E]" />
+                  <span>Delivery Address</span>
                 </div>
-                <div className="text-stone-700">
+                <div className="text-slate-800 font-semibold">
                   {confirmedOrder.customer.fullName} ·{' '}
-                  <span className="font-mono tabular-nums">
+                  <span className="font-mono tabular-nums text-slate-600">
                     {confirmedOrder.customer.phone}
                   </span>
                 </div>
-                <div className="text-stone-600">
+                <div className="text-slate-600 leading-relaxed">
                   {confirmedOrder.customer.address},{' '}
                   {confirmedOrder.customer.locality},{' '}
                   {confirmedOrder.customer.city},{' '}
                   {confirmedOrder.customer.stateRegion},{' '}
                   {confirmedOrder.customer.country} —{' '}
-                  <span className="font-mono tabular-nums">
+                  <span className="font-mono tabular-nums font-medium text-slate-800">
                     {confirmedOrder.customer.postalCode}
                   </span>
                 </div>
                 {confirmedOrder.customer.notes && (
-                  <div className="text-stone-500 pt-1">
-                    Delivery note: {confirmedOrder.customer.notes}
+                  <div className="text-slate-500 pt-1 italic">
+                    Note: {confirmedOrder.customer.notes}
                   </div>
                 )}
               </div>
 
               {/* Itemized Receipt Summary */}
-              <div className="p-5 rounded-xl bg-white border border-stone-200 space-y-3">
-                <div className="text-sm font-semibold text-stone-900">
-                  Order summary
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-3 shadow-2xs">
+                <div className="text-sm font-bold text-slate-900">
+                  Order Summary
                 </div>
-                <div className="divide-y divide-stone-100">
+                <div className="divide-y divide-slate-100">
                   {confirmedOrder.items.map((item) => (
                     <div
                       key={`${item.product.id}-${item.variant}`}
                       className="py-2.5 flex items-center justify-between gap-4 text-xs"
                     >
                       <div>
-                        <div className="font-medium text-stone-900">
+                        <div className="font-semibold text-slate-900">
                           {item.quantity}× {item.product.name}
                         </div>
-                        <div className="text-stone-500">
+                        <div className="text-slate-500">
                           {item.variant} · {item.product.storeName}
                         </div>
                       </div>
-                      <div className="font-mono tabular-nums font-medium text-stone-900">
+                      <div className="font-mono tabular-nums font-semibold text-slate-900">
                         {formatCurrency(
                           item.product.price * item.quantity,
                           item.product.currency
@@ -498,14 +507,14 @@ export function CartCheckoutDrawer({
                     </div>
                   ))}
                 </div>
-                <div className="pt-3 border-t border-stone-200 space-y-1.5 text-xs">
-                  <div className="flex justify-between text-stone-600">
+                <div className="pt-3 border-t border-slate-200 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-600">
                     <span>Items total</span>
                     <span className="font-mono tabular-nums">
                       {formatCurrency(confirmedOrder.subtotal)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-stone-600">
+                  <div className="flex justify-between text-slate-600">
                     <span>Delivery charge</span>
                     <span className="font-mono tabular-nums">
                       {confirmedOrder.deliveryFee === 0
@@ -514,16 +523,16 @@ export function CartCheckoutDrawer({
                     </span>
                   </div>
                   {confirmedOrder.discount > 0 && (
-                    <div className="flex justify-between text-emerald-700">
+                    <div className="flex justify-between text-emerald-700 font-medium">
                       <span>Discount (URBAN10)</span>
                       <span className="font-mono tabular-nums">
                         -{formatCurrency(confirmedOrder.discount)}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm font-semibold text-stone-900 pt-2 border-t border-stone-200">
+                  <div className="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-200">
                     <span>Total to pay on delivery</span>
-                    <span className="font-mono tabular-nums">
+                    <span className="font-mono tabular-nums text-[#003B8E]">
                       {formatCurrency(confirmedOrder.total)}
                     </span>
                   </div>
@@ -532,27 +541,26 @@ export function CartCheckoutDrawer({
             </div>
           ) : items.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-12">
-              <div className="w-12 h-12 rounded-full bg-stone-200/70 flex items-center justify-center text-stone-600 mb-4">
-                <ShoppingBag className="w-5 h-5" />
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#003B8E] mb-4">
+                <ShoppingBag className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-semibold text-stone-900">
-                Your cart is empty.
+              <h3 className="text-base font-bold text-slate-900">
+                Your shopping cart is empty
               </h3>
-              <p className="mt-1 text-xs text-stone-500 max-w-xs">
-                Browse nearby stores in your city and add products to start an
-                order.
+              <p className="mt-1.5 text-xs text-slate-500 max-w-xs leading-relaxed">
+                Explore verified local stores in your city and add daily essentials or neighborhood specialties to start an order.
               </p>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-5 px-4 py-2 text-xs font-medium text-white bg-stone-900 hover:bg-stone-800 rounded-lg transition-colors cursor-pointer"
+                className="mt-5 px-5 py-2.5 text-xs font-bold text-white bg-[#F96302] hover:bg-[#E05500] rounded-xl transition-colors cursor-pointer shadow-xs"
               >
-                Start shopping
+                Explore Local Products
               </button>
             </div>
           ) : step === 'cart' ? (
             /* Multi-Merchant Grouped Cart View */
-            <div className="space-y-6">
+            <div className="space-y-5">
               {uniqueStoreIds.map((storeId) => {
                 const storeItems = itemsByStore.get(storeId) || [];
                 const storeInfo = stores.find((s) => s.id === storeId);
@@ -573,28 +581,31 @@ export function CartCheckoutDrawer({
                 return (
                   <div
                     key={storeId}
-                    className="p-4 rounded-xl bg-white border border-stone-200 space-y-4"
+                    className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-4"
                   >
                     {/* Store Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2">
-                        <StoreIcon className="w-4 h-4 text-stone-700" />
+                        <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#003B8E] shrink-0">
+                          <StoreIcon className="w-3.5 h-3.5" />
+                        </div>
                         <div>
-                          <span className="text-xs font-bold text-stone-900">
+                          <span className="text-xs font-bold text-slate-900 block">
                             {storeInfo?.name || storeItems[0].product.storeName}
                           </span>
-                          <span className="text-[11px] text-stone-500 ml-1.5">
-                            · {storeInfo?.cityName || storeItems[0].product.city}
+                          <span className="text-[11px] text-slate-500">
+                            {storeInfo?.neighborhood ? `${storeInfo.neighborhood}, ` : ''}
+                            {storeInfo?.cityName || storeItems[0].product.city}
                           </span>
                         </div>
                       </div>
-                      <span className="text-xs font-semibold font-mono tabular-nums text-stone-900">
+                      <span className="text-xs font-bold font-mono tabular-nums text-slate-900">
                         {formatCurrency(storeSubtotal)}
                       </span>
                     </div>
 
                     {!storeEligibility.isDeliverable && (
-                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-700" />
                         <span>
                           Does not deliver to {customerLocation.city}. Check coverage below.
@@ -603,7 +614,7 @@ export function CartCheckoutDrawer({
                     )}
 
                     {/* Store Items List */}
-                    <div className="space-y-3">
+                    <div className="space-y-3.5">
                       {storeItems.map((item) => {
                         const inStock =
                           item.product.isAvailable && item.product.stock > 0;
@@ -614,7 +625,7 @@ export function CartCheckoutDrawer({
                             key={`${item.product.id}-${item.variant}`}
                             className="flex gap-3 text-xs"
                           >
-                            <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-stone-200/60 bg-[#F3EFEA]">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100">
                               <ProductStudioArtwork
                                 preset={item.product.artworkPreset}
                                 customImageUrl={item.product.customImageUrl}
@@ -625,7 +636,7 @@ export function CartCheckoutDrawer({
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-1">
-                                <h4 className="font-semibold text-stone-900 truncate">
+                                <h4 className="font-semibold text-slate-900 truncate">
                                   {item.product.name}
                                 </h4>
                                 <button
@@ -634,28 +645,28 @@ export function CartCheckoutDrawer({
                                     onRemoveItem(item.product.id, item.variant)
                                   }
                                   aria-label={`Remove ${item.product.name}`}
-                                  className="text-stone-400 hover:text-stone-700 p-0.5"
+                                  className="text-slate-400 hover:text-red-600 p-0.5 transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
 
-                              <div className="text-stone-500 text-[11px] mt-0.5">
+                              <div className="text-slate-500 text-[11px] mt-0.5">
                                 {item.variant}
                               </div>
 
                               {!inStock ? (
-                                <div className="text-[11px] font-medium text-red-600 mt-1">
+                                <div className="text-[11px] font-semibold text-red-600 mt-1">
                                   Out of stock at store
                                 </div>
                               ) : (
-                                <div className="text-[10px] text-stone-400 mt-0.5">
+                                <div className="text-[10px] text-slate-400 mt-0.5">
                                   Stock: {item.product.stock} available
                                 </div>
                               )}
 
                               <div className="mt-2 flex items-center justify-between">
-                                <div className="inline-flex items-center border border-stone-300 rounded-md bg-[#FAF9F6]">
+                                <div className="inline-flex items-center border border-slate-200 rounded-lg bg-slate-50">
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -666,11 +677,11 @@ export function CartCheckoutDrawer({
                                       )
                                     }
                                     aria-label="Decrease quantity"
-                                    className="p-1 text-stone-600 hover:text-stone-900 cursor-pointer"
+                                    className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-white rounded-l-lg cursor-pointer transition-colors"
                                   >
                                     <Minus className="w-3 h-3" />
                                   </button>
-                                  <span className="px-2 text-xs font-mono tabular-nums font-medium text-stone-900">
+                                  <span className="px-2.5 text-xs font-mono tabular-nums font-bold text-slate-900">
                                     {item.quantity}
                                   </span>
                                   <button
@@ -684,7 +695,7 @@ export function CartCheckoutDrawer({
                                       )
                                     }
                                     aria-label="Increase quantity"
-                                    className="p-1 text-stone-600 hover:text-stone-900 disabled:opacity-30 cursor-pointer"
+                                    className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-white rounded-r-lg disabled:opacity-30 cursor-pointer transition-colors"
                                     title={
                                       isAtMaxStock
                                         ? `Max available stock: ${item.product.stock}`
@@ -695,7 +706,7 @@ export function CartCheckoutDrawer({
                                   </button>
                                 </div>
 
-                                <div className="font-semibold font-mono tabular-nums text-stone-900">
+                                <div className="font-bold font-mono tabular-nums text-slate-900">
                                   {formatCurrency(
                                     item.product.price * item.quantity,
                                     item.product.currency
@@ -709,17 +720,19 @@ export function CartCheckoutDrawer({
                     </div>
 
                     {/* Store Suborder Action */}
-                    <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-3">
-                      <div className="text-[11px] text-stone-500">
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                      <div className="text-[11px] font-medium text-slate-600">
                         Delivery:{' '}
-                        {storeDelivFee === 0 ? 'Free' : formatCurrency(storeDelivFee)}
+                        <span className={storeDelivFee === 0 ? 'text-emerald-700 font-semibold' : 'font-mono tabular-nums'}>
+                          {storeDelivFee === 0 ? 'Free' : formatCurrency(storeDelivFee)}
+                        </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleStartCheckoutForStore(storeId)}
-                        className="px-3 py-1.5 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                       >
-                        <span>Checkout this order</span>
+                        <span>Checkout this store</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
@@ -729,9 +742,9 @@ export function CartCheckoutDrawer({
 
               {/* Promo Code Input */}
               <form onSubmit={handleApplyPromo} className="pt-2">
-                <label className="block text-xs font-medium text-stone-700 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Discount code (Optional — try{' '}
-                  <span className="font-mono">URBAN10</span>)
+                  <span className="font-mono font-bold text-[#003B8E]">URBAN10</span>)
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -739,17 +752,17 @@ export function CartCheckoutDrawer({
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value)}
                     placeholder="Enter discount code"
-                    className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900 font-mono uppercase"
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] font-mono uppercase"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs font-medium text-stone-900 bg-stone-200/80 hover:bg-stone-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold text-slate-800 bg-slate-200/80 hover:bg-slate-300 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     Apply
                   </button>
                 </div>
                 {promoMessage && (
-                  <p className="mt-1.5 text-xs text-stone-600">
+                  <p className="mt-1.5 text-xs font-medium text-[#003B8E]">
                     {promoMessage}
                   </p>
                 )}
@@ -764,22 +777,27 @@ export function CartCheckoutDrawer({
             >
               {/* Selected Store Indicator */}
               {activeStore && (
-                <div className="p-3.5 rounded-xl bg-white border border-stone-200 text-xs flex items-center justify-between">
-                  <div>
-                    <span className="font-semibold text-stone-900">
-                      Ordering from {activeStore.name}
-                    </span>
-                    <p className="text-stone-500 text-[11px] mt-0.5">
-                      {checkoutItems.length} item(s) · {activeStore.cityName}
-                    </p>
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#003B8E] shrink-0">
+                      <StoreIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 block">
+                        Ordering from {activeStore.name}
+                      </span>
+                      <p className="text-slate-500 text-[11px]">
+                        {checkoutItems.length} item(s) · {activeStore.neighborhood}, {activeStore.cityName}
+                      </p>
+                    </div>
                   </div>
                   {uniqueStoreIds.length > 1 && (
                     <button
                       type="button"
                       onClick={() => setStep('cart')}
-                      className="text-stone-700 underline text-xs"
+                      className="text-[#003B8E] font-semibold underline text-xs cursor-pointer"
                     >
-                      Change store
+                      Switch store
                     </button>
                   )}
                 </div>
@@ -787,8 +805,8 @@ export function CartCheckoutDrawer({
 
               {/* Service Area Warning */}
               {activeStore && !isStoreDeliverable && (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2">
-                  <div className="flex items-start gap-2 font-semibold">
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2.5">
+                  <div className="flex items-start gap-2 font-bold">
                     <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                     <span>
                       {activeStore.name} does not deliver to {locality}, {city}
@@ -801,7 +819,7 @@ export function CartCheckoutDrawer({
                   <button
                     type="button"
                     onClick={handleAlignAddressWithStore}
-                    className="px-3 py-1.5 bg-amber-900 text-white rounded-md text-xs font-medium hover:bg-amber-800 transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 bg-amber-900 text-white rounded-lg text-xs font-semibold hover:bg-amber-800 transition-colors cursor-pointer"
                   >
                     Use store&apos;s delivery area
                   </button>
@@ -810,36 +828,35 @@ export function CartCheckoutDrawer({
 
               {/* Payment Method Selection */}
               <div>
-                <div className="text-xs font-semibold text-stone-900 mb-2.5">
-                  1. Payment method (Pay on delivery)
+                <div className="text-xs font-bold text-slate-900 mb-2.5">
+                  1. Payment Method (Pay on Delivery)
                 </div>
                 <div className="grid grid-cols-1 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('UPI_ON_DELIVERY')}
-                    className={`p-3.5 rounded-xl border text-left transition-colors flex items-start justify-between gap-3 cursor-pointer ${
+                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
                       paymentMethod === 'UPI_ON_DELIVERY'
-                        ? 'border-stone-900 bg-white shadow-xs'
-                        : 'border-stone-200 bg-white/60 hover:border-stone-400'
+                        ? 'border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <QrCode className="w-4 h-4 text-stone-900 mt-0.5 shrink-0" />
+                      <QrCode className="w-4 h-4 text-[#003B8E] mt-0.5 shrink-0" />
                       <div>
-                        <div className="text-xs font-semibold text-stone-900">
-                          UPI or QR code on delivery
+                        <div className="text-xs font-bold text-slate-900">
+                          UPI or QR Code on Delivery
                         </div>
-                        <div className="text-xs text-stone-500 mt-0.5">
-                          Scan the delivery person&apos;s QR code when your
-                          order arrives
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          Scan the store delivery person&apos;s QR code when your order arrives
                         </div>
                       </div>
                     </div>
                   </button>
 
                   {paymentMethod === 'UPI_ON_DELIVERY' && (
-                    <div className="px-3.5 py-2.5 rounded-lg bg-[#F3F1EC] border border-stone-200">
-                      <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <div className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Your UPI ID (Optional)
                       </label>
                       <input
@@ -847,7 +864,7 @@ export function CartCheckoutDrawer({
                         value={upiId}
                         onChange={(e) => setUpiId(e.target.value)}
                         placeholder="example: yourname@okicici"
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-md font-mono focus:outline-none focus:border-stone-900"
+                        className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-[#003B8E] focus:bg-white"
                       />
                     </div>
                   )}
@@ -855,20 +872,20 @@ export function CartCheckoutDrawer({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('CASH_ON_DELIVERY')}
-                    className={`p-3.5 rounded-xl border text-left transition-colors flex items-start justify-between gap-3 cursor-pointer ${
+                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
                       paymentMethod === 'CASH_ON_DELIVERY'
-                        ? 'border-stone-900 bg-white shadow-xs'
-                        : 'border-stone-200 bg-white/60 hover:border-stone-400'
+                        ? 'border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <Banknote className="w-4 h-4 text-stone-900 mt-0.5 shrink-0" />
+                      <Banknote className="w-4 h-4 text-[#003B8E] mt-0.5 shrink-0" />
                       <div>
-                        <div className="text-xs font-semibold text-stone-900">
-                          Cash on delivery
+                        <div className="text-xs font-bold text-slate-900">
+                          Cash on Delivery
                         </div>
-                        <div className="text-xs text-stone-500 mt-0.5">
-                          Pay with cash when you receive your order at your door
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          Pay with cash when you receive your order at your doorstep
                         </div>
                       </div>
                     </div>
@@ -877,19 +894,19 @@ export function CartCheckoutDrawer({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('TAP_ON_DELIVERY')}
-                    className={`p-3.5 rounded-xl border text-left transition-colors flex items-start justify-between gap-3 cursor-pointer ${
+                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
                       paymentMethod === 'TAP_ON_DELIVERY'
-                        ? 'border-stone-900 bg-white shadow-xs'
-                        : 'border-stone-200 bg-white/60 hover:border-stone-400'
+                        ? 'border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <Smartphone className="w-4 h-4 text-stone-900 mt-0.5 shrink-0" />
+                      <Smartphone className="w-4 h-4 text-[#003B8E] mt-0.5 shrink-0" />
                       <div>
-                        <div className="text-xs font-semibold text-stone-900">
-                          Card tap on delivery
+                        <div className="text-xs font-bold text-slate-900">
+                          Card Tap on Delivery
                         </div>
-                        <div className="text-xs text-stone-500 mt-0.5">
+                        <div className="text-xs text-slate-500 mt-0.5">
                           Tap your debit/credit card or smartphone POS machine
                         </div>
                       </div>
@@ -899,29 +916,29 @@ export function CartCheckoutDrawer({
               </div>
 
               {/* Customer Delivery Address Form */}
-              <div className="pt-2 border-t border-stone-200 space-y-3">
+              <div className="pt-3 border-t border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-stone-900">
-                    2. Delivery address
+                  <span className="text-xs font-bold text-slate-900">
+                    2. Delivery Address
                   </span>
                   <button
                     type="button"
                     onClick={handleAlignAddressWithStore}
-                    className="text-xs text-stone-600 underline hover:text-stone-900 cursor-pointer"
+                    className="text-xs font-semibold text-[#003B8E] underline hover:text-[#002D6E] cursor-pointer"
                   >
                     Use store&apos;s delivery area
                   </button>
                 </div>
 
                 {formError && (
-                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-800">
                     {formError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Full name *
                     </label>
                     <input
@@ -929,11 +946,11 @@ export function CartCheckoutDrawer({
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Mobile number *
                     </label>
                     <input
@@ -942,14 +959,14 @@ export function CartCheckoutDrawer({
                       placeholder="+91 98204 51290"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg font-mono focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Country *
                     </label>
                     <input
@@ -957,11 +974,11 @@ export function CartCheckoutDrawer({
                       required
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       State / Region *
                     </label>
                     <input
@@ -969,14 +986,14 @@ export function CartCheckoutDrawer({
                       required
                       value={stateRegion}
                       onChange={(e) => setStateRegion(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       City / Town *
                     </label>
                     <input
@@ -984,11 +1001,11 @@ export function CartCheckoutDrawer({
                       required
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Locality / Area *
                     </label>
                     <input
@@ -996,11 +1013,11 @@ export function CartCheckoutDrawer({
                       required
                       value={locality}
                       onChange={(e) => setLocality(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Postal code *
                     </label>
                     <input
@@ -1008,13 +1025,13 @@ export function CartCheckoutDrawer({
                       required
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg font-mono focus:outline-none focus:border-stone-900"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:border-[#003B8E]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Street address, flat / building number *
                   </label>
                   <input
@@ -1022,12 +1039,12 @@ export function CartCheckoutDrawer({
                     required
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-stone-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Delivery notes (Optional)
                   </label>
                   <input
@@ -1035,14 +1052,14 @@ export function CartCheckoutDrawer({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Example: Call on mobile at gate or ring bell #402"
-                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
 
                 {/* Mandatory Seller Responsibility & Terms Acknowledgement */}
-                <div className="pt-3 border-t border-stone-200">
-                  <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200 space-y-2 text-xs">
-                    <label htmlFor="checkout-terms-checkbox" className="flex items-start gap-2.5 cursor-pointer text-stone-800 leading-relaxed">
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="p-3.5 rounded-xl bg-slate-100/90 border border-slate-200/90 space-y-2 text-xs">
+                    <label htmlFor="checkout-terms-checkbox" className="flex items-start gap-2.5 cursor-pointer text-slate-800 leading-relaxed">
                       <input
                         type="checkbox"
                         id="checkout-terms-checkbox"
@@ -1052,15 +1069,15 @@ export function CartCheckoutDrawer({
                           setTermsAcknowledged(e.target.checked);
                           if (e.target.checked) setFormError(null);
                         }}
-                        className="mt-1 w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900 shrink-0 cursor-pointer"
+                        className="mt-1 w-4 h-4 rounded border-slate-300 text-[#003B8E] focus:ring-[#003B8E] shrink-0 cursor-pointer"
                       />
-                      <span className="text-[11px] sm:text-xs text-stone-700">
+                      <span className="text-[11px] sm:text-xs text-slate-600">
                         I understand that Citykart connects buyers with independent sellers. The seller is responsible for accepting and processing my order, product accuracy and quality, packaging, fulfillment and delivery, and handling applicable order-related cancellations, returns and refunds. I understand that Citykart is a marketplace platform and is not ordinarily responsible for the seller&apos;s fulfillment or delivery obligations, subject to applicable law and Citykart&apos;s published policies.{' '}
                         <a
                           href="/terms"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline text-stone-900 font-bold hover:text-emerald-800"
+                          className="underline text-[#003B8E] font-bold hover:text-[#002D6E]"
                         >
                           Terms of Service
                         </a>{' '}
@@ -1069,9 +1086,9 @@ export function CartCheckoutDrawer({
                           href="/delivery-returns"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline text-stone-900 font-bold hover:text-emerald-800"
+                          className="underline text-[#003B8E] font-bold hover:text-[#002D6E]"
                         >
-                          Cancellation & Refund Policy
+                          Cancellation &amp; Refund Policy
                         </a>
                       </span>
                     </label>
@@ -1084,16 +1101,16 @@ export function CartCheckoutDrawer({
 
         {/* Sticky Drawer Footer */}
         {step === 'confirmed' && confirmedOrder ? (
-          <div className="p-6 bg-white border-t border-stone-200 flex items-center gap-3">
+          <div className="p-6 bg-white border-t border-slate-200 flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
                 onViewOrderTracker(confirmedOrder.id);
                 onClose();
               }}
-              className="flex-1 py-3 px-4 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+              className="flex-1 py-3 px-4 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
             >
-              <span>View order status (#{confirmedOrder.id})</span>
+              <span>Track Live Order (#{confirmedOrder.id})</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
@@ -1102,41 +1119,43 @@ export function CartCheckoutDrawer({
                 setStep('cart');
                 onClose();
               }}
-              className="py-3 px-4 rounded-lg border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              Continue shopping
+              Continue Shopping
             </button>
           </div>
         ) : items.length > 0 ? (
-          <div className="p-6 bg-white border-t border-stone-200 space-y-4">
+          <div className="p-6 bg-white border-t border-slate-200 space-y-4">
             <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between text-stone-600">
+              <div className="flex justify-between text-slate-600">
                 <span>
                   Items total ({step === 'checkout' ? activeStore?.name : `${items.length} items`})
                 </span>
-                <span className="font-mono tabular-nums">
+                <span className="font-mono tabular-nums font-medium text-slate-900">
                   {formatCurrency(subtotal)}
                 </span>
               </div>
-              <div className="flex justify-between text-stone-600">
+              <div className="flex justify-between text-slate-600">
                 <span>Delivery charge</span>
-                <span className="font-mono tabular-nums">
-                  {deliveryFee === 0
-                    ? `Free (${formatCurrency(0)})`
-                    : formatCurrency(deliveryFee)}
+                <span className="font-mono tabular-nums font-medium">
+                  {deliveryFee === 0 ? (
+                    <span className="text-emerald-700 font-semibold">Free ({formatCurrency(0)})</span>
+                  ) : (
+                    formatCurrency(deliveryFee)
+                  )}
                 </span>
               </div>
               {discount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-medium">
+                <div className="flex justify-between text-emerald-700 font-semibold">
                   <span>Discount (URBAN10)</span>
                   <span className="font-mono tabular-nums">
                     -{formatCurrency(discount)}
                   </span>
                 </div>
               )}
-              <div className="pt-2 border-t border-stone-200 flex justify-between items-baseline text-sm font-semibold text-stone-900">
+              <div className="pt-2.5 border-t border-slate-200 flex justify-between items-baseline text-sm font-bold text-slate-900">
                 <span>Total to pay on delivery</span>
-                <span className="text-base font-mono tabular-nums">
+                <span className="text-lg font-mono tabular-nums text-[#003B8E]">
                   {formatCurrency(total)}
                 </span>
               </div>
@@ -1149,9 +1168,9 @@ export function CartCheckoutDrawer({
                   setSelectedCheckoutStoreId(uniqueStoreIds[0] || null);
                   setStep('checkout');
                 }}
-                className="w-full py-3 px-5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+                className="w-full py-3.5 px-5 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
               >
-                <span>Continue to checkout</span>
+                <span>Proceed to Checkout</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
@@ -1159,7 +1178,7 @@ export function CartCheckoutDrawer({
                 type="submit"
                 form="order-checkout-form"
                 disabled={isSubmitting || hasOutOfStockItems || hasExceededStockItems}
-                className="w-full py-3 px-5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+                className="w-full py-3.5 px-5 rounded-xl bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
               >
                 {isSubmitting ? (
                   <>
@@ -1170,7 +1189,7 @@ export function CartCheckoutDrawer({
                   <>
                     <ShieldCheck className="w-4 h-4" />
                     <span>
-                      Place order · Pay {formatCurrency(total)} on delivery
+                      Place Order · Pay {formatCurrency(total)} on Delivery
                     </span>
                   </>
                 )}

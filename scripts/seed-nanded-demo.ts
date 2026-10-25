@@ -2,8 +2,10 @@ import {
   FIREBASE_PROJECT_ID,
   FIRESTORE_DATABASE_ID,
   fetchStoresAndProductsFromFirestore,
-  seedNandedDemoCatalogToFirestore,
 } from '../lib/firebase';
+import {
+  seedNandedDemoCatalogToFirestore,
+} from '../lib/seeders';
 import {
   AUTHORITATIVE_STORE_CATEGORIES,
   CustomerShoppingLocation,

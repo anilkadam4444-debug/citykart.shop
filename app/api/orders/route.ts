@@ -1,18 +1,20 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {doc, getDoc} from 'firebase/firestore';
-import {db} from '@/lib/firebase';
+import {collection, doc, getDoc, getDocs, query, where} from 'firebase/firestore';
+import {db, syncOrderToFirestore} from '@/lib/firebase';
 import {
   CartItem,
   evaluateStoreDeliveryEligibility,
-  INITIAL_PRODUCTS,
-  INITIAL_STORES,
   LocalStore,
   OrderRecord,
   OrderStatusHistoryEvent,
   PaymentMethod,
   Product,
 } from '@/lib/catalog-data';
-import {NANDED_DEMO_PRODUCTS, NANDED_DEMO_STORES} from '@/lib/nanded-demo-data';
+import {
+  INITIAL_PRODUCTS,
+  INITIAL_STORES,
+} from '@/lib/initial-data';
+
 
 interface CreateOrderRequestBody {
   storeId: string;
@@ -47,12 +49,12 @@ interface CreateOrderRequestBody {
 
 // In-memory server-side registry of all current stores and products (merging catalog and demo data)
 const ALL_STORES_MAP = new Map<string, LocalStore>();
-for (const s of [...INITIAL_STORES, ...NANDED_DEMO_STORES]) {
+for (const s of INITIAL_STORES) {
   ALL_STORES_MAP.set(s.id, s);
 }
 
 const ALL_PRODUCTS_MAP = new Map<string, Product>();
-for (const p of [...INITIAL_PRODUCTS, ...NANDED_DEMO_PRODUCTS]) {
+for (const p of INITIAL_PRODUCTS) {
   ALL_PRODUCTS_MAP.set(p.id, p);
 }
 
@@ -405,8 +407,9 @@ export async function POST(req: NextRequest) {
         checkoutAcknowledgementVersion || 'seller-responsibility-v1.2',
     };
 
-    // Save in server registry
+    // Save in server registry and persist to Firestore
     serverOrdersRegistry.set(orderId, newOrder);
+    await syncOrderToFirestore(newOrder);
 
     // 9. Generate Seller Notification Record (In-App Order Notification)
     const newNotification: SellerNotification = {
@@ -422,20 +425,23 @@ export async function POST(req: NextRequest) {
     };
     serverNotificationsRegistry.set(newNotification.id, newNotification);
 
-    // 10. Dispatch FCM Push Notifications to Seller and Buyer Devices (Non-blocking)
-    void sendNewOrderPushNotifications({
-      orderId,
-      sellerId: store.sellerId,
-      sellerUid: store.ownerUid || `seller-${store.sellerId}`,
-      buyerUid: buyerUid || undefined,
-      buyerPhone: customer.phone.trim(),
-      storeName: store.name,
-      itemCount: verifiedItems.length,
-      totalAmount: serverTotal,
-      customerName: customer.fullName.trim(),
-    }).catch((pushErr) => {
+    // 10. Dispatch FCM Push Notifications to Seller and Buyer Devices (Safe & Idempotent)
+    let notificationDelivery;
+    try {
+      notificationDelivery = await sendNewOrderPushNotifications(newOrder);
+    } catch (pushErr) {
       console.warn('[Orders API] FCM push notification dispatch warning:', pushErr);
-    });
+      notificationDelivery = {
+        status: 'FCM_SEND_FAILED',
+        idempotentSkip: false,
+        inAppSellerNotificationPersisted: true,
+        sellerTokensFound: 0,
+        sellerSuccessCount: 0,
+        buyerTokensFound: 0,
+        buyerSuccessCount: 0,
+        errors: [pushErr instanceof Error ? pushErr.message : String(pushErr)],
+      };
+    }
 
     // Save in idempotency cache
     if (idempotencyKey) {
@@ -461,6 +467,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       order: newOrder,
       notification: newNotification,
+      notificationDelivery,
       message: `Order #${orderId} verified and placed successfully with ${store.name}.`,
     });
   } catch (error) {
@@ -488,23 +495,84 @@ export async function GET(req: NextRequest) {
   const fetchType = searchParams.get('type'); // 'notifications' | undefined
 
   if (fetchType === 'notifications') {
-    let notifs = Array.from(serverNotificationsRegistry.values());
-    if (sellerId) {
-      notifs = notifs.filter((n) => n.sellerId === sellerId);
+    const notifMap = new Map<string, SellerNotification>();
+    for (const n of serverNotificationsRegistry.values()) {
+      if (!sellerId || n.sellerId === sellerId) {
+        notifMap.set(n.id, n);
+      }
     }
-    notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    try {
+      const notifCol = collection(db, 'sellerNotifications');
+      const q = sellerId
+        ? query(notifCol, where('sellerId', '==', sellerId))
+        : notifCol;
+      const snap = await getDocs(q);
+      snap.forEach((docSnap) => {
+        const d = docSnap.data() as SellerNotification;
+        if (d && d.id) {
+          notifMap.set(d.id, d);
+          serverNotificationsRegistry.set(d.id, d);
+        }
+      });
+    } catch {
+      // Ignore Firestore read warning
+    }
+    const notifs = Array.from(notifMap.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
     return NextResponse.json({ok: true, notifications: notifs});
   }
 
   if (orderId) {
-    const ord = serverOrdersRegistry.get(orderId);
+    let ord = serverOrdersRegistry.get(orderId);
+    if (!ord) {
+      try {
+        const snap = await getDoc(doc(db, 'orders', orderId));
+        if (snap.exists()) {
+          ord = snap.data() as OrderRecord;
+          serverOrdersRegistry.set(orderId, ord);
+        }
+      } catch {
+        // Ignore
+      }
+    }
     if (!ord) {
       return NextResponse.json({ok: false, error: 'Order not found'}, {status: 404});
     }
     return NextResponse.json({ok: true, order: ord});
   }
 
-  let list = Array.from(serverOrdersRegistry.values());
+  const orderMap = new Map<string, OrderRecord>();
+  for (const o of serverOrdersRegistry.values()) {
+    orderMap.set(o.id, o);
+  }
+
+  try {
+    const ordersCol = collection(db, 'orders');
+    if (sellerId) {
+      const snap = await getDocs(query(ordersCol, where('sellerId', '==', sellerId)));
+      snap.forEach((d) => {
+        const ord = d.data() as OrderRecord;
+        if (ord?.id) orderMap.set(ord.id, ord);
+      });
+    } else if (storeId) {
+      const snap = await getDocs(query(ordersCol, where('storeId', '==', storeId)));
+      snap.forEach((d) => {
+        const ord = d.data() as OrderRecord;
+        if (ord?.id) orderMap.set(ord.id, ord);
+      });
+    } else if (buyerUid) {
+      const snap = await getDocs(query(ordersCol, where('buyerUid', '==', buyerUid)));
+      snap.forEach((d) => {
+        const ord = d.data() as OrderRecord;
+        if (ord?.id) orderMap.set(ord.id, ord);
+      });
+    }
+  } catch {
+    // Ignore Firestore query fallback errors
+  }
+
+  let list = Array.from(orderMap.values());
 
   if (sellerId) {
     list = list.filter((o) => o.sellerId === sellerId);

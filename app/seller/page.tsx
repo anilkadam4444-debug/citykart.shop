@@ -189,40 +189,45 @@ export default function SellerEntryPage() {
   };
 
   return (
-    <div className="w-full min-h-dvh flex flex-col bg-[#FAF9F6] text-stone-900">
+    <div className="w-full min-h-dvh flex flex-col bg-[#F8FAFC] text-slate-900">
       {/* Dedicated Seller Entry Header */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-xs border-b border-stone-200">
+      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
         <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3.5">
             <Link
               href="/"
               className="flex items-center gap-2 group"
             >
               <Image
-                src="/citykart-logo.png"
+                src="/citykart-icon.png"
                 alt="Citykart"
-                width={150}
-                height={38}
-                className="h-8 w-auto object-contain"
+                width={32}
+                height={32}
+                className="w-8 h-8 object-contain"
                 priority
               />
+              <span className="text-lg font-extrabold tracking-tight leading-none">
+                <span className="text-[#003B8E]">City</span>
+                <span className="text-[#F96302]">kart</span>
+                <span className="text-[10px] font-bold text-slate-400">.shop</span>
+              </span>
             </Link>
-            <span className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 border border-stone-200 text-stone-700">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200/80 text-[#003B8E]">
               For Sellers
             </span>
           </div>
 
           <div className="flex items-center gap-3 text-xs">
             {isMounted && authenticatedUser && (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-200 bg-[#FAF9F6]">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50">
                 <Phone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                <span className="font-medium text-stone-900">
+                <span className="font-bold text-slate-900">
                   {authenticatedUser.fullName}
                 </span>
-                <span className="font-mono text-stone-500 hidden sm:inline">
+                <span className="font-mono text-slate-500 hidden sm:inline">
                   ({authenticatedUser.phoneE164})
                 </span>
-                <span aria-hidden="true" className="text-stone-300">
+                <span aria-hidden="true" className="text-slate-300">
                   ·
                 </span>
                 <button
@@ -232,7 +237,7 @@ export default function SellerEntryPage() {
                     setAccountStateNotice(null);
                     void handleSignOutOtpSession();
                   }}
-                  className="text-stone-600 hover:text-stone-900 underline cursor-pointer"
+                  className="text-slate-600 hover:text-slate-900 underline cursor-pointer font-semibold"
                 >
                   Sign out
                 </button>
@@ -241,14 +246,14 @@ export default function SellerEntryPage() {
 
             <Link
               href="/pricing"
-              className="px-3.5 py-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 font-medium text-stone-800 transition-colors"
+              className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 font-bold text-slate-700 transition-colors"
             >
-              Plans & Pricing
+              Plans &amp; Pricing
             </Link>
 
             <Link
               href="/"
-              className="px-3.5 py-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-100 font-medium text-stone-800 inline-flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 font-bold text-slate-700 inline-flex items-center gap-1.5 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to shopping</span>
@@ -258,18 +263,18 @@ export default function SellerEntryPage() {
       </header>
 
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8">
-        {/* Hero Heading & Supporting Text (Required by Prompt 7 Section 3) */}
+        {/* Hero Heading & Supporting Text */}
         <section className="text-center max-w-2xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-white border border-stone-200 text-xs font-medium text-stone-700">
-            <Store className="w-3.5 h-3.5 text-stone-900" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200/80 text-xs font-bold text-[#003B8E]">
+            <Store className="w-3.5 h-3.5 text-[#003B8E]" />
             <span>Local Retail Partner Gateway</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-stone-900">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900">
             Manage your store with Citykart
           </h1>
-          <p className="text-sm sm:text-base text-stone-600 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
             Reach customers in your city, list your products, and manage your
-            orders in one place.
+            orders in one place with zero commission on sales.
           </p>
         </section>
 
@@ -277,22 +282,22 @@ export default function SellerEntryPage() {
         {isMounted && authenticatedUser && (
           <section className="max-w-3xl mx-auto">
             {hasCompletedStore && primaryOwnedStore ? (
-              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-stone-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                     <Check className="w-4 h-4 text-emerald-700" />
                     <span>
                       Verified Seller Account ({authenticatedUser.phoneE164})
                     </span>
                   </div>
-                  <h2 className="text-lg font-semibold text-stone-900 flex items-center gap-2">
+                  <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
                     <CategoryIcon
                       categoryIdOrName={primaryOwnedStore.categoryId}
-                      className="w-4 h-4 text-stone-800"
+                      className="w-4 h-4 text-[#003B8E]"
                     />
                     <span>{primaryOwnedStore.name}</span>
                   </h2>
-                  <p className="text-xs text-stone-600">
+                  <p className="text-xs text-slate-600">
                     {primaryOwnedStore.category} ·{' '}
                     {primaryOwnedStore.neighborhood},{' '}
                     {primaryOwnedStore.cityName}, {primaryOwnedStore.country}
@@ -302,7 +307,7 @@ export default function SellerEntryPage() {
                 <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                   <Link
                     href="/seller/dashboard"
-                    className="px-5 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-colors"
+                    className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 transition-colors shadow-xs"
                   >
                     <span>Go to Seller Dashboard</span>
                     <ArrowRight className="w-4 h-4" />
@@ -310,9 +315,9 @@ export default function SellerEntryPage() {
                 </div>
               </div>
             ) : (
-              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs shadow-2xs">
                 <div className="space-y-1">
-                  <div className="font-semibold text-stone-900 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-emerald-700" />
                     <span>
                       Signed in as {authenticatedUser.fullName} (
@@ -322,7 +327,7 @@ export default function SellerEntryPage() {
                       )
                     </span>
                   </div>
-                  <p className="text-stone-600">
+                  <p className="text-slate-600">
                     {isIncompleteSellerAccount
                       ? 'Your seller profile is verified, but your store setup is incomplete. Finish registering your store below to unlock your Seller Dashboard.'
                       : 'This mobile number is currently a buyer account with no registered store. You can open a store below using this same verified mobile number.'}
@@ -332,7 +337,7 @@ export default function SellerEntryPage() {
                   <button
                     type="button"
                     onClick={() => setIsOpeningNewStore(true)}
-                    className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-medium inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Open a store</span>
@@ -350,7 +355,7 @@ export default function SellerEntryPage() {
               <div className="flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <div className="font-semibold">
+                  <div className="font-bold">
                     {accountStateNotice.type === 'BUYER_NO_STORE'
                       ? 'No store registered on this mobile number yet'
                       : accountStateNotice.type === 'DUPLICATE_STORE_PREVENTED'
@@ -371,7 +376,7 @@ export default function SellerEntryPage() {
                       setAccountStateNotice(null);
                       setIsOpeningNewStore(true);
                     }}
-                    className="px-4 py-2 rounded-lg bg-stone-900 text-white font-medium cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white font-bold cursor-pointer"
                   >
                     Open a store now
                   </button>
@@ -379,7 +384,7 @@ export default function SellerEntryPage() {
                 {accountStateNotice.type === 'DUPLICATE_STORE_PREVENTED' && (
                   <Link
                     href="/seller/dashboard"
-                    className="px-4 py-2 rounded-lg bg-stone-900 text-white font-medium inline-flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white font-bold inline-flex items-center gap-1.5"
                   >
                     <span>Open Seller Dashboard</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -394,14 +399,14 @@ export default function SellerEntryPage() {
         {showOnboardingWizard ? (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-stone-900">
+              <h2 className="text-lg font-extrabold text-slate-900">
                 Complete your store registration
               </h2>
               {!isIncompleteSellerAccount && (
                 <button
                   type="button"
                   onClick={() => setIsOpeningNewStore(false)}
-                  className="text-xs font-medium text-stone-600 hover:text-stone-900 underline cursor-pointer"
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
                 >
                   Cancel and return to seller options
                 </button>
@@ -453,20 +458,20 @@ export default function SellerEntryPage() {
             className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto"
           >
             {/* OPTION 1 — EXISTING SELLER: "Sign in to your store" */}
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-stone-400 transition-colors">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-[#003B8E]/40 hover:shadow-md transition-all">
               <div className="space-y-4">
-                <div className="w-11 h-11 rounded-xl bg-[#FAF9F6] border border-stone-200 flex items-center justify-center text-stone-900">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-200/70 flex items-center justify-center text-[#003B8E]">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-stone-500">
+                  <div className="text-xs font-bold uppercase tracking-wider text-[#003B8E]">
                     Existing seller
                   </div>
-                  <h2 className="text-xl font-semibold text-stone-900">
+                  <h2 className="text-xl font-extrabold text-slate-900">
                     Sign in to your store
                   </h2>
-                  <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                     Already registered your shop on Citykart? Verify your
                     mobile number with a one-time password (OTP) to access your
                     Seller Dashboard, manage products, and fulfill customer
@@ -474,7 +479,7 @@ export default function SellerEntryPage() {
                   </p>
                 </div>
 
-                <ul className="space-y-2 pt-2 border-t border-stone-100 text-xs text-stone-600">
+                <ul className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>Mobile number &amp; 6-digit OTP verification</span>
@@ -494,7 +499,7 @@ export default function SellerEntryPage() {
                 <button
                   type="button"
                   onClick={handleSignInToStore}
-                  className="w-full py-3 px-5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs sm:text-sm font-medium transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Phone className="w-4 h-4" />
                   <span>
@@ -516,7 +521,7 @@ export default function SellerEntryPage() {
                         },
                       })
                     }
-                    className="w-full py-2 text-xs text-stone-600 hover:text-stone-900 underline cursor-pointer"
+                    className="w-full py-2 text-xs text-slate-600 hover:text-slate-900 underline cursor-pointer font-semibold"
                   >
                     Sign in with a different seller mobile number
                   </button>
@@ -525,27 +530,27 @@ export default function SellerEntryPage() {
             </div>
 
             {/* OPTION 2 — NEW SELLER: "Open a store" */}
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-stone-400 transition-colors">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-[#F96302]/40 hover:shadow-md transition-all">
               <div className="space-y-4">
-                <div className="w-11 h-11 rounded-xl bg-[#FAF9F6] border border-stone-200 flex items-center justify-center text-stone-900">
+                <div className="w-11 h-11 rounded-xl bg-orange-50 border border-orange-200/70 flex items-center justify-center text-[#F96302]">
                   <Store className="w-5 h-5" />
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-stone-500">
+                  <div className="text-xs font-bold uppercase tracking-wider text-[#F96302]">
                     New to Citykart?
                   </div>
-                  <h2 className="text-xl font-semibold text-stone-900">
+                  <h2 className="text-xl font-extrabold text-slate-900">
                     Open a store
                   </h2>
-                  <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                     Create your online storefront in minutes. Verify your mobile
                     number, choose from 25 retail categories, set your city or
                     town delivery area, and start receiving local orders.
                   </p>
                 </div>
 
-                <ul className="space-y-2 pt-2 border-t border-stone-100 text-xs text-stone-600">
+                <ul className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>All 25 local retail &amp; essential categories</span>
@@ -569,12 +574,12 @@ export default function SellerEntryPage() {
                 <button
                   type="button"
                   onClick={handleOpenStoreOption}
-                  className="w-full py-3 px-5 rounded-xl border border-stone-900 bg-[#FAF9F6] hover:bg-stone-900 hover:text-white text-stone-900 text-xs sm:text-sm font-medium transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-5 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Open a store</span>
                 </button>
-                <p className="text-[11px] text-stone-500 text-center">
+                <p className="text-[11px] text-slate-500 text-center">
                   Uses mobile OTP verification only — no email or password
                   needed.
                 </p>
@@ -584,34 +589,34 @@ export default function SellerEntryPage() {
         )}
 
         {/* Overview of What Sellers Can Manage Inside /seller/dashboard */}
-        <section className="max-w-4xl mx-auto pt-4 border-t border-stone-200">
+        <section className="max-w-4xl mx-auto pt-4 border-t border-slate-200">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div className="p-4 rounded-xl bg-white border border-stone-200 space-y-1">
-              <div className="font-semibold text-stone-900 flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" />
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1 shadow-2xs">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-[#003B8E]" />
                 <span>Products &amp; Stock</span>
               </div>
-              <p className="text-stone-600">
+              <p className="text-slate-600 leading-relaxed">
                 List items with INR pricing, upload photos, and mark products in
                 or out of stock anytime.
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-stone-200 space-y-1">
-              <div className="font-semibold text-stone-900 flex items-center gap-1.5">
-                <ShoppingBag className="w-3.5 h-3.5" />
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1 shadow-2xs">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <ShoppingBag className="w-3.5 h-3.5 text-[#003B8E]" />
                 <span>Local Order Fulfillment</span>
               </div>
-              <p className="text-stone-600">
+              <p className="text-slate-600 leading-relaxed">
                 Receive direct orders from nearby buyers and update status from
                 Confirmed to Delivered.
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-stone-200 space-y-1">
-              <div className="font-semibold text-stone-900 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1 shadow-2xs">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#003B8E]" />
                 <span>City &amp; Neighborhood Control</span>
               </div>
-              <p className="text-stone-600">
+              <p className="text-slate-600 leading-relaxed">
                 Define the exact neighborhoods, towns, or radius your shop
                 delivers to.
               </p>

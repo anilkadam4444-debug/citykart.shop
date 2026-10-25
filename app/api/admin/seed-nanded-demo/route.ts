@@ -3,14 +3,25 @@ import {
   FIREBASE_PROJECT_ID,
   FIRESTORE_DATABASE_ID,
   fetchStoresAndProductsFromFirestore,
+} from '@/lib/firebase';
+import {
   removeNandedDemoCatalogFromFirestore,
   seedNandedDemoCatalogToFirestore,
-} from '@/lib/firebase';
+} from '@/lib/seeders';
 import {getNandedDemoDatasetSummary} from '@/lib/nanded-demo-data';
+import {recordAdminAuditLog, verifySuperAdminRequest} from '@/lib/super-admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authCheck = await verifySuperAdminRequest(req);
+  if (!authCheck.authorized) {
+    return NextResponse.json(
+      {ok: false, error: authCheck.reason},
+      {status: authCheck.status}
+    );
+  }
+
   try {
     const summary = getNandedDemoDatasetSummary();
     const liveData = await fetchStoresAndProductsFromFirestore();
@@ -22,6 +33,7 @@ export async function GET() {
     ).length;
 
     return NextResponse.json({
+      ok: true,
       projectId: FIREBASE_PROJECT_ID,
       firestoreDatabaseId: FIRESTORE_DATABASE_ID,
       summary,
@@ -35,6 +47,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       {
+        ok: false,
         error:
           error instanceof Error
             ? error.message
@@ -46,13 +59,31 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const authCheck = await verifySuperAdminRequest(req);
+  if (!authCheck.authorized || !authCheck.firebaseUid) {
+    return NextResponse.json(
+      {ok: false, error: authCheck.reason},
+      {status: authCheck.status}
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
-    const action = String(body.action || 'SEED');
+    const action = String(body.action || 'SEED').toUpperCase();
 
-    if (action === 'REMOVE_DEMO') {
+    if (action === 'REMOVE_DEMO' || action === 'REMOVE') {
       const removed = await removeNandedDemoCatalogFromFirestore();
+      await recordAdminAuditLog({
+        adminUid: authCheck.firebaseUid,
+        actionType: 'REMOVE_DEMO_DATA',
+        targetEntityType: 'SYSTEM',
+        targetEntityId: 'nanded-25-cat-demo-v1',
+        status: 'SUCCESS',
+        reason: 'Removed Nanded demo dataset via admin endpoint.',
+        metadata: removed,
+      });
       return NextResponse.json({
+        ok: true,
         status: 'DEMO_DATA_REMOVED',
         projectId: FIREBASE_PROJECT_ID,
         ...removed,
@@ -61,8 +92,21 @@ export async function POST(req: NextRequest) {
 
     const result = await seedNandedDemoCatalogToFirestore();
     const summary = getNandedDemoDatasetSummary();
+    await recordAdminAuditLog({
+      adminUid: authCheck.firebaseUid,
+      actionType: 'SEED_DEMO_DATA',
+      targetEntityType: 'SYSTEM',
+      targetEntityId: result.batchId,
+      status: 'SUCCESS',
+      reason: 'Seeded Nanded demo dataset via admin endpoint.',
+      metadata: {
+        storesWritten: result.storesWritten,
+        productsWritten: result.productsWritten,
+      },
+    });
 
     return NextResponse.json({
+      ok: true,
       status: 'DEMO_DATA_SEEDED',
       projectId: FIREBASE_PROJECT_ID,
       firestoreDatabaseId: FIRESTORE_DATABASE_ID,
@@ -72,6 +116,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
+        ok: false,
         error:
           error instanceof Error
             ? error.message

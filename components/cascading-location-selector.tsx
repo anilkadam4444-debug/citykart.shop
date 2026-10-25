@@ -517,7 +517,7 @@ export function CascadingLocationSelector({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* STEP 1: COUNTRY SELECTOR */}
         <div className="relative space-y-1">
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block text-xs font-semibold text-slate-700">
             1. Country
           </label>
           <div className="relative">
@@ -529,43 +529,43 @@ export function CascadingLocationSelector({
                 setDistrictDropdownOpen(false);
                 setCityDropdownOpen(false);
               }}
-              className="w-full py-2.5 px-3 bg-white border border-stone-300 rounded-xl text-xs text-left font-medium text-stone-900 flex items-center justify-between shadow-2xs hover:border-stone-400 focus:outline-hidden focus:ring-1 focus:ring-stone-900"
+              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs text-left font-medium text-slate-900 flex items-center justify-between shadow-2xs hover:border-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#003B8E] cursor-pointer"
             >
               <span className="truncate flex items-center gap-2">
-                <Globe className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                <Globe className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
                 <span>{currentCountry.name}</span>
-                <span className="text-[10px] font-mono text-stone-400">({currentCountry.code})</span>
+                <span className="text-[10px] font-mono text-slate-400">({currentCountry.code})</span>
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </button>
 
             {countryDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                <div className="p-2 border-b border-stone-100 bg-stone-50">
+              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="p-2 border-b border-slate-100 bg-slate-50">
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       autoFocus
                       value={countrySearch}
                       onChange={(e) => setCountrySearch(e.target.value)}
                       placeholder="Search country..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg focus:outline-hidden"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
                     />
                   </div>
                 </div>
-                <div className="max-h-56 overflow-y-auto divide-y divide-stone-50 text-xs">
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
                   {filteredCountries.map((c) => (
                     <button
                       key={c.code}
                       type="button"
                       onClick={() => handleSelectCountry(c)}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-stone-100 transition-colors cursor-pointer ${
-                        c.code === selectedCountryCode ? 'bg-stone-50 font-bold text-stone-900' : 'text-stone-700'
+                      className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
+                        c.code === selectedCountryCode ? 'bg-blue-50/70 font-bold text-[#003B8E]' : 'text-slate-700'
                       }`}
                     >
                       <span className="truncate">{c.name}</span>
-                      <span className="text-[10px] font-mono text-stone-400">{c.code}</span>
+                      <span className="text-[10px] font-mono text-slate-400">{c.code}</span>
                     </button>
                   ))}
                 </div>
@@ -576,7 +576,7 @@ export function CascadingLocationSelector({
 
         {/* STEP 2: STATE / PROVINCE / REGION SELECTOR */}
         <div className="relative space-y-1">
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block text-xs font-semibold text-slate-700">
             2. {currentCountry.regionLabel}
           </label>
           <div className="relative">
@@ -589,32 +589,32 @@ export function CascadingLocationSelector({
                 setDistrictDropdownOpen(false);
                 setCityDropdownOpen(false);
               }}
-              className="w-full py-2.5 px-3 bg-white border border-stone-300 rounded-xl text-xs text-left font-medium text-stone-900 flex items-center justify-between shadow-2xs hover:border-stone-400 focus:outline-hidden focus:ring-1 focus:ring-stone-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs text-left font-medium text-slate-900 flex items-center justify-between shadow-2xs hover:border-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#003B8E] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
               <span className="truncate">
                 {selectedRegionName || `Select ${currentCountry.regionLabel}...`}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </button>
 
             {regionDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                <div className="p-2 border-b border-stone-100 bg-stone-50">
+              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="p-2 border-b border-slate-100 bg-slate-50">
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       autoFocus
                       value={regionSearch}
                       onChange={(e) => setRegionSearch(e.target.value)}
                       placeholder={`Search ${currentCountry.regionLabel.toLowerCase()}...`}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg focus:outline-hidden"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
                     />
                   </div>
                 </div>
-                <div className="max-h-56 overflow-y-auto divide-y divide-stone-50 text-xs">
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
                   {filteredRegions.length === 0 ? (
-                    <div className="p-3 text-center text-stone-400 text-xs">
+                    <div className="p-3 text-center text-slate-400 text-xs">
                       No matching {currentCountry.regionLabel.toLowerCase()} found.
                     </div>
                   ) : (
@@ -623,13 +623,13 @@ export function CascadingLocationSelector({
                         key={r.name}
                         type="button"
                         onClick={() => handleSelectRegion(r)}
-                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-stone-100 transition-colors cursor-pointer ${
-                          r.name === selectedRegionName ? 'bg-stone-50 font-bold text-stone-900' : 'text-stone-700'
+                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
+                          r.name === selectedRegionName ? 'bg-blue-50/70 font-bold text-[#003B8E]' : 'text-slate-700'
                         }`}
                       >
                         <span className="truncate">{r.name}</span>
                         {r.regionType && (
-                          <span className="text-[10px] text-stone-400">{r.regionType}</span>
+                          <span className="text-[10px] text-slate-400">{r.regionType}</span>
                         )}
                       </button>
                     ))
@@ -642,7 +642,7 @@ export function CascadingLocationSelector({
 
         {/* STEP 3: DISTRICT / COUNTY / EQUIVALENT AREA SELECTOR */}
         <div className="relative space-y-1">
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block text-xs font-semibold text-slate-700">
             3. {currentCountry.districtLabel || 'District / County'}
           </label>
           <div className="relative">
@@ -655,41 +655,41 @@ export function CascadingLocationSelector({
                 setRegionDropdownOpen(false);
                 setCityDropdownOpen(false);
               }}
-              className="w-full py-2.5 px-3 bg-white border border-stone-300 rounded-xl text-xs text-left font-medium text-stone-900 flex items-center justify-between shadow-2xs hover:border-stone-400 focus:outline-hidden focus:ring-1 focus:ring-stone-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs text-left font-medium text-slate-900 flex items-center justify-between shadow-2xs hover:border-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#003B8E] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
               <span className="truncate">
                 {selectedDistrict || `All ${currentCountry.districtLabel || 'Districts'} (Optional)`}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </button>
 
             {districtDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[240px]">
-                <div className="p-2 border-b border-stone-100 bg-stone-50">
+              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[240px]">
+                <div className="p-2 border-b border-slate-100 bg-slate-50">
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       autoFocus
                       value={districtSearch}
                       onChange={(e) => setDistrictSearch(e.target.value)}
                       placeholder={`Search ${currentCountry.districtLabel.toLowerCase()}...`}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg focus:outline-hidden"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
                     />
                   </div>
                 </div>
-                <div className="max-h-56 overflow-y-auto divide-y divide-stone-50 text-xs">
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
                   <button
                     type="button"
                     onClick={() => handleSelectDistrict('')}
-                    className={`w-full px-3 py-2 text-left italic text-stone-500 hover:bg-stone-100 transition-colors cursor-pointer ${
-                      !selectedDistrict ? 'bg-stone-50 font-bold text-stone-900' : ''
+                    className={`w-full px-3 py-2 text-left italic text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer ${
+                      !selectedDistrict ? 'bg-blue-50/70 font-bold text-[#003B8E]' : ''
                     }`}
                   >
                     All {currentCountry.districtLabel || 'Districts'}
                   </button>
                   {filteredDistricts.length === 0 ? (
-                    <div className="p-3 text-center text-stone-400 text-xs">
+                    <div className="p-3 text-center text-slate-400 text-xs">
                       No district pre-indexed. You can select a city directly or type a custom district.
                     </div>
                   ) : (
@@ -698,13 +698,13 @@ export function CascadingLocationSelector({
                         key={d.name}
                         type="button"
                         onClick={() => handleSelectDistrict(d.name)}
-                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-stone-100 transition-colors cursor-pointer ${
-                          d.name === selectedDistrict ? 'bg-stone-50 font-bold text-stone-900' : 'text-stone-700'
+                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
+                          d.name === selectedDistrict ? 'bg-blue-50/70 font-bold text-[#003B8E]' : 'text-slate-700'
                         }`}
                       >
                         <span className="truncate">{d.name}</span>
                         {d.districtType && (
-                          <span className="text-[10px] text-stone-400">{d.districtType}</span>
+                          <span className="text-[10px] text-slate-400">{d.districtType}</span>
                         )}
                       </button>
                     ))
@@ -717,7 +717,7 @@ export function CascadingLocationSelector({
 
         {/* STEP 4: CITY / TOWN SELECTOR */}
         <div className="relative space-y-1">
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block text-xs font-semibold text-slate-700">
             4. City / Town
           </label>
           <div className="relative">
@@ -730,41 +730,41 @@ export function CascadingLocationSelector({
                 setRegionDropdownOpen(false);
                 setDistrictDropdownOpen(false);
               }}
-              className="w-full py-2.5 px-3 bg-white border border-stone-300 rounded-xl text-xs text-left font-medium text-stone-900 flex items-center justify-between shadow-2xs hover:border-stone-400 focus:outline-hidden focus:ring-1 focus:ring-stone-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs text-left font-medium text-slate-900 flex items-center justify-between shadow-2xs hover:border-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#003B8E] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
               <span className="truncate flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
                 <span>{selectedCityName || 'Select city or town...'}</span>
               </span>
               <div className="flex items-center gap-1">
-                {isLoadingCities && <Loader2 className="w-3 h-3 text-stone-400 animate-spin" />}
-                <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                {isLoadingCities && <Loader2 className="w-3 h-3 text-slate-400 animate-spin" />}
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               </div>
             </button>
 
             {cityDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[280px]">
-                <div className="p-2 border-b border-stone-100 bg-stone-50 space-y-1.5">
+              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[280px]">
+                <div className="p-2 border-b border-slate-100 bg-slate-50 space-y-1.5">
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       autoFocus
                       value={citySearch}
                       onChange={(e) => setCitySearch(e.target.value)}
                       placeholder="Search city, town or village..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg focus:outline-hidden"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
                     />
                   </div>
-                  <div className="text-[10px] text-stone-500 px-1">
+                  <div className="text-[10px] text-slate-500 px-1">
                     Showing places in {selectedRegionName}, {currentCountry.name}
                   </div>
                 </div>
 
-                <div className="max-h-56 overflow-y-auto divide-y divide-stone-50 text-xs">
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
                   {filteredCities.length === 0 ? (
                     <div className="p-4 text-center space-y-2">
-                      <p className="text-stone-500 text-xs">
+                      <p className="text-slate-500 text-xs">
                         No city or town found matching &ldquo;{citySearch}&rdquo; in {selectedRegionName}.
                       </p>
                       <button
@@ -775,7 +775,7 @@ export function CascadingLocationSelector({
                           setCustomRegionInput(selectedRegionName);
                           setIsMissingModalOpen(true);
                         }}
-                        className="text-xs font-semibold text-stone-900 underline hover:text-stone-700 cursor-pointer"
+                        className="text-xs font-semibold text-[#003B8E] underline hover:text-[#002D6E] cursor-pointer"
                       >
                         + Request or add missing city
                       </button>
@@ -786,21 +786,21 @@ export function CascadingLocationSelector({
                         key={city.cityId}
                         type="button"
                         onClick={() => handleSelectCity(city)}
-                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-stone-100 transition-colors cursor-pointer ${
+                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
                           city.cityName.toLowerCase() === selectedCityName.toLowerCase()
-                            ? 'bg-stone-50 font-bold text-stone-900'
-                            : 'text-stone-700'
+                            ? 'bg-blue-50/70 font-bold text-[#003B8E]'
+                            : 'text-slate-700'
                         }`}
                       >
                         <div className="truncate pr-2">
-                          <span className="font-medium text-stone-900">{city.cityName}</span>
+                          <span className="font-medium text-slate-900">{city.cityName}</span>
                           {city.district && city.district !== city.cityName && (
-                            <span className="text-[11px] text-stone-500 block truncate">
+                            <span className="text-[11px] text-slate-500 block truncate">
                               {city.district}
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] font-mono text-stone-400 shrink-0 uppercase">
+                        <span className="text-[10px] font-mono text-slate-400 shrink-0 uppercase">
                           {city.localityType || 'CITY'}
                         </span>
                       </button>
@@ -809,7 +809,7 @@ export function CascadingLocationSelector({
                 </div>
 
                 {/* Footer link to add a missing location */}
-                <div className="p-2 border-t border-stone-100 bg-stone-50 text-center">
+                <div className="p-2 border-t border-slate-100 bg-slate-50 text-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -818,9 +818,9 @@ export function CascadingLocationSelector({
                       setCustomRegionInput(selectedRegionName);
                       setIsMissingModalOpen(true);
                     }}
-                    className="text-[11px] font-medium text-stone-700 hover:text-stone-950 inline-flex items-center gap-1 cursor-pointer"
+                    className="text-[11px] font-semibold text-[#003B8E] hover:text-[#002D6E] inline-flex items-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3 h-3 text-stone-600" />
+                    <Plus className="w-3 h-3" />
                     <span>Don&apos;t see your town or village? Add it</span>
                   </button>
                 </div>
@@ -834,7 +834,7 @@ export function CascadingLocationSelector({
       {shouldShowLocality && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           <div className="space-y-1">
-            <label className="block text-xs font-semibold text-stone-700">
+            <label className="block text-xs font-semibold text-slate-700">
               {localityLabel}
             </label>
             <input
@@ -845,12 +845,12 @@ export function CascadingLocationSelector({
                 emitChange({ locality: e.target.value });
               }}
               placeholder="e.g. Vazirabad, Bandra West, Downtown, Kothrud"
-              className="w-full py-2.5 px-3 bg-white border border-stone-300 rounded-xl text-xs font-medium text-stone-900 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-stone-900"
+              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-[#003B8E]"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-semibold text-stone-700">
+            <label className="block text-xs font-semibold text-slate-700">
               {currentCountry.postalLabel}
             </label>
             <input
@@ -861,7 +861,7 @@ export function CascadingLocationSelector({
                 emitChange({ postalCode: e.target.value });
               }}
               placeholder={`e.g. ${currentCountry.code === 'IN' ? '431601' : currentCountry.code === 'US' ? '10012' : 'Postcode'}`}
-              className="w-full py-2.5 px-3 bg-white border border-stone-300 rounded-xl text-xs font-medium text-stone-900 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-stone-900"
+              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-[#003B8E]"
             />
           </div>
         </div>
@@ -869,14 +869,14 @@ export function CascadingLocationSelector({
 
       {/* CANONICAL ID BADGE & ACTIVE SUMMARY */}
       {selectedCityName && (
-        <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="p-3 bg-blue-50/60 border border-blue-200/70 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-            <span className="font-medium text-stone-800">
+            <MapPin className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
+            <span className="font-semibold text-slate-900">
               {selectedCityName}, {selectedRegionName}, {currentCountry.name}
             </span>
           </div>
-          <div className="font-mono text-[11px] text-stone-500 bg-white px-2 py-0.5 rounded border border-stone-200">
+          <div className="font-mono text-[11px] text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
             ID: {selectedCityId || normalizeCanonicalLocationId(currentCountry.name, selectedRegionName, selectedCityName)}
           </div>
         </div>
@@ -884,19 +884,19 @@ export function CascadingLocationSelector({
 
       {/* CONTROLLED "REQUEST OR ADD A MISSING LOCATION" MODAL */}
       {isMissingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-stone-200 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h4 className="font-bold text-sm text-stone-900">Add Missing City or Town</h4>
-                <p className="text-[11px] text-stone-500">
+                <h4 className="font-bold text-sm text-slate-900">Add Missing City or Town</h4>
+                <p className="text-[11px] text-slate-500">
                   Register any valid town or village in {currentCountry.name} to start shopping or selling.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsMissingModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -904,7 +904,7 @@ export function CascadingLocationSelector({
 
             <form onSubmit={handleSubmitMissingLocation} className="space-y-3 text-xs">
               <div>
-                <label className="block text-stone-700 font-semibold mb-1">
+                <label className="block text-slate-700 font-semibold mb-1">
                   City, Town, or Village Name *
                 </label>
                 <input
@@ -913,12 +913,12 @@ export function CascadingLocationSelector({
                   value={customCityInput}
                   onChange={(e) => setCustomCityInput(e.target.value)}
                   placeholder="e.g. Mudkhed, Loha, Whitby, Hakuba"
-                  className="w-full p-2.5 border border-stone-300 rounded-lg bg-stone-50 font-medium"
+                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
                 />
               </div>
 
               <div>
-                <label className="block text-stone-700 font-semibold mb-1">
+                <label className="block text-slate-700 font-semibold mb-1">
                   {currentCountry.regionLabel} *
                 </label>
                 <input
@@ -927,13 +927,13 @@ export function CascadingLocationSelector({
                   value={customRegionInput || selectedRegionName}
                   onChange={(e) => setCustomRegionInput(e.target.value)}
                   placeholder={`e.g. ${selectedRegionName}`}
-                  className="w-full p-2.5 border border-stone-300 rounded-lg bg-stone-50 font-medium"
+                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-700 font-semibold mb-1">
+                  <label className="block text-slate-700 font-semibold mb-1">
                     {currentCountry.districtLabel} (Optional)
                   </label>
                   <input
@@ -941,12 +941,12 @@ export function CascadingLocationSelector({
                     value={customDistrictInput}
                     onChange={(e) => setCustomDistrictInput(e.target.value)}
                     placeholder="e.g. Nanded District"
-                    className="w-full p-2.5 border border-stone-300 rounded-lg bg-stone-50"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-stone-700 font-semibold mb-1">
+                  <label className="block text-slate-700 font-semibold mb-1">
                     {currentCountry.postalLabel} (Optional)
                   </label>
                   <input
@@ -954,14 +954,14 @@ export function CascadingLocationSelector({
                     value={customPostalInput}
                     onChange={(e) => setCustomPostalInput(e.target.value)}
                     placeholder="e.g. 431601"
-                    className="w-full p-2.5 border border-stone-300 rounded-lg bg-stone-50"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
                   />
                 </div>
               </div>
 
               {requesterRole === 'SELLER' && (
                 <div>
-                  <label className="block text-stone-700 font-semibold mb-1">
+                  <label className="block text-slate-700 font-semibold mb-1">
                     Contact Phone (For verification review)
                   </label>
                   <input
@@ -969,7 +969,7 @@ export function CascadingLocationSelector({
                     value={customPhoneInput}
                     onChange={(e) => setCustomPhoneInput(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full p-2.5 border border-stone-300 rounded-lg bg-stone-50 font-mono"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-mono focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
                   />
                 </div>
               )}
@@ -978,14 +978,14 @@ export function CascadingLocationSelector({
                 <button
                   type="button"
                   onClick={() => setIsMissingModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 font-medium hover:bg-stone-50"
+                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingCustom}
-                  className="px-5 py-2 rounded-lg bg-stone-900 text-white font-semibold hover:bg-stone-800 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-[#003B8E] text-white font-semibold hover:bg-[#002D6E] disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingCustom ? 'Registering...' : 'Save & Select Location'}
                 </button>

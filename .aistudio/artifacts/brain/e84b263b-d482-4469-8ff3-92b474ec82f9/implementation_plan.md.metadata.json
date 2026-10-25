@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for integrating Razorpay Standard Checkout for seller subscriptions on Citykart.shop. Includes server-side order creation, signature verification, webhook handling, and Firestore state persistence.",
+  "updatedAt":  "2026-10-25T08:04:03.335748894Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

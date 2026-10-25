@@ -289,3 +289,76 @@ export function isStoreCanonicalLocationMatch(
 
   return storeGeneratedId === targetCityId;
 }
+
+export function normalizeCityToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export function normalizeCityId(
+  country: string,
+  stateRegion: string,
+  cityName: string,
+  district?: string
+): string {
+  const c = normalizeCityToken(country || 'global');
+  const s = normalizeCityToken(stateRegion || 'region');
+  const city = normalizeCityToken(cityName || 'city');
+  void district;
+  return `${c}-${s}-${city}`;
+}
+
+export function calculateDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+export function resolveNearestCityFromCoordinates(
+  lat: number,
+  lng: number
+): {
+  cityRecord: CityDef;
+  distanceKm: number;
+  isUncertain: boolean;
+} {
+  let closest = CURATED_CANONICAL_CITIES[0];
+  let minDistance = Infinity;
+
+  for (const record of CURATED_CANONICAL_CITIES) {
+    if (!record.coordinates) continue;
+    const dist = calculateDistanceKm(
+      lat,
+      lng,
+      record.coordinates.lat,
+      record.coordinates.lng
+    );
+    if (dist < minDistance) {
+      minDistance = dist;
+      closest = record;
+    }
+  }
+
+  return {
+    cityRecord: closest,
+    distanceKm: Math.round(minDistance * 10) / 10,
+    isUncertain: minDistance > 40,
+  };
+}
+

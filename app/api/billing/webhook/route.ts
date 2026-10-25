@@ -1,41 +1,154 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { adminDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, writeBatch } from 'firebase/firestore';
+import {
+  BillingTransaction,
+  MerchantSubscription,
+  SUBSCRIPTION_PLANS,
+  SubscriptionTierId,
+  BillingCycle,
+} from '@/lib/revenue-model';
 
-// Server-side processed webhook IDs for deduplication / idempotency
-const processedWebhookEventIds = new Set<string>();
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const rawBody = await req.text();
-    const signature = req.headers.get('x-razorpay-signature') || req.headers.get('stripe-signature');
+    const body = await req.text();
+    const signature = req.headers.get('x-razorpay-signature');
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-    let event: Record<string, unknown> = {};
-    try {
-      event = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    if (!signature) {
+      return NextResponse.json({ error: 'Missing webhook signature' }, { status: 400 });
     }
 
-    const eventId = (event.id as string) || (event.event_id as string) || `evt_${Date.now()}`;
-    if (processedWebhookEventIds.has(eventId)) {
-      // Idempotency check: Already processed this event
-      return NextResponse.json({ received: true, status: 'already_processed' }, { status: 200 });
+    if (!secret) {
+      return NextResponse.json({ error: 'Razorpay webhook secret not configured' }, { status: 501 });
     }
 
-    processedWebhookEventIds.add(eventId);
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(body)
+      .digest('hex');
 
-    const eventType = (event.event as string) || (event.type as string) || 'payment.captured';
+    if (expectedSignature !== signature) {
+      console.warn('Invalid webhook signature');
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
+    }
 
-    // Log ledger audit trail in server console (and persist in firestore billing logs)
-    console.log(`[URBANDIRECT Billing Webhook] Processed ${eventType} (ID: ${eventId}) with signature: ${Boolean(signature)}`);
+    const event = JSON.parse(body);
+    console.log('Razorpay Webhook Event:', event.event);
 
-    return NextResponse.json({
-      received: true,
-      eventId,
-      eventType,
-      timestamp: new Date().toISOString(),
-    });
+    if (event.event === 'payment.captured') {
+      const payment = event.payload.payment.entity;
+      const orderId = payment.order_id;
+      const paymentId = payment.id;
+      const notes = payment.notes;
+
+      // Extract metadata from notes
+      const { storeId, sellerId, planId, billingCycle, type } = notes || {};
+
+      if (type === 'SUBSCRIPTION' && storeId && sellerId && planId && billingCycle) {
+        const now = new Date();
+        const periodEnd = new Date(now);
+        if (billingCycle === 'ANNUAL') {
+          periodEnd.setFullYear(now.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(now.getMonth() + 1);
+        }
+
+        const txId = `tx_${paymentId}`;
+        const plan = SUBSCRIPTION_PLANS[planId as SubscriptionTierId] || SUBSCRIPTION_PLANS.FREE;
+
+        // Check if already processed (idempotency)
+        let alreadyExists = false;
+        try {
+          const txDoc = await adminDb.collection('billingTransactions').doc(txId).get();
+          alreadyExists = txDoc.exists;
+        } catch {
+          try {
+            const clientDoc = await getDoc(doc(db, 'billingTransactions', txId));
+            alreadyExists = clientDoc.exists();
+          } catch {
+            alreadyExists = false;
+          }
+        }
+
+        if (alreadyExists) {
+          return NextResponse.json({ message: 'Event already processed' });
+        }
+
+        const transaction: BillingTransaction = {
+          id: txId,
+          sellerId,
+          storeId,
+          type: 'SUBSCRIPTION',
+          description: `Citykart ${plan.name} (${billingCycle}) Plan Subscription (via Webhook)`,
+          amount: payment.amount / 100 - (payment.tax / 100 || 0), // Razorpay amount is in paise
+          taxAmount: payment.tax / 100 || 0,
+          totalAmount: payment.amount / 100,
+          currency: payment.currency as 'INR' | 'USD',
+          status: 'SUCCESS',
+          paymentGateway: 'RAZORPAY',
+          gatewayTransactionId: paymentId,
+          invoiceNumber: `INV-W-${Date.now().toString().slice(-6)}`,
+          createdAt: now.toISOString(),
+        };
+
+        const subscription: MerchantSubscription = {
+          id: `sub_${storeId}`,
+          sellerId,
+          storeId,
+          planId: planId as SubscriptionTierId,
+          billingCycle: billingCycle as BillingCycle,
+          status: 'ACTIVE',
+          currency: payment.currency as 'INR' | 'USD',
+          currentPrice: payment.amount / 100,
+          currentPeriodStart: now.toISOString(),
+          currentPeriodEnd: periodEnd.toISOString(),
+          cancelAtPeriodEnd: false,
+          paymentMethodSnippet: 'Razorpay Webhook',
+          lastPaymentDate: now.toISOString(),
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        };
+
+        try {
+          const batch = adminDb.batch();
+          batch.set(adminDb.collection('billingTransactions').doc(txId), transaction);
+          batch.set(adminDb.collection('merchantSubscriptions').doc(subscription.id), subscription, { merge: true });
+          batch.set(adminDb.collection('stores').doc(storeId), { 
+            subscriptionTier: planId,
+            subscriptionStatus: 'ACTIVE',
+            subscriptionExpiry: subscription.currentPeriodEnd 
+          }, { merge: true });
+
+          await batch.commit();
+          console.log(`Webhook: Activated subscription for store ${storeId}`);
+        } catch (adminErr) {
+          console.warn('[webhook] adminDb write notice, falling back to Web SDK:', adminErr);
+          try {
+            const clientBatch = writeBatch(db);
+            clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
+            clientBatch.set(doc(db, 'merchantSubscriptions', subscription.id), subscription, { merge: true });
+            clientBatch.set(doc(db, 'stores', storeId), {
+              subscriptionTier: planId,
+              subscriptionStatus: 'ACTIVE',
+              subscriptionExpiry: subscription.currentPeriodEnd,
+            }, { merge: true });
+            await clientBatch.commit();
+          } catch (fallbackErr) {
+            console.warn('[webhook] Web SDK write notice:', fallbackErr);
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ status: 'ok' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Webhook error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('Webhook Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Clock, MapPin, ShieldCheck, ShoppingBag, Store as StoreIcon, Truck } from 'lucide-react';
+import { ArrowLeft, Clock, ShieldCheck, ShoppingBag, Store as StoreIcon, Truck } from 'lucide-react';
 import {
   AUTHORITATIVE_STORE_CATEGORIES,
   formatCurrency,
@@ -19,6 +19,10 @@ import {
 } from '@/lib/seo-schema';
 
 import { isStoreDeletedServer } from '@/lib/stores-registry';
+import {
+  serverProductOverridesRegistry,
+  serverStoreOverridesRegistry,
+} from '@/lib/super-admin-auth';
 
 interface ProductPageProps {
   params: Promise<{ productId: string }>;
@@ -33,8 +37,18 @@ export async function generateMetadata({
   const product = INITIAL_PRODUCTS.find((p) => p.id === productId);
   if (!product) return {};
   if (await isStoreDeletedServer(product.storeId)) return {};
+  const prodOverride = serverProductOverridesRegistry.get(product.id);
+  const storeOverride = serverStoreOverridesRegistry.get(product.storeId);
+  if (
+    product.adminUnpublished ||
+    prodOverride?.adminUnpublished ||
+    storeOverride?.isSuspended
+  ) {
+    return {};
+  }
 
   const store = INITIAL_STORES.find((s) => s.id === product.storeId);
+  if (store?.isSuspended) return {};
 
   const title = `${product.name} - ${formatCurrency(product.price, product.currency)} | ${product.storeName} | Citykart`;
   const description = `Buy ${product.name} from ${product.storeName} in ${product.city}. Direct local delivery in ~${product.deliveryMins} mins. Cash and UPI on delivery available.`;
@@ -72,7 +86,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
+  const prodOverride = serverProductOverridesRegistry.get(product.id);
+  const storeOverride = serverStoreOverridesRegistry.get(product.storeId);
   const store = INITIAL_STORES.find((s) => s.id === product.storeId);
+
+  if (
+    product.adminUnpublished ||
+    prodOverride?.adminUnpublished ||
+    store?.isSuspended ||
+    storeOverride?.isSuspended ||
+    storeOverride?.isActive === false
+  ) {
+    notFound();
+  }
   const categoryDef = AUTHORITATIVE_STORE_CATEGORIES.find(
     (c) => c.name === product.category || c.id === product.categoryId
   );
@@ -91,7 +117,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const inStock = product.isAvailable && product.stock > 0;
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-stone-900">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
@@ -103,7 +129,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       />
 
       {/* Crawlable Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/90 shadow-2xs">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
@@ -111,16 +137,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
               className="flex items-center gap-2 group"
             >
               <Image
-                src="/citykart-logo.png"
+                src="/citykart-icon.png"
                 alt="Citykart"
-                width={150}
-                height={38}
-                className="h-8 w-auto object-contain"
+                width={32}
+                height={32}
+                className="w-8 h-8 object-contain"
                 priority
               />
+              <span className="text-lg font-extrabold tracking-tight leading-none">
+                <span className="text-[#003B8E]">City</span>
+                <span className="text-[#F96302]">kart</span>
+                <span className="text-[10px] font-bold text-slate-400">.shop</span>
+              </span>
             </Link>
-            <span className="text-stone-300">/</span>
-            <span className="text-xs font-semibold text-stone-600 truncate max-w-[200px] sm:max-w-none">
+            <span className="text-slate-300">/</span>
+            <span className="text-xs font-bold text-slate-700 truncate max-w-[200px] sm:max-w-none">
               {product.name}
             </span>
           </div>
@@ -128,14 +159,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="flex items-center gap-3">
             <Link
               href={`/stores/${product.storeId}`}
-              className="text-xs font-medium text-stone-600 hover:text-stone-900 inline-flex items-center gap-1.5"
+              className="text-xs font-semibold text-slate-600 hover:text-[#003B8E] inline-flex items-center gap-1.5 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Store</span>
             </Link>
             <Link
               href="/"
-              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-stone-900 rounded-xl hover:bg-stone-800 transition-colors"
+              className="px-4 py-2 text-xs font-bold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-xl transition-colors shadow-xs"
             >
               Shop Local
             </Link>
@@ -146,49 +177,49 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* Semantic Breadcrumbs */}
-        <nav aria-label="Breadcrumb" className="text-xs text-stone-500">
+        <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
           <ol className="flex items-center gap-1.5 flex-wrap">
             <li>
-              <Link href="/" className="hover:text-stone-900 hover:underline">
+              <Link href="/" className="hover:text-[#003B8E] hover:underline font-medium">
                 Home
               </Link>
             </li>
-            <li aria-hidden="true" className="text-stone-300">
+            <li aria-hidden="true" className="text-slate-300">
               /
             </li>
             <li>
               <Link
                 href={`/categories/${categorySlug}`}
-                className="hover:text-stone-900 hover:underline"
+                className="hover:text-[#003B8E] hover:underline font-medium"
               >
                 {product.category}
               </Link>
             </li>
-            <li aria-hidden="true" className="text-stone-300">
+            <li aria-hidden="true" className="text-slate-300">
               /
             </li>
             <li>
               <Link
                 href={`/stores/${product.storeId}`}
-                className="hover:text-stone-900 hover:underline"
+                className="hover:text-[#003B8E] hover:underline font-medium"
               >
                 {product.storeName}
               </Link>
             </li>
-            <li aria-hidden="true" className="text-stone-300">
+            <li aria-hidden="true" className="text-slate-300">
               /
             </li>
-            <li aria-current="page" className="font-semibold text-stone-900 truncate max-w-[260px]">
+            <li aria-current="page" className="font-bold text-slate-900 truncate max-w-[260px]">
               {product.name}
             </li>
           </ol>
         </nav>
 
         {/* Product Purchase View (Contiguous Module) */}
-        <div className="bg-white border border-stone-200/90 rounded-2xl overflow-hidden shadow-xs grid grid-cols-1 md:grid-cols-12">
+        <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-xs grid grid-cols-1 md:grid-cols-12">
           {/* Left: Product Artwork / Photography */}
-          <div className="md:col-span-6 bg-[#F3EFEA] p-6 sm:p-10 flex items-center justify-center border-b md:border-b-0 md:border-r border-stone-200">
-            <div className="relative aspect-[4/3] w-full max-w-md rounded-xl overflow-hidden shadow-xs">
+          <div className="md:col-span-6 bg-slate-100 p-6 sm:p-10 flex items-center justify-center border-b md:border-b-0 md:border-r border-slate-200">
+            <div className="relative aspect-[4/3] w-full max-w-md rounded-2xl overflow-hidden shadow-sm border border-slate-200/60 bg-white">
               <ProductStudioArtwork
                 preset={product.artworkPreset}
                 customImageUrl={product.customImageUrl}
@@ -201,95 +232,95 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {/* Right: Purchasing Details */}
           <div className="md:col-span-6 p-6 sm:p-10 flex flex-col justify-between space-y-6">
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-stone-600">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
                 <Link
                   href={`/categories/${categorySlug}`}
-                  className="inline-flex items-center gap-1.5 text-stone-700 hover:text-stone-900 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-[#003B8E] bg-blue-50/80 px-2.5 py-1 rounded-lg border border-blue-200/60 hover:bg-blue-100/70 transition-colors"
                 >
                   <CategoryIcon
                     categoryIdOrName={product.categoryId}
-                    className="w-3.5 h-3.5"
+                    className="w-3.5 h-3.5 text-[#003B8E]"
                   />
                   <span>{product.category}</span>
                 </Link>
-                <span aria-hidden="true" className="text-stone-300">
+                <span aria-hidden="true" className="text-slate-300">
                   ·
                 </span>
                 <Link
                   href={`/stores/${product.storeId}`}
-                  className="inline-flex items-center gap-1 font-semibold text-stone-900 hover:underline"
+                  className="inline-flex items-center gap-1.5 font-bold text-slate-900 hover:text-[#003B8E] hover:underline"
                 >
-                  <StoreIcon className="w-3.5 h-3.5 text-stone-500" />
+                  <StoreIcon className="w-3.5 h-3.5 text-[#003B8E]" />
                   <span>{product.storeName}</span>
                 </Link>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
                 {product.name}
               </h1>
 
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-extrabold font-mono tabular-nums text-stone-900 tracking-tight">
+                <span className="text-3xl font-extrabold font-mono tabular-nums text-slate-900 tracking-tight">
                   {formatCurrency(product.price, product.currency)}
                 </span>
                 {product.unit && (
-                  <span className="text-xs text-stone-500 font-mono">
+                  <span className="text-xs text-slate-500 font-mono">
                     per {product.unit}
                   </span>
                 )}
                 <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-md ${
                     inStock
                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                      : 'bg-stone-100 text-stone-500'
+                      : 'bg-slate-100 text-slate-500 border border-slate-200'
                   }`}
                 >
                   {inStock ? 'In Stock' : 'Out of Stock'}
                 </span>
               </div>
 
-              <p className="text-sm text-stone-600 leading-relaxed pt-2 border-t border-stone-100">
+              <p className="text-sm text-slate-600 leading-relaxed pt-3 border-t border-slate-100">
                 {product.description ||
                   `Fresh and authentic ${product.name} procured directly from ${product.storeName}. Available for local neighborhood delivery in ${product.city}.`}
               </p>
 
               {/* Delivery & Payment Badges */}
-              <div className="space-y-2 pt-2 text-xs text-stone-600">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-stone-500 shrink-0" />
+              <div className="space-y-2.5 pt-3 text-xs text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-2.5">
+                  <Clock className="w-4 h-4 text-[#003B8E] shrink-0" />
                   <span>
                     Estimated local delivery:{' '}
-                    <strong className="text-stone-900 font-mono">
+                    <strong className="text-slate-900 font-mono tabular-nums">
                       ~{product.deliveryMins} mins
                     </strong>
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-stone-500 shrink-0" />
+                <div className="flex items-center gap-2.5">
+                  <Truck className="w-4 h-4 text-[#003B8E] shrink-0" />
                   <span>
                     Serving local address in{' '}
-                    <strong className="text-stone-900">{product.city}</strong>
+                    <strong className="text-slate-900">{product.city}</strong>
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Cash on Delivery & UPI at doorstep available</span>
+                  <span className="font-medium text-slate-700">Cash on Delivery &amp; UPI at doorstep available</span>
                 </div>
               </div>
             </div>
 
             {/* Action Bar */}
-            <div className="pt-6 border-t border-stone-200 flex flex-col sm:flex-row gap-3">
+            <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
               <Link
                 href="/"
-                className="flex-1 py-3 px-5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold text-center transition-colors shadow-xs flex items-center justify-center gap-2"
+                className="flex-1 py-3.5 px-5 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs sm:text-sm font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <ShoppingBag className="w-4 h-4" />
                 <span>Order in {product.city}</span>
               </Link>
               <Link
                 href={`/stores/${product.storeId}`}
-                className="py-3 px-5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs font-semibold text-center transition-colors"
+                className="py-3.5 px-5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#003B8E] text-xs sm:text-sm font-bold text-center transition-colors"
               >
                 View More from Store
               </Link>

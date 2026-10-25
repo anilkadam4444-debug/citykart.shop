@@ -380,6 +380,63 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["token", "updatedAt"]
+    },
+    "SuperAdminRecord": {
+      "title": "Super Admin Record",
+      "description": "Server-controlled authorization record for the designated Citykart Platform Owner (+918329306616).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "phoneE164": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin"] },
+        "platform": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "REVOKED"] },
+        "grantedAt": { "type": "string" },
+        "grantedBy": { "type": "string" },
+        "lastVerifiedAt": { "type": "string" },
+        "customClaimsSynced": { "type": "boolean" }
+      },
+      "required": ["uid", "phoneE164", "displayName", "role", "status", "grantedAt"]
+    },
+    "AdminAuditLogRecord": {
+      "title": "Admin Audit Log Record",
+      "description": "Immutable audit log entry for privileged Super Admin operations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "actorUid": { "type": "string" },
+        "actorPhone": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorRole": { "type": "string", "enum": ["super_admin"] },
+        "targetType": { "type": "string", "enum": ["STORE", "SELLER", "BUYER", "PRODUCT", "CATEGORY", "ORDER", "SUBSCRIPTION_PLAN", "PLATFORM_SETTINGS", "LOCATION", "SYSTEM"] },
+        "targetId": { "type": "string" },
+        "targetLabel": { "type": "string" },
+        "summary": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "action", "actorUid", "actorPhone", "actorRole", "targetType", "targetId", "summary", "createdAt"]
+    },
+    "PlatformSettingsConfig": {
+      "title": "Platform Settings Configuration",
+      "description": "Global platform configuration controlled by the Citykart Super Admin.",
+      "type": "object",
+      "properties": {
+        "platformName": { "type": "string" },
+        "domain": { "type": "string" },
+        "supportPhone": { "type": "string" },
+        "supportEmail": { "type": "string" },
+        "defaultCurrency": { "type": "string" },
+        "allowNewSellerRegistrations": { "type": "boolean" },
+        "requireLocationVerificationForNewStores": { "type": "boolean" },
+        "excludeDemoRecordsFromProductionMetrics": { "type": "boolean" },
+        "maintenanceBannerEnabled": { "type": "boolean" },
+        "maintenanceBannerMessage": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["platformName", "domain", "supportPhone", "defaultCurrency", "updatedAt"]
     }
   },
   "firestore": {
@@ -454,6 +511,18 @@
     "/fcm_tokens/{tokenId}": {
       "schema": { "$ref": "#/entities/FcmTokenRecord" },
       "description": "Registered FCM device tokens for push notifications."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/SuperAdminRecord" },
+      "description": "Server-controlled Super Admin registry for the designated Platform Owner."
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLogRecord" },
+      "description": "Immutable administrative audit logs for Super Admin actions."
+    },
+    "/platformSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/PlatformSettingsConfig" },
+      "description": "Global platform configuration documents."
     }
   }
 }
