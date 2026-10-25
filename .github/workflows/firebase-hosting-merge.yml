@@ -73,6 +73,7 @@ jobs:
       - name: Deploy to Firebase Hosting
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
+          NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
         run: |
           if [ "$AUTH_MODE" = "SERVICE_ACCOUNT" ]; then
             npx firebase-tools deploy --only hosting --project urbandirectintracity --debug --non-interactive
