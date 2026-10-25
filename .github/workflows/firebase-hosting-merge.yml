@@ -52,10 +52,32 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: 1
 
-      - name: Deploy to Firebase Hosting
+      - name: Verify Firebase Authentication Secret
+        id: check-secret
+        env:
+          HAS_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+          HAS_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' }}
+        run: |
+          if [ "$HAS_SA" = "true" ]; then
+            echo "Deploying using Firebase Service Account."
+            echo "AUTH_MODE=SERVICE_ACCOUNT" >> $GITHUB_ENV
+          elif [ "$HAS_TOKEN" = "true" ]; then
+            echo "Deploying using FIREBASE_TOKEN CLI token."
+            echo "AUTH_MODE=TOKEN" >> $GITHUB_ENV
+          else
+            echo "::error title=Missing Secret::The secret 'FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY' or 'FIREBASE_SERVICE_ACCOUNT' was not found in your GitHub repository Secrets. Please add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Deploy via Firebase Action (Service Account)
+        if: env.AUTH_MODE == 'SERVICE_ACCOUNT'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: urbandirectintracity
+
+      - name: Deploy via Firebase CLI (Token)
+        if: env.AUTH_MODE == 'TOKEN'
+        run: npx firebase-tools deploy --only hosting --project urbandirectintracity --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive
