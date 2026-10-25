@@ -1,11 +1,12 @@
 import type {Metadata} from 'next';
 import {Plus_Jakarta_Sans, Space_Mono} from 'next/font/google';
 
-export const dynamic = 'force-dynamic';
 import './globals.css';
 import {UrbanDirectProvider} from '@/components/urbandirect-provider';
 import {SITE_CONFIG} from '@/lib/seo-config';
 import {generateOrganizationSchema, generateWebsiteSchema} from '@/lib/seo-schema';
+
+export const dynamic = 'force-dynamic';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],

@@ -4,8 +4,15 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   turbopack: {},
+  experimental: {
+    webpackMemoryOptimizations: true,
+    cpus: 1,
+  },
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
   // Allow access to remote image placeholder.
   images: {

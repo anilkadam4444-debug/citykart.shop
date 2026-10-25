@@ -1,0 +1,15 @@
+# Settings for Cloud Run container hosting Next.js on Firebase App Hosting
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0
+  maxInstances: 5
+  concurrency: 80
+
+# Environment variables
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: urbandirectintracity
+    availability:
+      - BUILD
+      - RUNTIME
