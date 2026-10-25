@@ -33,27 +33,29 @@ import { serverDeletedStoresRegistry } from '@/lib/stores-registry';
 import { serverUserAccounts } from '@/app/api/auth/otp/route';
 import {
   getAdminAuditLogs,
+  getAuthoritativeAdminAuthorizations,
   getAuthoritativePlatformSettings,
   getAuthoritativeSubscriptionPlans,
   serverBuyerOverridesRegistry,
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
   serverSystemEventsRegistry,
-  verifySuperAdminRequest,
+  verifyAdminRequest,
 } from '@/lib/super-admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  // 1. Strict Server-Side Authorization Gate
-  const authCheck = await verifySuperAdminRequest(req);
+  // 1. Strict Server-Side Authorization Gate (Super Admin or Operational Admin)
+  const authCheck = await verifyAdminRequest(req);
   if (!authCheck.authorized) {
     return NextResponse.json(
       {
         ok: false,
         authorized: false,
         requiresBootstrap: authCheck.requiresBootstrap,
-        isVerifiedOwnerPhone: authCheck.isVerifiedOwnerPhone,
+        isSuperAdmin: authCheck.isSuperAdmin,
+        adminRole: authCheck.role,
         error: authCheck.reason,
       },
       { status: authCheck.status }
@@ -308,17 +310,14 @@ export async function GET(req: NextRequest) {
     ok: true,
     authorized: true,
     fetchedAt: new Date().toISOString(),
-    adminRecord: authCheck.adminRecord,
-    admin: authCheck.adminRecord
-      ? {
-          uid: authCheck.adminRecord.uid,
-          phoneE164: authCheck.adminRecord.phoneE164,
-          displayName: authCheck.adminRecord.displayName,
-          role: authCheck.adminRecord.role,
-          authSource: authCheck.authMethod || 'SERVER_BOOTSTRAP',
-        }
-      : undefined,
-    authMethod: authCheck.authMethod,
+    isSuperAdmin: authCheck.isSuperAdmin,
+    adminRole: authCheck.role,
+    adminRecord: authCheck.superAdminRecord,
+    adminAuthorizations: authCheck.isSuperAdmin
+      ? await getAuthoritativeAdminAuthorizations()
+      : authCheck.authorizationRecord
+        ? [authCheck.authorizationRecord]
+        : [],
     excludeDemo,
     demoBatchInfo: {
       batchId: NANDED_DEMO_BATCH_ID,

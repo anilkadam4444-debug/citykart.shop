@@ -30,6 +30,30 @@ export const DESIGNATED_SUPER_ADMIN_NAME = 'Platform Owner';
 export const DESIGNATED_SUPER_ADMIN_ROLE = 'super_admin' as const;
 export const DESIGNATED_PLATFORM_URL = 'https://citykart.shop';
 
+export type AdminRole = 'super_admin' | 'admin';
+export type AdminAuthorizationStatus = 'INVITED' | 'ACTIVE' | 'REVOKED';
+
+export interface AdminAuthorizationRecord {
+  id: string; // E.164 canonical phone number (e.g. +918329306616)
+  phoneE164: string;
+  name: string;
+  designation: string;
+  role: AdminRole;
+  status: AdminAuthorizationStatus;
+  isPermanentSuperAdmin: boolean;
+  invitedByUid: string;
+  invitedByPhone: string;
+  invitedAt: string;
+  activatedAt?: string;
+  assignedUid?: string;
+  lastLoginAt?: string;
+  revokedAt?: string;
+  revokedByUid?: string;
+  revokedReason?: string;
+  customClaimsSynced: boolean;
+  updatedAt: string;
+}
+
 export interface SuperAdminRecord {
   uid: string;
   phoneE164: string;
@@ -49,6 +73,12 @@ export interface SuperAdminRecord {
 
 export type AdminActionType =
   | 'SUPER_ADMIN_BOOTSTRAP'
+  | 'INVITE_ADMIN'
+  | 'REVOKE_ADMIN'
+  | 'REACTIVATE_ADMIN'
+  | 'UPDATE_ADMIN'
+  | 'ADMIN_ACTIVATED'
+  | 'UNAUTHORIZED_ADMIN_MANAGEMENT_ATTEMPT'
   | 'SUSPEND_STORE'
   | 'RESTORE_STORE'
   | 'DELETE_STORE'
@@ -74,7 +104,7 @@ export interface AdminAuditLogRecord {
   actorUid: string;
   actorPhone: string;
   actorName: string;
-  actorRole: 'super_admin';
+  actorRole: AdminRole;
   targetType:
     | 'STORE'
     | 'SELLER'
@@ -87,6 +117,7 @@ export interface AdminAuditLogRecord {
     | 'PLATFORM_SETTINGS'
     | 'LOCATION'
     | 'LOCATION_REQUEST'
+    | 'ADMIN_USER'
     | 'SYSTEM';
   targetId: string;
   targetLabel?: string;
@@ -95,7 +126,7 @@ export interface AdminAuditLogRecord {
   // Backwards-compatible server fields
   adminUid: string;
   adminDisplayName: string;
-  adminRole: 'super_admin';
+  adminRole: AdminRole;
   actionType: AdminActionType;
   targetEntityType:
     | 'STORE'
@@ -109,6 +140,7 @@ export interface AdminAuditLogRecord {
     | 'PLATFORM_SETTINGS'
     | 'LOCATION'
     | 'LOCATION_REQUEST'
+    | 'ADMIN_USER'
     | 'SYSTEM';
   targetEntityId: string;
   targetEntityName?: string;
@@ -193,6 +225,9 @@ export interface BuyerAdminOverride {
 }
 
 declare global {
+  var __serverAdminAuthorizationsRegistry:
+    | Map<string, AdminAuthorizationRecord>
+    | undefined;
   var __serverSuperAdminsRegistry: Map<string, SuperAdminRecord> | undefined;
   var __serverAuditLogsRegistry: Map<string, AdminAuditLogRecord> | undefined;
   var __serverPlatformSettings: PlatformSettingsConfig | undefined;
@@ -211,6 +246,26 @@ declare global {
   var __serverSystemEventsRegistry: Map<string, SystemHealthEvent> | undefined;
 }
 
+if (!globalThis.__serverAdminAuthorizationsRegistry) {
+  const reg = new Map<string, AdminAuthorizationRecord>();
+  const nowIso = new Date().toISOString();
+  reg.set(DESIGNATED_SUPER_ADMIN_PHONE, {
+    id: DESIGNATED_SUPER_ADMIN_PHONE,
+    phoneE164: DESIGNATED_SUPER_ADMIN_PHONE,
+    name: DESIGNATED_SUPER_ADMIN_NAME,
+    designation: 'Platform Owner',
+    role: 'super_admin',
+    status: 'ACTIVE',
+    isPermanentSuperAdmin: true,
+    invitedByUid: 'SYSTEM_BOOTSTRAP',
+    invitedByPhone: 'SYSTEM',
+    invitedAt: '2026-01-01T00:00:00.000Z',
+    activatedAt: '2026-01-01T00:00:00.000Z',
+    customClaimsSynced: true,
+    updatedAt: nowIso,
+  });
+  globalThis.__serverAdminAuthorizationsRegistry = reg;
+}
 if (!globalThis.__serverSuperAdminsRegistry) {
   globalThis.__serverSuperAdminsRegistry = new Map<string, SuperAdminRecord>();
 }
@@ -271,6 +326,8 @@ if (!globalThis.__serverSystemEventsRegistry) {
   globalThis.__serverSystemEventsRegistry = new Map<string, SystemHealthEvent>();
 }
 
+export const serverAdminAuthorizationsRegistry =
+  globalThis.__serverAdminAuthorizationsRegistry!;
 export const serverSuperAdminsRegistry = globalThis.__serverSuperAdminsRegistry;
 export const serverAuditLogsRegistry = globalThis.__serverAuditLogsRegistry;
 export const serverStoreOverridesRegistry =
@@ -412,7 +469,9 @@ export interface SignedSessionPayload {
   phoneE164: string;
   roles: string[];
   role?: string;
+  adminRole?: AdminRole;
   superAdminAuthorized?: boolean;
+  adminAuthorized?: boolean;
   sellerId?: string;
   iat: number;
 }
@@ -1081,6 +1140,9 @@ export async function bootstrapSuperAdminAccount(params: {
  */
 export async function recordAdminAuditLog(params: {
   adminUid: string;
+  adminPhone?: string;
+  adminName?: string;
+  adminRole?: AdminRole;
   actionType: AdminActionType;
   targetEntityType: AdminAuditLogRecord['targetEntityType'];
   targetEntityId: string;
@@ -1093,21 +1155,31 @@ export async function recordAdminAuditLog(params: {
   const nowIso = new Date().toISOString();
   const cleanReason = params.reason.slice(0, 500);
 
+  const actorRole: AdminRole = params.adminRole || 'super_admin';
+  const actorPhone =
+    params.adminPhone ||
+    (actorRole === 'super_admin' ? DESIGNATED_SUPER_ADMIN_PHONE : '');
+  const actorName =
+    params.adminName ||
+    (actorRole === 'super_admin'
+      ? DESIGNATED_SUPER_ADMIN_NAME
+      : 'Authorized Administrator');
+
   const record: AdminAuditLogRecord = {
     id,
     action: params.actionType,
     actorUid: params.adminUid,
-    actorPhone: DESIGNATED_SUPER_ADMIN_PHONE,
-    actorName: DESIGNATED_SUPER_ADMIN_NAME,
-    actorRole: 'super_admin',
+    actorPhone,
+    actorName,
+    actorRole,
     targetType: params.targetEntityType,
     targetId: params.targetEntityId,
     targetLabel: params.targetEntityName,
     summary: cleanReason,
     createdAt: nowIso,
     adminUid: params.adminUid,
-    adminDisplayName: DESIGNATED_SUPER_ADMIN_NAME,
-    adminRole: 'super_admin',
+    adminDisplayName: actorName,
+    adminRole: actorRole,
     actionType: params.actionType,
     targetEntityType: params.targetEntityType,
     targetEntityId: params.targetEntityId,
@@ -1153,7 +1225,7 @@ export async function getAdminAuditLogs(
           actorUid: raw.actorUid || raw.adminUid || '',
           actorPhone: raw.actorPhone || DESIGNATED_SUPER_ADMIN_PHONE,
           actorName: raw.actorName || raw.adminDisplayName || DESIGNATED_SUPER_ADMIN_NAME,
-          actorRole: 'super_admin',
+          actorRole: (raw.actorRole || raw.adminRole || 'super_admin') as AdminRole,
           targetType: (raw.targetType || raw.targetEntityType || 'SYSTEM') as AdminAuditLogRecord['targetType'],
           targetId: raw.targetId || raw.targetEntityId || '',
           targetLabel: raw.targetLabel || raw.targetEntityName,
@@ -1161,7 +1233,7 @@ export async function getAdminAuditLogs(
           createdAt: raw.createdAt || raw.timestamp || new Date().toISOString(),
           adminUid: raw.adminUid || raw.actorUid || '',
           adminDisplayName: raw.adminDisplayName || raw.actorName || DESIGNATED_SUPER_ADMIN_NAME,
-          adminRole: 'super_admin',
+          adminRole: (raw.adminRole || raw.actorRole || 'super_admin') as AdminRole,
           actionType: (raw.actionType || raw.action || 'SUPER_ADMIN_BOOTSTRAP') as AdminActionType,
           targetEntityType: (raw.targetEntityType || raw.targetType || 'SYSTEM') as AdminAuditLogRecord['targetEntityType'],
           targetEntityId: raw.targetEntityId || raw.targetId || '',
@@ -1185,4 +1257,716 @@ export async function getAdminAuditLogs(
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
     .slice(0, maxLimit);
+}
+
+// =============================================================================
+// ADMIN AUTHORIZATION & GOVERNANCE SUBSYSTEM
+// =============================================================================
+
+/**
+ * Returns all admin authorizations from in-memory registry and Firestore `/adminAuthorizations`.
+ * Guarantees that the Platform Owner (+918329306616) is permanently registered as super_admin.
+ */
+export async function getAuthoritativeAdminAuthorizations(): Promise<
+  AdminAuthorizationRecord[]
+> {
+  const map = new Map<string, AdminAuthorizationRecord>();
+
+  // Ensure designated permanent super admin is always present
+  const ownerRecord: AdminAuthorizationRecord = {
+    id: DESIGNATED_SUPER_ADMIN_PHONE,
+    phoneE164: DESIGNATED_SUPER_ADMIN_PHONE,
+    name: DESIGNATED_SUPER_ADMIN_NAME,
+    designation: 'Platform Owner',
+    role: 'super_admin',
+    status: 'ACTIVE',
+    isPermanentSuperAdmin: true,
+    invitedByUid: 'SYSTEM_BOOTSTRAP',
+    invitedByPhone: 'SYSTEM',
+    invitedAt: '2026-01-01T00:00:00.000Z',
+    activatedAt: '2026-01-01T00:00:00.000Z',
+    customClaimsSynced: true,
+    updatedAt: new Date().toISOString(),
+  };
+  map.set(DESIGNATED_SUPER_ADMIN_PHONE, ownerRecord);
+  serverAdminAuthorizationsRegistry.set(DESIGNATED_SUPER_ADMIN_PHONE, ownerRecord);
+
+  // Load from memory
+  for (const [phone, rec] of serverAdminAuthorizationsRegistry.entries()) {
+    map.set(phone, rec);
+  }
+
+  // Load from Firestore
+  try {
+    const snap = await getDocs(collection(db, 'adminAuthorizations'));
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as Partial<AdminAuthorizationRecord>;
+      if (data && data.phoneE164) {
+        const canonicalPhone = normalizePhoneE164(data.phoneE164);
+        if (canonicalPhone) {
+          const isOwner = canonicalPhone === DESIGNATED_SUPER_ADMIN_PHONE;
+          const mergedRec: AdminAuthorizationRecord = {
+            id: canonicalPhone,
+            phoneE164: canonicalPhone,
+            name: isOwner ? DESIGNATED_SUPER_ADMIN_NAME : data.name || 'Authorized Administrator',
+            designation: isOwner ? 'Platform Owner' : data.designation || 'Administrator',
+            role: isOwner ? 'super_admin' : data.role === 'super_admin' ? 'super_admin' : 'admin',
+            status: isOwner ? 'ACTIVE' : data.status || 'ACTIVE',
+            isPermanentSuperAdmin: isOwner,
+            invitedByUid: data.invitedByUid || 'SYSTEM',
+            invitedByPhone: data.invitedByPhone || DESIGNATED_SUPER_ADMIN_PHONE,
+            invitedAt: data.invitedAt || new Date().toISOString(),
+            activatedAt: data.activatedAt,
+            assignedUid: data.assignedUid,
+            lastLoginAt: data.lastLoginAt,
+            revokedAt: isOwner ? undefined : data.revokedAt,
+            revokedByUid: isOwner ? undefined : data.revokedByUid,
+            revokedReason: isOwner ? undefined : data.revokedReason,
+            customClaimsSynced: Boolean(data.customClaimsSynced),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+          };
+          map.set(canonicalPhone, mergedRec);
+          serverAdminAuthorizationsRegistry.set(canonicalPhone, mergedRec);
+        }
+      }
+    });
+  } catch {
+    // Graceful fallback to memory registry if Firestore read fails
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.isPermanentSuperAdmin) return -1;
+    if (b.isPermanentSuperAdmin) return 1;
+    return new Date(b.invitedAt).getTime() - new Date(a.invitedAt).getTime();
+  });
+}
+
+/**
+ * Finds an admin authorization record by normalized phone number.
+ */
+export async function findAdminAuthorizationByPhone(
+  phone?: string | null
+): Promise<AdminAuthorizationRecord | null> {
+  const canonical = normalizePhoneE164(phone);
+  if (!canonical) return null;
+
+  if (canonical === DESIGNATED_SUPER_ADMIN_PHONE) {
+    const existing = serverAdminAuthorizationsRegistry.get(DESIGNATED_SUPER_ADMIN_PHONE);
+    if (existing) return existing;
+    return {
+      id: DESIGNATED_SUPER_ADMIN_PHONE,
+      phoneE164: DESIGNATED_SUPER_ADMIN_PHONE,
+      name: DESIGNATED_SUPER_ADMIN_NAME,
+      designation: 'Platform Owner',
+      role: 'super_admin',
+      status: 'ACTIVE',
+      isPermanentSuperAdmin: true,
+      invitedByUid: 'SYSTEM_BOOTSTRAP',
+      invitedByPhone: 'SYSTEM',
+      invitedAt: '2026-01-01T00:00:00.000Z',
+      activatedAt: '2026-01-01T00:00:00.000Z',
+      customClaimsSynced: true,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const memory = serverAdminAuthorizationsRegistry.get(canonical);
+  if (memory) return memory;
+
+  try {
+    const snap = await getDoc(doc(db, 'adminAuthorizations', canonical));
+    if (snap.exists()) {
+      const data = snap.data() as AdminAuthorizationRecord;
+      serverAdminAuthorizationsRegistry.set(canonical, data);
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  return null;
+}
+
+/**
+ * Authorizes a new administrator using their mobile number.
+ * Security Invariant: Only the Super Admin (+918329306616) can authorize administrators.
+ */
+export async function createAdminAuthorization(params: {
+  callerAdminUid: string;
+  callerPhone: string;
+  phoneE164: string;
+  name?: string;
+  designation?: string;
+  role?: AdminRole;
+}): Promise<{ ok: boolean; error?: string; record?: AdminAuthorizationRecord }> {
+  const callerPhone = normalizePhoneE164(params.callerPhone);
+  if (!isDesignatedOwnerPhone(callerPhone)) {
+    await recordAdminAuditLog({
+      adminUid: params.callerAdminUid,
+      adminPhone: callerPhone,
+      adminRole: 'admin',
+      actionType: 'UNAUTHORIZED_ADMIN_MANAGEMENT_ATTEMPT',
+      targetEntityType: 'ADMIN_USER',
+      targetEntityId: params.phoneE164,
+      status: 'FAILURE',
+      reason: 'Non-Super Admin attempted to authorize a new administrator.',
+    });
+    return {
+      ok: false,
+      error: 'Permission Denied: Only the Platform Owner Super Admin can authorize new administrators.',
+    };
+  }
+
+  const canonicalTargetPhone = normalizePhoneE164(params.phoneE164);
+  if (!canonicalTargetPhone || canonicalTargetPhone.length < 8) {
+    return {
+      ok: false,
+      error: 'Please provide a valid mobile number with country code in E.164 format (e.g. +919876543210).',
+    };
+  }
+
+  if (canonicalTargetPhone === DESIGNATED_SUPER_ADMIN_PHONE) {
+    return {
+      ok: false,
+      error: 'The Platform Owner (+918329306616) is already permanently configured as Super Admin.',
+    };
+  }
+
+  const existing = await findAdminAuthorizationByPhone(canonicalTargetPhone);
+  if (existing) {
+    if (existing.status === 'ACTIVE') {
+      return {
+        ok: false,
+        error: `An active administrator with mobile number ${canonicalTargetPhone} already exists (${existing.name}).`,
+      };
+    }
+    if (existing.status === 'INVITED') {
+      return {
+        ok: false,
+        error: `An invitation for mobile number ${canonicalTargetPhone} is already pending activation.`,
+      };
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const assignedRole: AdminRole = params.role === 'super_admin' ? 'super_admin' : 'admin';
+  const cleanName = (params.name || '').trim() || 'Authorized Administrator';
+  const cleanDesignation = (params.designation || '').trim() || 'Administrator';
+
+  const newRecord: AdminAuthorizationRecord = {
+    id: canonicalTargetPhone,
+    phoneE164: canonicalTargetPhone,
+    name: cleanName,
+    designation: cleanDesignation,
+    role: assignedRole,
+    status: 'INVITED',
+    isPermanentSuperAdmin: false,
+    invitedByUid: params.callerAdminUid,
+    invitedByPhone: callerPhone,
+    invitedAt: nowIso,
+    customClaimsSynced: false,
+    updatedAt: nowIso,
+  };
+
+  serverAdminAuthorizationsRegistry.set(canonicalTargetPhone, newRecord);
+
+  try {
+    await setDoc(doc(db, 'adminAuthorizations', canonicalTargetPhone), newRecord);
+  } catch {
+    // Client SDK / memory fallback
+  }
+
+  await recordAdminAuditLog({
+    adminUid: params.callerAdminUid,
+    adminPhone: callerPhone,
+    adminRole: 'super_admin',
+    actionType: 'INVITE_ADMIN',
+    targetEntityType: 'ADMIN_USER',
+    targetEntityId: canonicalTargetPhone,
+    targetEntityName: `${cleanName} (${canonicalTargetPhone})`,
+    status: 'SUCCESS',
+    reason: `Authorized new ${assignedRole} via mobile number ${canonicalTargetPhone} (${cleanDesignation}).`,
+    metadata: {
+      phoneE164: canonicalTargetPhone,
+      role: assignedRole,
+      designation: cleanDesignation,
+    },
+  });
+
+  return { ok: true, record: newRecord };
+}
+
+/**
+ * Revokes an administrator's access.
+ * Security Invariant: The Platform Owner (+918329306616) cannot be revoked under any circumstances.
+ */
+export async function revokeAdminAuthorization(params: {
+  callerAdminUid: string;
+  callerPhone: string;
+  phoneE164: string;
+  reason: string;
+}): Promise<{ ok: boolean; error?: string; record?: AdminAuthorizationRecord }> {
+  const callerPhone = normalizePhoneE164(params.callerPhone);
+  if (!isDesignatedOwnerPhone(callerPhone)) {
+    return {
+      ok: false,
+      error: 'Permission Denied: Only the Platform Owner Super Admin can revoke administrators.',
+    };
+  }
+
+  const canonicalTargetPhone = normalizePhoneE164(params.phoneE164);
+  if (canonicalTargetPhone === DESIGNATED_SUPER_ADMIN_PHONE) {
+    return {
+      ok: false,
+      error: 'Protected Invariant: The Platform Owner Super Admin (+918329306616) cannot be revoked, downgraded, or deleted.',
+    };
+  }
+
+  const existing = await findAdminAuthorizationByPhone(canonicalTargetPhone);
+  if (!existing) {
+    return {
+      ok: false,
+      error: `No administrator authorization found for ${canonicalTargetPhone}.`,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const cleanReason = (params.reason || '').trim() || 'Access revoked by Platform Owner';
+
+  const updatedRecord: AdminAuthorizationRecord = {
+    ...existing,
+    status: 'REVOKED',
+    revokedAt: nowIso,
+    revokedByUid: params.callerAdminUid,
+    revokedReason: cleanReason,
+    customClaimsSynced: false,
+    updatedAt: nowIso,
+  };
+
+  serverAdminAuthorizationsRegistry.set(canonicalTargetPhone, updatedRecord);
+
+  try {
+    await setDoc(doc(db, 'adminAuthorizations', canonicalTargetPhone), updatedRecord, { merge: true });
+  } catch {
+    // Memory fallback
+  }
+
+  // Clear custom claims if Firebase Admin SDK is available and user has an assigned UID
+  if (existing.assignedUid && ensureAdminAppInitialized()) {
+    try {
+      await getAdminAuth().setCustomUserClaims(existing.assignedUid, {
+        role: null,
+        admin: false,
+        super_admin: false,
+      });
+    } catch {
+      // Ignore claims error
+    }
+  }
+
+  await recordAdminAuditLog({
+    adminUid: params.callerAdminUid,
+    adminPhone: callerPhone,
+    adminRole: 'super_admin',
+    actionType: 'REVOKE_ADMIN',
+    targetEntityType: 'ADMIN_USER',
+    targetEntityId: canonicalTargetPhone,
+    targetEntityName: `${existing.name} (${canonicalTargetPhone})`,
+    status: 'SUCCESS',
+    reason: `Revoked administrator access for ${canonicalTargetPhone}: ${cleanReason}`,
+    metadata: {
+      phoneE164: canonicalTargetPhone,
+      revokedReason: cleanReason,
+    },
+  });
+
+  return { ok: true, record: updatedRecord };
+}
+
+/**
+ * Reactivates a previously revoked administrator.
+ */
+export async function reactivateAdminAuthorization(params: {
+  callerAdminUid: string;
+  callerPhone: string;
+  phoneE164: string;
+  reason?: string;
+}): Promise<{ ok: boolean; error?: string; record?: AdminAuthorizationRecord }> {
+  const callerPhone = normalizePhoneE164(params.callerPhone);
+  if (!isDesignatedOwnerPhone(callerPhone)) {
+    return {
+      ok: false,
+      error: 'Permission Denied: Only the Platform Owner Super Admin can reactivate administrators.',
+    };
+  }
+
+  const canonicalTargetPhone = normalizePhoneE164(params.phoneE164);
+  const existing = await findAdminAuthorizationByPhone(canonicalTargetPhone);
+  if (!existing) {
+    return {
+      ok: false,
+      error: `No administrator authorization found for ${canonicalTargetPhone}.`,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const nextStatus: AdminAuthorizationStatus = existing.assignedUid ? 'ACTIVE' : 'INVITED';
+
+  const updatedRecord: AdminAuthorizationRecord = {
+    ...existing,
+    status: nextStatus,
+    revokedAt: undefined,
+    revokedByUid: undefined,
+    revokedReason: undefined,
+    updatedAt: nowIso,
+  };
+
+  serverAdminAuthorizationsRegistry.set(canonicalTargetPhone, updatedRecord);
+
+  try {
+    await setDoc(doc(db, 'adminAuthorizations', canonicalTargetPhone), updatedRecord, { merge: true });
+  } catch {
+    // Memory fallback
+  }
+
+  // Restore custom claims if user already has assigned UID
+  if (existing.assignedUid && ensureAdminAppInitialized()) {
+    try {
+      await getAdminAuth().setCustomUserClaims(existing.assignedUid, {
+        role: existing.role,
+        admin: true,
+      });
+      updatedRecord.customClaimsSynced = true;
+    } catch {
+      // Ignore
+    }
+  }
+
+  await recordAdminAuditLog({
+    adminUid: params.callerAdminUid,
+    adminPhone: callerPhone,
+    adminRole: 'super_admin',
+    actionType: 'REACTIVATE_ADMIN',
+    targetEntityType: 'ADMIN_USER',
+    targetEntityId: canonicalTargetPhone,
+    targetEntityName: `${existing.name} (${canonicalTargetPhone})`,
+    status: 'SUCCESS',
+    reason: `Reactivated administrator access for ${canonicalTargetPhone}.`,
+  });
+
+  return { ok: true, record: updatedRecord };
+}
+
+/**
+ * Updates an administrator's profile (name, designation).
+ */
+export async function updateAdminAuthorization(params: {
+  callerAdminUid: string;
+  callerPhone: string;
+  phoneE164: string;
+  name?: string;
+  designation?: string;
+}): Promise<{ ok: boolean; error?: string; record?: AdminAuthorizationRecord }> {
+  const callerPhone = normalizePhoneE164(params.callerPhone);
+  if (!isDesignatedOwnerPhone(callerPhone)) {
+    return {
+      ok: false,
+      error: 'Permission Denied: Only the Platform Owner Super Admin can edit administrator details.',
+    };
+  }
+
+  const canonicalTargetPhone = normalizePhoneE164(params.phoneE164);
+  const existing = await findAdminAuthorizationByPhone(canonicalTargetPhone);
+  if (!existing) {
+    return {
+      ok: false,
+      error: `No administrator authorization found for ${canonicalTargetPhone}.`,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const updatedRecord: AdminAuthorizationRecord = {
+    ...existing,
+    name: params.name !== undefined ? params.name.trim() || existing.name : existing.name,
+    designation:
+      params.designation !== undefined
+        ? params.designation.trim() || existing.designation
+        : existing.designation,
+    updatedAt: nowIso,
+  };
+
+  serverAdminAuthorizationsRegistry.set(canonicalTargetPhone, updatedRecord);
+
+  try {
+    await setDoc(doc(db, 'adminAuthorizations', canonicalTargetPhone), updatedRecord, { merge: true });
+  } catch {
+    // Memory fallback
+  }
+
+  await recordAdminAuditLog({
+    adminUid: params.callerAdminUid,
+    adminPhone: callerPhone,
+    adminRole: 'super_admin',
+    actionType: 'UPDATE_ADMIN',
+    targetEntityType: 'ADMIN_USER',
+    targetEntityId: canonicalTargetPhone,
+    targetEntityName: `${updatedRecord.name} (${canonicalTargetPhone})`,
+    status: 'SUCCESS',
+    reason: `Updated administrator metadata for ${canonicalTargetPhone}.`,
+  });
+
+  return { ok: true, record: updatedRecord };
+}
+
+export interface TrustedAdminRoleResolution {
+  isDesignatedOwner: boolean;
+  isAuthorizedSuperAdmin: boolean;
+  isAuthorizedAdmin: boolean;
+  adminRole?: AdminRole;
+  requiresBootstrap: boolean;
+  authorizationRecord?: AdminAuthorizationRecord;
+  superAdminRecord?: SuperAdminRecord;
+}
+
+/**
+ * Authoritatively resolves whether an authenticated phone number holds Super Admin
+ * or additional Admin privileges.
+ *
+ * If an invited admin signs in via OTP, this function automatically activates their
+ * authorization record from 'INVITED' to 'ACTIVE' and records an audit log.
+ */
+export async function resolveTrustedAdminRole(params: {
+  firebaseUid: string;
+  phoneE164: string;
+}): Promise<TrustedAdminRoleResolution> {
+  const canonicalPhone = normalizePhoneE164(params.phoneE164);
+  const firebaseUid = (params.firebaseUid || '').trim();
+
+  // 1. Designated Owner Platform Super Admin (+918329306616)
+  if (isDesignatedOwnerPhone(canonicalPhone)) {
+    const superAdminRes = await resolveTrustedSuperAdminRole({
+      firebaseUid,
+      phoneE164: canonicalPhone,
+    });
+    return {
+      isDesignatedOwner: true,
+      isAuthorizedSuperAdmin: superAdminRes.isAuthorizedSuperAdmin,
+      isAuthorizedAdmin: superAdminRes.isAuthorizedSuperAdmin,
+      adminRole: 'super_admin',
+      requiresBootstrap: superAdminRes.requiresBootstrap,
+      superAdminRecord: superAdminRes.adminRecord,
+    };
+  }
+
+  // 2. Additional Authorized Administrators
+  const authRecord = await findAdminAuthorizationByPhone(canonicalPhone);
+  if (!authRecord) {
+    return {
+      isDesignatedOwner: false,
+      isAuthorizedSuperAdmin: false,
+      isAuthorizedAdmin: false,
+      requiresBootstrap: false,
+    };
+  }
+
+  if (authRecord.status === 'REVOKED') {
+    return {
+      isDesignatedOwner: false,
+      isAuthorizedSuperAdmin: false,
+      isAuthorizedAdmin: false,
+      adminRole: undefined,
+      requiresBootstrap: false,
+      authorizationRecord: authRecord,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  // If status is INVITED, automatically activate upon successful phone OTP verification!
+  if (authRecord.status === 'INVITED') {
+    const activated: AdminAuthorizationRecord = {
+      ...authRecord,
+      status: 'ACTIVE',
+      activatedAt: nowIso,
+      assignedUid: firebaseUid,
+      lastLoginAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    serverAdminAuthorizationsRegistry.set(canonicalPhone, activated);
+
+    try {
+      await setDoc(doc(db, 'adminAuthorizations', canonicalPhone), activated, { merge: true });
+    } catch {
+      // Memory fallback
+    }
+
+    if (firebaseUid && ensureAdminAppInitialized()) {
+      try {
+        await getAdminAuth().setCustomUserClaims(firebaseUid, {
+          role: activated.role,
+          admin: true,
+        });
+        activated.customClaimsSynced = true;
+      } catch {
+        // Claims fallback
+      }
+    }
+
+    await recordAdminAuditLog({
+      adminUid: firebaseUid,
+      adminPhone: canonicalPhone,
+      adminRole: activated.role,
+      actionType: 'ADMIN_ACTIVATED',
+      targetEntityType: 'ADMIN_USER',
+      targetEntityId: canonicalPhone,
+      targetEntityName: `${activated.name} (${canonicalPhone})`,
+      status: 'SUCCESS',
+      reason: `Invited administrator (${canonicalPhone}) successfully authenticated and activated admin access.`,
+    });
+
+    return {
+      isDesignatedOwner: false,
+      isAuthorizedSuperAdmin: activated.role === 'super_admin',
+      isAuthorizedAdmin: true,
+      adminRole: activated.role,
+      requiresBootstrap: false,
+      authorizationRecord: activated,
+    };
+  }
+
+  // If already ACTIVE, update lastLoginAt and assignedUid
+  if (authRecord.status === 'ACTIVE') {
+    const updated: AdminAuthorizationRecord = {
+      ...authRecord,
+      assignedUid: authRecord.assignedUid || firebaseUid,
+      lastLoginAt: nowIso,
+      updatedAt: nowIso,
+    };
+    serverAdminAuthorizationsRegistry.set(canonicalPhone, updated);
+
+    return {
+      isDesignatedOwner: false,
+      isAuthorizedSuperAdmin: authRecord.role === 'super_admin',
+      isAuthorizedAdmin: true,
+      adminRole: authRecord.role,
+      requiresBootstrap: false,
+      authorizationRecord: updated,
+    };
+  }
+
+  return {
+    isDesignatedOwner: false,
+    isAuthorizedSuperAdmin: false,
+    isAuthorizedAdmin: false,
+    requiresBootstrap: false,
+  };
+}
+
+export interface AdminAuthVerificationResult {
+  authorized: boolean;
+  status: 200 | 401 | 403;
+  reason: string;
+  isSuperAdmin: boolean;
+  role: AdminRole;
+  phoneE164: string;
+  firebaseUid: string;
+  requiresBootstrap?: boolean;
+  authorizationRecord?: AdminAuthorizationRecord;
+  superAdminRecord?: SuperAdminRecord;
+}
+
+/**
+ * Verifies that an incoming HTTP request is from an authorized Administrator
+ * (either the Platform Super Admin or an authorized Admin).
+ */
+export async function verifyAdminRequest(
+  req: NextRequest
+): Promise<AdminAuthVerificationResult> {
+  const cookieToken = req.cookies.get('urbandirect_session')?.value;
+  const sessionPayload = verifySignedSessionToken(cookieToken);
+
+  const authHeader = req.headers.get('authorization') || '';
+  const bearerToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+
+  let verifiedUid = sessionPayload?.firebaseUid || sessionPayload?.userId || '';
+  let verifiedPhone = normalizePhoneE164(sessionPayload?.phoneE164);
+
+  if (bearerToken) {
+    const verifiedToken = await verifyFirebaseIdTokenCryptographically(bearerToken);
+    if (verifiedToken) {
+      verifiedUid = verifiedToken.uid;
+      if (verifiedToken.phoneE164) {
+        verifiedPhone = verifiedToken.phoneE164;
+      }
+    }
+  }
+
+  if (!verifiedUid || !verifiedPhone) {
+    return {
+      authorized: false,
+      status: 401,
+      reason: 'Authentication required. Please sign in with Firebase Phone Authentication.',
+      isSuperAdmin: false,
+      role: 'admin',
+      phoneE164: '',
+      firebaseUid: '',
+    };
+  }
+
+  const resolution = await resolveTrustedAdminRole({
+    firebaseUid: verifiedUid,
+    phoneE164: verifiedPhone,
+  });
+
+  if (resolution.isDesignatedOwner && resolution.requiresBootstrap) {
+    return {
+      authorized: false,
+      status: 403,
+      reason: 'Verified Platform Owner mobile (+918329306616), awaiting server-side super_admin role bootstrap.',
+      isSuperAdmin: false,
+      role: 'super_admin',
+      phoneE164: verifiedPhone,
+      firebaseUid: verifiedUid,
+      requiresBootstrap: true,
+    };
+  }
+
+  if (resolution.isAuthorizedSuperAdmin) {
+    return {
+      authorized: true,
+      status: 200,
+      reason: 'Authorized as Platform Owner Super Admin.',
+      isSuperAdmin: true,
+      role: 'super_admin',
+      phoneE164: verifiedPhone,
+      firebaseUid: verifiedUid,
+      superAdminRecord: resolution.superAdminRecord,
+    };
+  }
+
+  if (resolution.isAuthorizedAdmin) {
+    return {
+      authorized: true,
+      status: 200,
+      reason: 'Authorized as Administrator.',
+      isSuperAdmin: false,
+      role: 'admin',
+      phoneE164: verifiedPhone,
+      firebaseUid: verifiedUid,
+      authorizationRecord: resolution.authorizationRecord,
+    };
+  }
+
+  return {
+    authorized: false,
+    status: 403,
+    reason: 'Access Denied: Your mobile number is not authorized for administrator access.',
+    isSuperAdmin: false,
+    role: 'admin',
+    phoneE164: verifiedPhone,
+    firebaseUid: verifiedUid,
+  };
 }

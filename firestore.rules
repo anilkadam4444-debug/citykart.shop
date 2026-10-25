@@ -31,6 +31,19 @@ service cloud.firestore {
         );
     }
 
+    function isAdmin() {
+      return isAuthenticated()
+        && (
+          isSuperAdmin()
+          || request.auth.token.role == 'admin'
+          || request.auth.token.admin == true
+          || (
+            exists(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number))
+            && get(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number)).data.status == 'ACTIVE'
+          )
+        );
+    }
+
     function isNandedDemoStoreRecord(storeId, data) {
       return storeId.matches('^demo-nanded-store-[0-9]{2}[ab]$')
         && data.isDemo == true
@@ -56,6 +69,27 @@ service cloud.firestore {
     }
 
     // ===============================================================
+    // Admin Authorizations (/adminAuthorizations/{phoneId})
+    // Controlled exclusively by the verified Platform Owner Super Admin (+918329306616)
+    // Protected Invariant: +918329306616 can NEVER be revoked or downgraded
+    // ===============================================================
+    match /adminAuthorizations/{phoneId} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.token.phone_number == phoneId);
+      allow create: if isSuperAdmin()
+        && isValidString(phoneId, 4, 24)
+        && request.resource.data.phoneE164 == phoneId
+        && request.resource.data.role in ['admin', 'super_admin']
+        && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'];
+      allow update: if isSuperAdmin()
+        && isValidString(phoneId, 4, 24)
+        && request.resource.data.phoneE164 == resource.data.phoneE164
+        && (phoneId != '+918329306616' || (request.resource.data.role == 'super_admin' && request.resource.data.status == 'ACTIVE'))
+        && request.resource.data.role in ['admin', 'super_admin']
+        && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'];
+      allow delete: if false;
+    }
+
+    // ===============================================================
     // Super Admins Registry (/admins/{adminUid})
     // Strictly blocks buyers, sellers, and ordinary users from self-assigning super_admin
     // ===============================================================
@@ -73,13 +107,11 @@ service cloud.firestore {
 
     // ===============================================================
     // Immutable Admin Audit Logs (/auditLogs/{logId})
-    // Append-only for verified Super Admin; never editable or deletable from client
+    // Append-only for verified Super Admin and authorized Admins; never editable or deletable
     // ===============================================================
     match /auditLogs/{logId} {
-      allow read: if isSuperAdmin();
-      allow create: if isSuperAdmin()
-        && request.resource.data.actorPhone == '+918329306616'
-        && request.resource.data.actorRole == 'super_admin'
+      allow read: if isSuperAdmin() || isAdmin();
+      allow create: if (isSuperAdmin() || isAdmin())
         && isValidString(request.resource.data.action, 2, 100)
         && isValidString(request.resource.data.summary, 2, 500);
       allow update, delete: if false;

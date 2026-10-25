@@ -46,6 +46,7 @@ import {
   Trash2,
   TrendingUp,
   UserCheck,
+  UserPlus,
   Users,
   UserX,
   X,
@@ -86,6 +87,7 @@ import {
 type AdminSectionId =
   | 'dashboard'
   | 'analytics'
+  | 'admin-management'
   | 'sellers-stores'
   | 'buyers'
   | 'products-categories'
@@ -99,13 +101,34 @@ type AdminSectionId =
 
 type DateRangePreset = 'ALL' | 'TODAY' | '7D' | '30D' | 'CUSTOM';
 
+export interface AdminAuthorizationRecord {
+  id: string;
+  phoneE164: string;
+  name: string;
+  designation: string;
+  role: 'super_admin' | 'admin';
+  status: 'INVITED' | 'ACTIVE' | 'REVOKED';
+  isPermanentSuperAdmin: boolean;
+  invitedByUid: string;
+  invitedByPhone: string;
+  invitedAt: string;
+  activatedAt?: string;
+  assignedUid?: string;
+  lastLoginAt?: string;
+  revokedAt?: string;
+  revokedByUid?: string;
+  revokedReason?: string;
+  customClaimsSynced: boolean;
+  updatedAt: string;
+}
+
 interface AuditLogEntry {
   id: string;
   action: string;
   actorUid: string;
   actorPhone: string;
   actorName: string;
-  actorRole: 'super_admin';
+  actorRole: 'super_admin' | 'admin';
   targetType:
     | 'STORE'
     | 'SELLER'
@@ -116,6 +139,7 @@ interface AuditLogEntry {
     | 'SUBSCRIPTION_PLAN'
     | 'PLATFORM_SETTINGS'
     | 'LOCATION'
+    | 'ADMIN_USER'
     | 'SYSTEM';
   targetId: string;
   targetLabel?: string;
@@ -160,11 +184,14 @@ interface SystemHealthReport {
 interface DashboardPayload {
   ok: boolean;
   fetchedAt: string;
+  isSuperAdmin?: boolean;
+  adminRole?: 'super_admin' | 'admin';
+  adminAuthorizations?: AdminAuthorizationRecord[];
   admin: {
     uid: string;
     phoneE164: string;
     displayName: string;
-    role: 'super_admin';
+    role: 'super_admin' | 'admin';
     authSource: string;
   };
   sellers: SellerProfile[];
@@ -316,6 +343,28 @@ export function SuperAdminDashboard() {
   const [settingsDraft, setSettingsDraft] =
     useState<PlatformSettingsState | null>(null);
 
+  // Admin Management & Authorization Governance State
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminStatusFilter, setAdminStatusFilter] = useState<
+    'ALL' | 'ACTIVE' | 'INVITED' | 'REVOKED'
+  >('ALL');
+  const [showFullAdminPhones, setShowFullAdminPhones] = useState<boolean>(true);
+  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState<boolean>(false);
+  const [addAdminCountryDialCode, setAddAdminCountryDialCode] = useState<string>('+91');
+  const [addAdminSubscriberPhone, setAddAdminSubscriberPhone] = useState<string>('');
+  const [addAdminName, setAddAdminName] = useState<string>('');
+  const [addAdminDesignation, setAddAdminDesignation] = useState<string>('');
+  const [addAdminRole, setAddAdminRole] = useState<'admin' | 'super_admin'>('admin');
+  const [addAdminError, setAddAdminError] = useState<string | null>(null);
+
+  const [adminToRevoke, setAdminToRevoke] = useState<AdminAuthorizationRecord | null>(null);
+  const [revokeReasonInput, setRevokeReasonInput] = useState<string>('');
+
+  const [adminToReactivate, setAdminToReactivate] = useState<AdminAuthorizationRecord | null>(null);
+  const [adminToEdit, setAdminToEdit] = useState<AdminAuthorizationRecord | null>(null);
+  const [editAdminName, setEditAdminName] = useState<string>('');
+  const [editAdminDesignation, setEditAdminDesignation] = useState<string>('');
+
   // Helper to get fresh Firebase ID token if available
   const getAuthHeaders = useCallback(async (): Promise<
     Record<string, string>
@@ -397,8 +446,23 @@ export function SuperAdminDashboard() {
         setIsServerAuthorized(false);
         setRequiresBootstrap(true);
       } else {
-        setIsServerAuthorized(false);
-        setRequiresBootstrap(false);
+        // Attempt dashboard fetch for authorized additional administrators
+        const dashHeaders = await getAuthHeaders();
+        const dashRes = await fetch('/api/admin/dashboard', {
+          method: 'GET',
+          headers: dashHeaders,
+          cache: 'no-store',
+        });
+        const dashData = await dashRes.json();
+        if (dashRes.ok && dashData.ok) {
+          setIsServerAuthorized(true);
+          setRequiresBootstrap(false);
+          setDashboardData(dashData as DashboardPayload);
+          setSettingsDraft(dashData.platformSettings);
+        } else {
+          setIsServerAuthorized(false);
+          setRequiresBootstrap(false);
+        }
       }
     } catch {
       setIsServerAuthorized(false);
@@ -1112,9 +1176,17 @@ export function SuperAdminDashboard() {
   }
 
   // ============================================================================
-  // GATE 3: AUTHENTICATED AS NON-OWNER (BUYER OR SELLER) — 403 ACCESS DENIED
+  // GATE 3: AUTHENTICATED AS NON-ADMIN USER (ORDINARY BUYER OR SELLER) — 403 ACCESS DENIED
   // ============================================================================
-  if (authenticatedUser.phoneE164 !== DESIGNATED_OWNER_PHONE) {
+  const isAuthorizedAdminUser =
+    authenticatedUser.phoneE164 === DESIGNATED_OWNER_PHONE ||
+    authenticatedUser.isAdmin === true ||
+    authenticatedUser.role === 'admin' ||
+    authenticatedUser.role === 'super_admin' ||
+    (Array.isArray(authenticatedUser.roles) &&
+      authenticatedUser.roles.includes('ADMIN'));
+
+  if (!isAuthorizedAdminUser && !isServerAuthorized) {
     return (
       <div className="min-h-screen bg-[#0B1120] text-slate-100 flex items-center justify-center p-6">
         <div className="max-w-lg w-full bg-slate-900 border border-rose-500/30 rounded-3xl p-8 shadow-2xl space-y-6">
@@ -1127,7 +1199,7 @@ export function SuperAdminDashboard() {
                 HTTP 403 · Access Denied
               </div>
               <h1 className="text-xl font-extrabold text-white tracking-tight">
-                Restricted to Citykart Platform Owner
+                Restricted to Authorized Administrators
               </h1>
             </div>
           </div>
@@ -1137,10 +1209,9 @@ export function SuperAdminDashboard() {
             <span className="font-mono font-bold text-white">
               {authenticatedUser.phoneE164}
             </span>{' '}
-            · {authenticatedUser.fullName}) does not hold the{' '}
-            <code className="font-mono text-rose-300">super_admin</code> role.
-            Buyers and sellers cannot access platform administration routes or
-            privileged operations.
+            · {authenticatedUser.fullName}) is not authorized for administrator access.
+            Only the Platform Owner (<code className="font-mono text-emerald-400">+918329306616</code>)
+            and administrators authorized by the Super Admin can access platform management routes.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
@@ -1159,7 +1230,7 @@ export function SuperAdminDashboard() {
           </div>
 
           <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>Are you the Platform Owner?</span>
+            <span>Are you an authorized administrator?</span>
             <button
               type="button"
               onClick={handleSignOutOtpSession}
@@ -1177,7 +1248,10 @@ export function SuperAdminDashboard() {
   // GATE 4: OWNER PHONE VERIFIED (+918329306616), SERVER ROLE BOOTSTRAP STEP
   // ("A phone number match by itself must not grant administrative access.")
   // ============================================================================
-  if (!isServerAuthorized || requiresBootstrap) {
+  if (
+    authenticatedUser.phoneE164 === DESIGNATED_OWNER_PHONE &&
+    (!isServerAuthorized || requiresBootstrap)
+  ) {
     return (
       <div className="min-h-screen bg-[#0B1120] text-slate-100 flex items-center justify-center p-6">
         <div className="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
@@ -1384,6 +1458,21 @@ export function SuperAdminDashboard() {
         },
       ],
     },
+    ...(isAuthorizedAdminUser
+      ? [
+          {
+            groupLabel: 'Governance',
+            items: [
+              {
+                id: 'admin-management' as AdminSectionId,
+                label: 'Admin Management',
+                icon: ShieldCheck,
+                badge: dashboardData?.adminAuthorizations?.length,
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   const activeSectionMeta = sidebarGroups
@@ -2257,6 +2346,398 @@ export function SuperAdminDashboard() {
                       );
                     })}
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================================================================
+              SECTION 3: ADMIN MANAGEMENT & AUTHORIZATION GOVERNANCE (SUPER ADMIN ONLY)
+             ================================================================ */}
+          {activeSection === 'admin-management' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-slate-900 via-[#0B1120] to-[#002D6E] border border-slate-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[11px] font-mono uppercase tracking-widest font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Super Admin Governance</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                    Admin Management &amp; Mobile Authorizations
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    Authorize additional team members as platform administrators using their mobile numbers.
+                    Invited administrators authenticate via Firebase Phone OTP and receive administrative access automatically.
+                  </p>
+                </div>
+
+                <div className="shrink-0 flex flex-wrap items-center gap-3">
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddAdminError(null);
+                        setAddAdminSubscriberPhone('');
+                        setAddAdminName('');
+                        setAddAdminDesignation('');
+                        setIsAddAdminModalOpen(true);
+                      }}
+                      className="py-3 px-5 rounded-2xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs font-extrabold inline-flex items-center gap-2 transition-all cursor-pointer shadow-lg hover:shadow-orange-500/20 active:scale-95"
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      <span>Authorize Administrator</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={fetchDashboardData}
+                    className="py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold inline-flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDashboard ? 'animate-spin' : ''}`} />
+                    <span>Refresh Registry</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI Metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                  <div className="text-slate-500 text-xs font-semibold flex items-center justify-between">
+                    <span>Total Administrators</span>
+                    <Users className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 font-mono">
+                    {allAdminAuthorizations.length}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Includes 1 permanent Platform Owner
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                  <div className="text-slate-500 text-xs font-semibold flex items-center justify-between">
+                    <span>Active Administrators</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-2xl font-black text-emerald-600 font-mono">
+                    {allAdminAuthorizations.filter((a) => a.status === 'ACTIVE').length}
+                  </div>
+                  <div className="text-[11px] text-emerald-700 font-medium">
+                    Verified OTP session active
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                  <div className="text-slate-500 text-xs font-semibold flex items-center justify-between">
+                    <span>Pending Invitations</span>
+                    <Clock className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-2xl font-black text-amber-600 font-mono">
+                    {allAdminAuthorizations.filter((a) => a.status === 'INVITED').length}
+                  </div>
+                  <div className="text-[11px] text-amber-700 font-medium">
+                    Awaiting initial OTP sign-in
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                  <div className="text-slate-500 text-xs font-semibold flex items-center justify-between">
+                    <span>Revoked Access</span>
+                    <UserX className="w-4 h-4 text-rose-500" />
+                  </div>
+                  <div className="text-2xl font-black text-rose-600 font-mono">
+                    {allAdminAuthorizations.filter((a) => a.status === 'REVOKED').length}
+                  </div>
+                  <div className="text-[11px] text-rose-700 font-medium">
+                    Access revoked by Platform Owner
+                  </div>
+                </div>
+              </div>
+
+              {/* Toolbar & Filters */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="relative w-full sm:w-96">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      value={adminSearchQuery}
+                      onChange={(e) => setAdminSearchQuery(e.target.value)}
+                      placeholder="Search by phone number, name, or designation..."
+                      className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#003B8E]"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs">
+                      {(['ALL', 'ACTIVE', 'INVITED', 'REVOKED'] as const).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setAdminStatusFilter(st)}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                            adminStatusFilter === st
+                              ? 'bg-white text-slate-900 shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {st === 'ALL'
+                            ? 'All'
+                            : st === 'ACTIVE'
+                            ? 'Active'
+                            : st === 'INVITED'
+                            ? 'Pending'
+                            : 'Revoked'}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowFullAdminPhones(!showFullAdminPhones)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {showFullAdminPhones ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{showFullAdminPhones ? 'Mask Phones' : 'Show Full Phones'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Administrators Table */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-[#003B8E]" />
+                    <span>Administrator Registry ({filteredAdmins.length})</span>
+                  </h3>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Zero-Trust RBAC Enforcement
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="py-3.5 px-4">Administrator</th>
+                        <th className="py-3.5 px-4">Mobile Number</th>
+                        <th className="py-3.5 px-4">Role</th>
+                        <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4">Date Authorized</th>
+                        <th className="py-3.5 px-4">Last Activity</th>
+                        <th className="py-3.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {filteredAdmins.map((adm) => {
+                        const isOwner = adm.isPermanentSuperAdmin || adm.phoneE164 === DESIGNATED_OWNER_PHONE;
+                        const displayPhone = showFullAdminPhones
+                          ? adm.phoneE164
+                          : `${adm.phoneE164.slice(0, 3)} •••••• ${adm.phoneE164.slice(-4)}`;
+
+                        return (
+                          <tr key={adm.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                                    isOwner
+                                      ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                                      : adm.status === 'ACTIVE'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      : adm.status === 'INVITED'
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                  }`}
+                                >
+                                  {isOwner ? <Shield className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>{adm.name}</span>
+                                    {isOwner && (
+                                      <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-extrabold border border-purple-200">
+                                        Platform Owner
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500">{adm.designation || 'Administrator'}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-[11px]">
+                                {displayPhone}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
+                                  adm.role === 'super_admin'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : 'bg-sky-50 text-sky-700 border-sky-200'
+                                }`}
+                              >
+                                {adm.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {adm.status === 'ACTIVE' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  Active
+                                </span>
+                              )}
+                              {adm.status === 'INVITED' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
+                                  <Clock className="w-3 h-3" />
+                                  Pending Sign-In
+                                </span>
+                              )}
+                              {adm.status === 'REVOKED' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Revoked
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-slate-500 text-[11px]">
+                              {adm.invitedAt ? new Date(adm.invitedAt).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              }) : 'System Seed'}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-slate-500 text-[11px]">
+                              {adm.lastLoginAt ? (
+                                new Date(adm.lastLoginAt).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              ) : adm.status === 'INVITED' ? (
+                                <span className="text-amber-600 font-medium">Awaiting OTP login</span>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              {isOwner ? (
+                                <span className="text-[11px] font-semibold text-slate-400 inline-flex items-center gap-1">
+                                  <Lock className="w-3 h-3" /> Permanent Owner
+                                </span>
+                              ) : isSuperAdmin ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAdminToEdit(adm);
+                                      setEditAdminName(adm.name);
+                                      setEditAdminDesignation(adm.designation || '');
+                                    }}
+                                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-[11px] font-semibold transition-colors cursor-pointer"
+                                    title="Edit Administrator Details"
+                                  >
+                                    Edit
+                                  </button>
+
+                                  {adm.status === 'REVOKED' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAdminToReactivate(adm)}
+                                      className="py-1 px-2.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] transition-colors cursor-pointer"
+                                    >
+                                      Reactivate
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAdminToRevoke(adm);
+                                        setRevokeReasonInput('');
+                                      }}
+                                      className="py-1 px-2.5 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] transition-colors cursor-pointer"
+                                    >
+                                      Revoke Access
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">Protected</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {filteredAdmins.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-400">
+                            <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            <p className="font-semibold text-sm">No administrators matched your filters</p>
+                            <p className="text-xs text-slate-400 mt-1">Try clearing search or status filter</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Admin Governance Audit Trail */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#003B8E]" />
+                    <span>Administrator Authorization Audit Trail</span>
+                  </h3>
+                  <span className="text-xs text-slate-500 font-mono">
+                    Immutable Governance Ledger
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                  {adminAuditLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-[10px]">
+                            {log.action}
+                          </span>
+                          <span className="font-semibold text-slate-800">{log.summary}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Actor: <strong className="text-slate-700">{log.actorName}</strong> ({log.actorPhone}) · Target ID: <code className="font-mono text-slate-700">{log.targetId}</code>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono shrink-0">
+                        {new Date(log.createdAt).toLocaleString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {adminAuditLogs.length === 0 && (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      No admin authorization audit records logged yet.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -4370,6 +4851,443 @@ export function SuperAdminDashboard() {
                 {isSubmittingAction ? 'Processing...' : 'Confirm Action'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODAL 1: ADD / AUTHORIZE NEW ADMINISTRATOR BY MOBILE NUMBER
+         ==================================================================== */}
+      {isAddAdminModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#003B8E]/10 border border-[#003B8E]/20 text-[#003B8E] flex items-center justify-center shrink-0">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Authorize Administrator
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Grant administrative rights to a mobile number
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddAdminModalOpen(false);
+                  setAddAdminError(null);
+                }}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {addAdminError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 font-medium">
+                {addAdminError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setAddAdminError(null);
+                const rawSubscriber = addAdminSubscriberPhone.replace(/\D/g, '');
+                if (!rawSubscriber || rawSubscriber.length < 10) {
+                  setAddAdminError('Please enter a valid 10-digit mobile number.');
+                  return;
+                }
+                if (!addAdminName.trim()) {
+                  setAddAdminError('Please enter the administrator\'s full name.');
+                  return;
+                }
+                const normalizedPhone = `${addAdminCountryDialCode}${rawSubscriber}`;
+                const ok = await executeAdminAction(
+                  {
+                    action: 'INVITE_ADMIN',
+                    phoneE164: normalizedPhone,
+                    name: addAdminName.trim(),
+                    designation: addAdminDesignation.trim() || 'Administrator',
+                    role: addAdminRole,
+                  },
+                  `Successfully authorized ${addAdminName.trim()} (${normalizedPhone}) as ${addAdminRole === 'super_admin' ? 'Super Admin' : 'Admin'}.`
+                );
+                if (ok) {
+                  setIsAddAdminModalOpen(false);
+                  setAddAdminSubscriberPhone('');
+                  setAddAdminName('');
+                  setAddAdminDesignation('');
+                  setAddAdminRole('admin');
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Administrator Mobile Number <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={addAdminCountryDialCode}
+                    onChange={(e) => setAddAdminCountryDialCode(e.target.value)}
+                    className="w-24 px-2.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs font-bold text-slate-800"
+                  >
+                    <option value="+91">🇮🇳 +91</option>
+                    <option value="+1">🇺🇸 +1</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+971">🇦🇪 +971</option>
+                  </select>
+                  <input
+                    type="tel"
+                    required
+                    value={addAdminSubscriberPhone}
+                    onChange={(e) => setAddAdminSubscriberPhone(e.target.value)}
+                    placeholder="9876543210"
+                    className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-[#003B8E]"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  The administrator must authenticate via Firebase Phone OTP using this exact mobile number.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addAdminName}
+                  onChange={(e) => setAddAdminName(e.target.value)}
+                  placeholder="e.g. Ramesh Kulkarni"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-[#003B8E]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Designation / Role Title
+                </label>
+                <input
+                  type="text"
+                  value={addAdminDesignation}
+                  onChange={(e) => setAddAdminDesignation(e.target.value)}
+                  placeholder="e.g. Senior Operations Manager"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-[#003B8E]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Assigned Administrative Role <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={addAdminRole}
+                  onChange={(e) => setAddAdminRole(e.target.value as 'admin' | 'super_admin')}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white focus:border-[#003B8E]"
+                >
+                  <option value="admin">
+                    Operational Admin — Store, Buyer, Product &amp; Order Operations
+                  </option>
+                  <option value="super_admin">
+                    Super Admin — Full Platform Administration &amp; Governance
+                  </option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Operational admins cannot invite new admins, promote users, or revoke Super Admin access.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAdminModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAction}
+                  className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingAction ? 'Authorizing...' : 'Authorize Mobile Number'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODAL 2: REVOKE ADMINISTRATOR ACCESS
+         ==================================================================== */}
+      {adminToRevoke && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center shrink-0">
+                  <UserX className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Revoke Admin Access
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Immediately strip administrative privileges
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminToRevoke(null);
+                  setRevokeReasonInput('');
+                }}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-950 space-y-2">
+              <p className="font-semibold">
+                You are about to revoke administrative access for:
+              </p>
+              <div className="font-bold text-slate-900 text-sm">
+                {adminToRevoke.name} ({adminToRevoke.phoneE164})
+              </div>
+              <p className="text-[11px] text-rose-900 leading-relaxed pt-1 border-t border-rose-200/80">
+                The user will be immediately blocked from accessing administrative routes and APIs. Their buyer or seller account will remain intact.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <label className="block font-bold text-slate-800">
+                Reason for Revocation (logged in audit trail)
+              </label>
+              <input
+                type="text"
+                value={revokeReasonInput}
+                onChange={(e) => setRevokeReasonInput(e.target.value)}
+                placeholder="e.g. Role transition / operational reassignment"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-rose-600"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminToRevoke(null);
+                  setRevokeReasonInput('');
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={async () => {
+                  const ok = await executeAdminAction(
+                    {
+                      action: 'REVOKE_ADMIN',
+                      phoneE164: adminToRevoke.phoneE164,
+                      reason: revokeReasonInput.trim() || 'Revoked by Super Admin.',
+                    },
+                    `Revoked administrative access for ${adminToRevoke.name} (${adminToRevoke.phoneE164}).`
+                  );
+                  if (ok) {
+                    setAdminToRevoke(null);
+                    setRevokeReasonInput('');
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingAction ? 'Revoking...' : 'Confirm Revocation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODAL 3: REACTIVATE ADMINISTRATOR
+         ==================================================================== */}
+      {adminToReactivate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Reactivate Admin Access
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Restore administrative authorization
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminToReactivate(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to reactivate administrative access for{' '}
+              <strong className="text-slate-900">{adminToReactivate.name}</strong> (
+              <span className="font-mono text-emerald-700 font-bold">{adminToReactivate.phoneE164}</span>)?
+              They will regain full operational access upon their next sign in via Firebase Phone OTP.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setAdminToReactivate(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={async () => {
+                  const ok = await executeAdminAction(
+                    {
+                      action: 'REACTIVATE_ADMIN',
+                      phoneE164: adminToReactivate.phoneE164,
+                    },
+                    `Reactivated administrative access for ${adminToReactivate.name} (${adminToReactivate.phoneE164}).`
+                  );
+                  if (ok) {
+                    setAdminToReactivate(null);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingAction ? 'Reactivating...' : 'Reactivate Admin'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODAL 4: EDIT ADMINISTRATOR DETAILS
+         ==================================================================== */}
+      {adminToEdit && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-[#003B8E] flex items-center justify-center shrink-0">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Edit Admin Details
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Update display name and designation
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminToEdit(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const ok = await executeAdminAction(
+                  {
+                    action: 'UPDATE_ADMIN',
+                    phoneE164: adminToEdit.phoneE164,
+                    name: editAdminName.trim() || adminToEdit.name,
+                    designation: editAdminDesignation.trim() || adminToEdit.designation,
+                  },
+                  `Updated profile details for administrator ${adminToEdit.phoneE164}.`
+                );
+                if (ok) {
+                  setAdminToEdit(null);
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Mobile Number (Read-only ID)
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={adminToEdit.phoneE164}
+                  className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono text-xs text-slate-600 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editAdminName}
+                  onChange={(e) => setEditAdminName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-[#003B8E]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Designation / Role Title
+                </label>
+                <input
+                  type="text"
+                  value={editAdminDesignation}
+                  onChange={(e) => setEditAdminDesignation(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-[#003B8E]"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAdminToEdit(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAction}
+                  className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingAction ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

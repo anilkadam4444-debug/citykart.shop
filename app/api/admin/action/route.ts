@@ -32,21 +32,26 @@ import { serverOrdersRegistry } from '@/lib/orders-registry';
 import { serverUserAccounts } from '@/app/api/auth/otp/route';
 import { SubscriptionPlan, SubscriptionTierId } from '@/lib/revenue-model';
 import {
+  createAdminAuthorization,
+  getAuthoritativeAdminAuthorizations,
   getAuthoritativeSubscriptionPlans,
+  reactivateAdminAuthorization,
   recordAdminAuditLog,
+  revokeAdminAuthorization,
   serverBuyerOverridesRegistry,
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
   setAuthoritativeSubscriptionPlan,
+  updateAdminAuthorization,
   updateAuthoritativePlatformSettings,
-  verifySuperAdminRequest,
+  verifyAdminRequest,
 } from '@/lib/super-admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  // 1. Strict Server-Side Super Admin Authorization Gate
-  const authCheck = await verifySuperAdminRequest(req);
+  // 1. Strict Server-Side Admin Authorization Gate (Super Admin or Operational Admin)
+  const authCheck = await verifyAdminRequest(req);
   if (!authCheck.authorized || !authCheck.firebaseUid) {
     return NextResponse.json(
       {
@@ -59,11 +64,136 @@ export async function POST(req: NextRequest) {
   }
 
   const adminUid = authCheck.firebaseUid;
+  const adminPhone = authCheck.phoneE164;
+  const adminRole = authCheck.role;
 
   try {
     const body = await req.json();
     const actionType = String(body.action || '').trim();
-    const reason = String(body.reason || 'Administrative action by Platform Owner').trim();
+    const reason = String(body.reason || `Administrative action by ${adminRole}`).trim();
+
+    // =========================================================================
+    // 0. ADMIN USER GOVERNANCE (SUPER ADMIN ONLY)
+    // =========================================================================
+    if (
+      actionType === 'INVITE_ADMIN' ||
+      actionType === 'REVOKE_ADMIN' ||
+      actionType === 'REACTIVATE_ADMIN' ||
+      actionType === 'UPDATE_ADMIN'
+    ) {
+      if (!authCheck.isSuperAdmin) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Forbidden: Only the Platform Owner Super Admin (+918329306616) is authorized to invite, revoke, or modify administrators.',
+          },
+          { status: 403 }
+        );
+      }
+
+      if (actionType === 'INVITE_ADMIN') {
+        const phoneE164 = String(body.phoneE164 || '').trim();
+        const name = String(body.name || '').trim();
+        const designation = String(body.designation || '').trim();
+        const role = body.role === 'super_admin' ? 'super_admin' : 'admin';
+
+        const result = await createAdminAuthorization({
+          callerAdminUid: adminUid,
+          callerPhone: adminPhone,
+          phoneE164,
+          name,
+          designation,
+          role,
+        });
+
+        if (!result.ok) {
+          return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+        }
+
+        const allAdmins = await getAuthoritativeAdminAuthorizations();
+        return NextResponse.json({
+          ok: true,
+          message: `Administrator authorization created for ${result.record?.phoneE164}.`,
+          record: result.record,
+          authorizations: allAdmins,
+        });
+      }
+
+      if (actionType === 'REVOKE_ADMIN') {
+        const phoneE164 = String(body.phoneE164 || '').trim();
+        const revokeReason = String(body.reason || 'Revoked by Platform Owner').trim();
+
+        const result = await revokeAdminAuthorization({
+          callerAdminUid: adminUid,
+          callerPhone: adminPhone,
+          phoneE164,
+          reason: revokeReason,
+        });
+
+        if (!result.ok) {
+          return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+        }
+
+        const allAdmins = await getAuthoritativeAdminAuthorizations();
+        return NextResponse.json({
+          ok: true,
+          message: `Administrator authorization revoked for ${phoneE164}.`,
+          record: result.record,
+          authorizations: allAdmins,
+        });
+      }
+
+      if (actionType === 'REACTIVATE_ADMIN') {
+        const phoneE164 = String(body.phoneE164 || '').trim();
+        const reactivateReason = String(body.reason || 'Reactivated by Platform Owner').trim();
+
+        const result = await reactivateAdminAuthorization({
+          callerAdminUid: adminUid,
+          callerPhone: adminPhone,
+          phoneE164,
+          reason: reactivateReason,
+        });
+
+        if (!result.ok) {
+          return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+        }
+
+        const allAdmins = await getAuthoritativeAdminAuthorizations();
+        return NextResponse.json({
+          ok: true,
+          message: `Administrator authorization reactivated for ${phoneE164}.`,
+          record: result.record,
+          authorizations: allAdmins,
+        });
+      }
+
+      if (actionType === 'UPDATE_ADMIN') {
+        const phoneE164 = String(body.phoneE164 || '').trim();
+        const name = body.name !== undefined ? String(body.name).trim() : undefined;
+        const designation = body.designation !== undefined ? String(body.designation).trim() : undefined;
+
+        const result = await updateAdminAuthorization({
+          callerAdminUid: adminUid,
+          callerPhone: adminPhone,
+          phoneE164,
+          name,
+          designation,
+        });
+
+        if (!result.ok) {
+          return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+        }
+
+        const allAdmins = await getAuthoritativeAdminAuthorizations();
+        return NextResponse.json({
+          ok: true,
+          message: `Administrator details updated for ${phoneE164}.`,
+          record: result.record,
+          authorizations: allAdmins,
+        });
+      }
+    }
 
     // =========================================================================
     // 1. STORE MANAGEMENT: SUSPEND / RESTORE / VERIFY LOCATION / DELETE

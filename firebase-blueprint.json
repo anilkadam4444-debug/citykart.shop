@@ -381,6 +381,32 @@
       },
       "required": ["token", "updatedAt"]
     },
+    "AdminAuthorizationRecord": {
+      "title": "Admin Authorization Record",
+      "description": "Server-controlled administrator invitation and authorization record keyed by canonical E.164 phone number.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "phoneE164": { "type": "string" },
+        "name": { "type": "string" },
+        "designation": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "admin"] },
+        "status": { "type": "string", "enum": ["INVITED", "ACTIVE", "REVOKED"] },
+        "isPermanentSuperAdmin": { "type": "boolean" },
+        "invitedByUid": { "type": "string" },
+        "invitedByPhone": { "type": "string" },
+        "invitedAt": { "type": "string" },
+        "activatedAt": { "type": "string" },
+        "assignedUid": { "type": "string" },
+        "lastLoginAt": { "type": "string" },
+        "revokedAt": { "type": "string" },
+        "revokedByUid": { "type": "string" },
+        "revokedReason": { "type": "string" },
+        "customClaimsSynced": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "phoneE164", "name", "role", "status", "isPermanentSuperAdmin", "invitedByUid", "invitedAt", "updatedAt"]
+    },
     "SuperAdminRecord": {
       "title": "Super Admin Record",
       "description": "Server-controlled authorization record for the designated Citykart Platform Owner (+918329306616).",
@@ -511,6 +537,10 @@
     "/fcm_tokens/{tokenId}": {
       "schema": { "$ref": "#/entities/FcmTokenRecord" },
       "description": "Registered FCM device tokens for push notifications."
+    },
+    "/adminAuthorizations/{phoneId}": {
+      "schema": { "$ref": "#/entities/AdminAuthorizationRecord" },
+      "description": "Authoritative administrator authorizations keyed by canonical E.164 phone number."
     },
     "/admins/{adminUid}": {
       "schema": { "$ref": "#/entities/SuperAdminRecord" },

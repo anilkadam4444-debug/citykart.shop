@@ -23,6 +23,7 @@ import {
   isDesignatedOwnerPhone,
   logSystemHealthEvent,
   normalizePhoneE164,
+  resolveTrustedAdminRole,
   resolveTrustedSuperAdminRole,
   serverBuyerOverridesRegistry,
   verifyFirebaseIdTokenCryptographically,
@@ -146,7 +147,7 @@ export async function GET(req: NextRequest) {
     return res;
   }
 
-  const superAdminResolution = await resolveTrustedSuperAdminRole({
+  const adminResolution = await resolveTrustedAdminRole({
     firebaseUid,
     phoneE164: canonicalPhone,
   });
@@ -164,10 +165,15 @@ export async function GET(req: NextRequest) {
       )
     : ['BUYER'];
 
-  if (superAdminResolution.isAuthorizedSuperAdmin) {
+  if (adminResolution.isAuthorizedSuperAdmin) {
     if (!baseRoles.includes('SELLER')) baseRoles.push('SELLER');
     if (!baseRoles.includes('ADMIN')) baseRoles.push('ADMIN');
+  } else if (adminResolution.isAuthorizedAdmin) {
+    if (!baseRoles.includes('ADMIN')) baseRoles.push('ADMIN');
   }
+
+  const isUserAdmin =
+    adminResolution.isAuthorizedSuperAdmin || adminResolution.isAuthorizedAdmin;
 
   const resolvedUser: UserAccount = {
     id: existing?.id || firebaseUid,
@@ -179,12 +185,10 @@ export async function GET(req: NextRequest) {
     countryCode: existing?.countryCode || 'IN',
     fullName: isDesignatedOwnerPhone(canonicalPhone)
       ? existing?.fullName || DESIGNATED_SUPER_ADMIN_NAME
-      : existing?.fullName || 'Verified User',
+      : adminResolution.authorizationRecord?.name || existing?.fullName || 'Verified User',
     roles: baseRoles.length > 0 ? baseRoles : ['BUYER'],
-    isAdmin: superAdminResolution.isAuthorizedSuperAdmin,
-    role: superAdminResolution.isAuthorizedSuperAdmin
-      ? 'super_admin'
-      : undefined,
+    isAdmin: isUserAdmin,
+    role: isUserAdmin ? adminResolution.adminRole : undefined,
     sellerId: existing?.sellerId || sessionPayload.sellerId,
     storeIds: existing?.storeIds || [],
     createdAt: existing?.createdAt || new Date().toISOString().slice(0, 10),
@@ -196,8 +200,10 @@ export async function GET(req: NextRequest) {
     ok: true,
     authenticated: true,
     user: resolvedUser,
-    isSuperAdmin: superAdminResolution.isAuthorizedSuperAdmin,
-    requiresBootstrap: superAdminResolution.requiresBootstrap,
+    isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
+    isAdmin: isUserAdmin,
+    adminRole: adminResolution.adminRole,
+    requiresBootstrap: adminResolution.requiresBootstrap,
   });
 }
 
@@ -379,11 +385,14 @@ export async function POST(req: NextRequest) {
         firestoreByPhone ||
         serverUserAccounts.get(phoneE164);
 
-      // Server-side trusted super_admin role verification for +918329306616
-      const superAdminResolution = await resolveTrustedSuperAdminRole({
+      // Server-side trusted admin role resolution
+      const adminResolution = await resolveTrustedAdminRole({
         firebaseUid,
         phoneE164,
       });
+
+      const isUserAdmin =
+        adminResolution.isAuthorizedSuperAdmin || adminResolution.isAuthorizedAdmin;
 
       if (existingAccount) {
         const override =
@@ -409,8 +418,10 @@ export async function POST(req: NextRequest) {
           )
         ) as ('BUYER' | 'SELLER' | 'ADMIN')[];
 
-        if (superAdminResolution.isAuthorizedSuperAdmin) {
+        if (adminResolution.isAuthorizedSuperAdmin) {
           if (!sanitizedRoles.includes('SELLER')) sanitizedRoles.push('SELLER');
+          if (!sanitizedRoles.includes('ADMIN')) sanitizedRoles.push('ADMIN');
+        } else if (adminResolution.isAuthorizedAdmin) {
           if (!sanitizedRoles.includes('ADMIN')) sanitizedRoles.push('ADMIN');
         }
 
@@ -423,12 +434,10 @@ export async function POST(req: NextRequest) {
           countryCode: countryRecord.code,
           fullName: isDesignatedOwnerPhone(phoneE164)
             ? existingAccount.fullName || DESIGNATED_SUPER_ADMIN_NAME
-            : existingAccount.fullName,
+            : adminResolution.authorizationRecord?.name || existingAccount.fullName,
           roles: sanitizedRoles.length > 0 ? sanitizedRoles : ['BUYER'],
-          isAdmin: superAdminResolution.isAuthorizedSuperAdmin,
-          role: superAdminResolution.isAuthorizedSuperAdmin
-            ? 'super_admin'
-            : undefined,
+          isAdmin: isUserAdmin,
+          role: isUserAdmin ? adminResolution.adminRole : undefined,
         };
         serverUserAccounts.set(phoneE164, updatedExisting);
         await syncUserAccountToFirestore(updatedExisting);
@@ -438,10 +447,10 @@ export async function POST(req: NextRequest) {
           firebaseUid,
           phoneE164: updatedExisting.phoneE164,
           roles: updatedExisting.roles,
-          role: superAdminResolution.isAuthorizedSuperAdmin
-            ? 'super_admin'
-            : undefined,
-          superAdminAuthorized: superAdminResolution.isAuthorizedSuperAdmin,
+          role: isUserAdmin ? adminResolution.adminRole : undefined,
+          adminRole: adminResolution.adminRole,
+          adminAuthorized: isUserAdmin,
+          superAdminAuthorized: adminResolution.isAuthorizedSuperAdmin,
           sellerId: updatedExisting.sellerId,
           iat: now,
         });
@@ -451,11 +460,11 @@ export async function POST(req: NextRequest) {
           phoneAuthState: 'PHONE_VERIFIED',
           status: 'AUTHENTICATED_EXISTING',
           user: updatedExisting,
-          isSuperAdmin: superAdminResolution.isAuthorizedSuperAdmin,
-          requiresBootstrap: superAdminResolution.requiresBootstrap,
-          redirectTo: superAdminResolution.isAuthorizedSuperAdmin
-            ? '/admin'
-            : undefined,
+          isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
+          isAdmin: isUserAdmin,
+          adminRole: adminResolution.adminRole,
+          requiresBootstrap: adminResolution.requiresBootstrap,
+          redirectTo: isUserAdmin ? '/admin' : undefined,
           verificationToken,
         });
 
@@ -468,41 +477,42 @@ export async function POST(req: NextRequest) {
         return res;
       }
 
-      // If the designated Platform Owner (+918329306616) signs in for the first time,
-      // automatically create their base UserAccount profile and attach server-verified super_admin role.
-      if (isDesignatedOwnerPhone(phoneE164)) {
-        const ownerRoles: ('BUYER' | 'SELLER' | 'ADMIN')[] =
-          superAdminResolution.isAuthorizedSuperAdmin
+      // If the designated Platform Owner (+918329306616) or an authorized Admin signs in for the first time
+      if (isUserAdmin || isDesignatedOwnerPhone(phoneE164)) {
+        const adminRoles: ('BUYER' | 'SELLER' | 'ADMIN')[] =
+          adminResolution.isAuthorizedSuperAdmin
             ? ['BUYER', 'SELLER', 'ADMIN']
-            : ['BUYER', 'SELLER'];
+            : isUserAdmin
+              ? ['BUYER', 'ADMIN']
+              : ['BUYER', 'SELLER'];
 
-        const ownerUser: UserAccount = {
+        const adminUser: UserAccount = {
           id: firebaseUid,
           uid: firebaseUid,
           phoneE164,
           maskedPhone,
           countryCode: countryRecord.code,
-          fullName: DESIGNATED_SUPER_ADMIN_NAME,
-          roles: ownerRoles,
-          isAdmin: superAdminResolution.isAuthorizedSuperAdmin,
-          role: superAdminResolution.isAuthorizedSuperAdmin
-            ? 'super_admin'
-            : undefined,
+          fullName: isDesignatedOwnerPhone(phoneE164)
+            ? DESIGNATED_SUPER_ADMIN_NAME
+            : adminResolution.authorizationRecord?.name || 'Authorized Administrator',
+          roles: adminRoles,
+          isAdmin: isUserAdmin,
+          role: isUserAdmin ? adminResolution.adminRole : undefined,
           storeIds: [],
           createdAt: new Date().toISOString().slice(0, 10),
         };
-        serverUserAccounts.set(phoneE164, ownerUser);
-        await syncUserAccountToFirestore(ownerUser);
+        serverUserAccounts.set(phoneE164, adminUser);
+        await syncUserAccountToFirestore(adminUser);
 
         const sessionToken = createSignedToken({
-          userId: ownerUser.id,
+          userId: adminUser.id,
           firebaseUid,
-          phoneE164: ownerUser.phoneE164,
-          roles: ownerUser.roles,
-          role: superAdminResolution.isAuthorizedSuperAdmin
-            ? 'super_admin'
-            : undefined,
-          superAdminAuthorized: superAdminResolution.isAuthorizedSuperAdmin,
+          phoneE164: adminUser.phoneE164,
+          roles: adminUser.roles,
+          role: isUserAdmin ? adminResolution.adminRole : undefined,
+          adminRole: adminResolution.adminRole,
+          adminAuthorized: isUserAdmin,
+          superAdminAuthorized: adminResolution.isAuthorizedSuperAdmin,
           iat: now,
         });
 
@@ -510,12 +520,12 @@ export async function POST(req: NextRequest) {
           ok: true,
           phoneAuthState: 'PHONE_VERIFIED',
           status: 'AUTHENTICATED_EXISTING',
-          user: ownerUser,
-          isSuperAdmin: superAdminResolution.isAuthorizedSuperAdmin,
-          requiresBootstrap: superAdminResolution.requiresBootstrap,
-          redirectTo: superAdminResolution.isAuthorizedSuperAdmin
-            ? '/admin'
-            : undefined,
+          user: adminUser,
+          isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
+          isAdmin: isUserAdmin,
+          adminRole: adminResolution.adminRole,
+          requiresBootstrap: adminResolution.requiresBootstrap,
+          redirectTo: isUserAdmin ? '/admin' : undefined,
           verificationToken,
         });
 
