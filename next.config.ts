@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   experimental: {
+    webpackMemoryOptimizations: true,
     cpus: 1,
   },
   typescript: {

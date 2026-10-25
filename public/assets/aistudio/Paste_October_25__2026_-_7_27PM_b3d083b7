@@ -1,0 +1,1065 @@
+4m 20s
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'google-auth-library@11.3.1',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'gcp-metadata@9.2.2',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'google-logging-utils@2.1.0',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+added 2 packages, and audited 1061 packages in 3s
+244 packages are looking for funding
+  run `npm fund` for details
+20 vulnerabilities (15 moderate, 5 high)
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+[2026-10-25T13:41:48.916Z] No OAuth tokens found
+[2026-10-25T13:41:48.917Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity [none]
+[2026-10-25T13:41:49.300Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity 200
+[2026-10-25T13:41:49.301Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity ***"name":"projects/urbandirectintracity/sites/urbandirectintracity","defaultUrl":"https://urbandirectintracity.web.app","type":"DEFAULT_SITE"***
+added 362 packages in 16s
+57 packages are looking for funding
+  run `npm fund` for details
+[2026-10-25T13:42:05.926Z] [web frameworks] effective firebase.json:  ***
+  "hosting": [
+    ***
+      "source": ".",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "site": "urbandirectintracity",
+      "rewrites": [
+        ***
+          "source": "**",
+          "function": ***
+            "functionId": "ssrurbandirectintracity",
+            "region": "us-central1",
+            "pinTag": true
+          ***
+        ***
+      ],
+      "redirects": [],
+      "headers": [
+        ***
+          "source": "/_not-found",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/_not-found/layout,_N_T_/_not-found/page,_N_T_/_not-found"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/sitemap.xml",
+          "headers": [
+            ***
+              "key": "cache-control",
+              "value": "public, max-age=0, must-revalidate"
+            ***,
+            ***
+              "key": "content-type",
+              "value": "application/xml"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/sitemap.xml/layout,_N_T_/sitemap.xml/route,_N_T_/sitemap.xml"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/robots.txt",
+          "headers": [
+            ***
+              "key": "cache-control",
+              "value": "public, max-age=0, must-revalidate"
+            ***,
+            ***
+              "key": "content-type",
+              "value": "text/plain"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/robots.txt/layout,_N_T_/robots.txt/route,_N_T_/robots.txt"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/admin",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/page,_N_T_/admin"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/about",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/about/layout,_N_T_/about/page,_N_T_/about"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/delivery-returns",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/delivery-returns/layout,_N_T_/delivery-returns/page,_N_T_/delivery-returns"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/how-it-works",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/how-it-works/layout,_N_T_/how-it-works/page,_N_T_/how-it-works"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/privacy",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/privacy/layout,_N_T_/privacy/page,_N_T_/privacy"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/orders",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/orders/layout,_N_T_/orders/page,_N_T_/orders"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/contact",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/contact/layout,_N_T_/contact/page,_N_T_/contact"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/pricing",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/pricing/layout,_N_T_/pricing/page,_N_T_/pricing"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/seller-guide",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/seller-guide/layout,_N_T_/seller-guide/page,_N_T_/seller-guide"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/seller/dashboard",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/seller/layout,_N_T_/seller/dashboard/layout,_N_T_/seller/dashboard/page,_N_T_/seller/dashboard"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/terms",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/terms/layout,_N_T_/terms/page,_N_T_/terms"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/seller",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/seller/layout,_N_T_/seller/page,_N_T_/seller"
+            ***
+          ]
+        ***,
+        ***
+          "source": "**/*.[jt]s",
+          "headers": [
+            ***
+              "key": "Set-Cookie",
+              "value": "__FIREBASE_DEFAULTS__=eyJjb25maWciOnsicHJvamVjdElkIjoidXJiYW5kaXJlY3RpbnRyYWNpdHkiLCJzdG9yYWdlQnVja2V0IjoidXJiYW5kaXJlY3RpbnRyYWNpdHkuZmlyZWJhc2VzdG9yYWdlLmFwcCIsImFwaUtleSI6IkFJemFTeUR4YlQ2cldwbDNtclZUNVJjd05IVlRfVF9nZWNMdWJrQSIsImF1dGhEb21haW4iOiJ1cmJhbmRpcmVjdGludHJhY2l0eS5maXJlYmFzZWFwcC5jb20iLCJtZXNzYWdpbmdTZW5kZXJJZCI6IjM5Nzc3MjczMTM4NyIsInByb2plY3ROdW1iZXIiOiIzOTc3NzI3MzEzODciLCJ2ZXJzaW9uIjoiMiJ9LCJfYXV0aFRva2VuU3luY1VSTCI6Ii9fX3Nlc3Npb24ifQ; SameSite=Strict; Expires=2028-09-19T00:22:05.926Z; Path=/;"
+            ***
+          ]
+        ***
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false,
+      "public": ".firebase/urbandirectintracity/hosting",
+      "webFramework": "next_ssr"
+    ***
+  ],
+  "functions": [
+    ***
+      "source": ".firebase/urbandirectintracity/functions",
+      "codebase": "firebase-frameworks-urbandirectintracity"
+    ***
+  ]
+***
+[2026-10-25T13:42:05.927Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-10-25T13:42:05.928Z] Running auto auth
+[2026-10-25T13:42:05.928Z] [iam] checking project urbandirectintracity for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[2026-10-25T13:42:05.928Z] No OAuth tokens found
+[2026-10-25T13:42:05.929Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions [none]
+[2026-10-25T13:42:05.929Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:05.929Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]***
+[2026-10-25T13:42:06.024Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions 200
+[2026-10-25T13:42:06.024Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]***
+[2026-10-25T13:42:06.025Z] No OAuth tokens found
+[2026-10-25T13:42:06.025Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/urbandirectintracity/locations/-/functions [none]
+[2026-10-25T13:42:06.500Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/urbandirectintracity/locations/-/functions 200
+[2026-10-25T13:42:06.500Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/urbandirectintracity/locations/-/functions ***
+[2026-10-25T13:42:06.501Z] No OAuth tokens found
+[2026-10-25T13:42:06.501Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/-/functions filter=environment%3D%22GEN_2%22
+[2026-10-25T13:42:06.919Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/-/functions 200
+[2026-10-25T13:42:06.919Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/-/functions ***
+i  hosting: The following function(s) are pinned to site urbandirectintracity and will be deployed as well: ssrurbandirectintracity 
+=== Deploying to 'urbandirectintracity'...
+i  deploying functions, hosting 
+[2026-10-25T13:42:06.922Z] No OAuth tokens found
+[2026-10-25T13:42:06.922Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com [none]
+[2026-10-25T13:42:06.922Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:07.206Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com 200
+[2026-10-25T13:42:07.207Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com [omitted]
+[2026-10-25T13:42:07.227Z] No OAuth tokens found
+[2026-10-25T13:42:07.227Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity [none]
+[2026-10-25T13:42:07.313Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity 200
+[2026-10-25T13:42:07.313Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity ***"projectNumber":"397772731387","projectId":"urbandirectintracity","lifecycleState":"ACTIVE","name":"CityKart","labels":***"firebase":"enabled","firebase-core":"disabled"***,"createTime":"2026-10-23T14:21:03.864Z"***
+i  functions: preparing codebase firebase-frameworks-urbandirectintracity for deployment 
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[2026-10-25T13:42:07.315Z] No OAuth tokens found
+[2026-10-25T13:42:07.315Z] No OAuth tokens found
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[2026-10-25T13:42:07.315Z] No OAuth tokens found
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[2026-10-25T13:42:07.316Z] No OAuth tokens found
+[2026-10-25T13:42:07.316Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com [none]
+[2026-10-25T13:42:07.316Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:07.317Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com [none]
+[2026-10-25T13:42:07.317Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:07.319Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com [none]
+[2026-10-25T13:42:07.319Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:07.320Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com [none]
+[2026-10-25T13:42:07.321Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:07.544Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com 200
+[2026-10-25T13:42:07.544Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com [omitted]
+✔  artifactregistry: required API artifactregistry.googleapis.com is enabled 
+[2026-10-25T13:42:07.588Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com 200
+[2026-10-25T13:42:07.588Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com [omitted]
+✔  functions: required API cloudfunctions.googleapis.com is enabled 
+[2026-10-25T13:42:07.592Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com 200
+[2026-10-25T13:42:07.592Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com [omitted]
+✔  functions: required API cloudbuild.googleapis.com is enabled 
+[2026-10-25T13:42:07.604Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com 200
+[2026-10-25T13:42:07.604Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com [omitted]
+[2026-10-25T13:42:07.606Z] No OAuth tokens found
+[2026-10-25T13:42:07.606Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/adminSdkConfig [none]
+[2026-10-25T13:42:07.939Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/adminSdkConfig 200
+[2026-10-25T13:42:07.939Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/adminSdkConfig ***"projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app"***
+[2026-10-25T13:42:07.939Z] No OAuth tokens found
+[2026-10-25T13:42:07.940Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs [none]
+[2026-10-25T13:42:08.061Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs 200
+[2026-10-25T13:42:08.061Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs ***
+[2026-10-25T13:42:08.062Z] Validating nodejs source
+⚠  functions: Runtime Node.js 20 was deprecated on 2026-04-30 and will be decommissioned on 2026-10-30, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+⚠  functions: Please note that there will be breaking changes when you upgrade. 
+[2026-10-25T13:42:08.440Z] > [functions] package.json contents: ***
+  "name": "ai-studio-applet",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": ***
+    "@google/genai": "^2.4.0",
+    "autoprefixer": "^10.4.21",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "firebase": "^12.7.0",
+    "firebase-admin": "^13.0.0",
+    "lucide-react": "^0.553.0",
+    "motion": "^12.23.24",
+    "next": "^15.4.9",
+    "postcss": "^8.5.6",
+    "razorpay": "^2.9.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwind-merge": "^3.3.1",
+    "sharp": "^0.32 || ^0.33",
+    "firebase-frameworks": "^0.11.0",
+    "firebase-functions": "^6.0.1"
+  ***,
+  "main": "server.js",
+  "engines": ***
+    "node": "20"
+  ***
+***
+[2026-10-25T13:42:08.440Z] Building nodejs source
+i  functions: Loaded environment variables from .firebase/urbandirectintracity/functions/.env 
+i  functions: Loading and analyzing source code for codebase firebase-frameworks-urbandirectintracity to determine what to deploy 
+[2026-10-25T13:42:08.442Z] Could not find functions.yaml. Must use http discovery
+[2026-10-25T13:42:08.446Z] Found firebase-functions binary at '/home/runner/work/citykart.shop/citykart.shop/.firebase/urbandirectintracity/functions/node_modules/.bin/firebase-functions'
+Serving at port 8387
+[2026-10-25T13:42:08.695Z] Got response from /__/functions.yaml ***"endpoints":***"ssrurbandirectintracity":***"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":***,"httpsTrigger":***,"entryPoint":"ssrurbandirectintracity"***,"specVersion":"v1alpha1","requiredAPIs":[],"extensions":***
+i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[2026-10-25T13:42:11.720Z] No OAuth tokens found
+[2026-10-25T13:42:11.720Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com [none]
+[2026-10-25T13:42:11.720Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:11.971Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com 200
+[2026-10-25T13:42:11.971Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com [omitted]
+⚠  extensions: missing required API firebaseextensions.googleapis.com. Enabling now... 
+[2026-10-25T13:42:11.972Z] No OAuth tokens found
+[2026-10-25T13:42:11.972Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable [none]
+[2026-10-25T13:42:11.972Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:12.638Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable 200
+[2026-10-25T13:42:12.638Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable [omitted]
+[2026-10-25T13:42:22.757Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-10-25T13:42:22.757Z] Running auto auth
+[2026-10-25T13:42:22.758Z] [iam] checking project urbandirectintracity for permissions ["firebase.projects.get","firebaseextensions.instances.list"]
+[2026-10-25T13:42:22.758Z] No OAuth tokens found
+[2026-10-25T13:42:22.758Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions [none]
+[2026-10-25T13:42:22.758Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:22.758Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["firebase.projects.get","firebaseextensions.instances.list"]***
+[2026-10-25T13:42:22.888Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions 200
+[2026-10-25T13:42:22.888Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["firebase.projects.get","firebaseextensions.instances.list"]***
+[2026-10-25T13:42:22.889Z] No OAuth tokens found
+[2026-10-25T13:42:22.889Z] >>> [apiv2][query] GET https://firebaseextensions.googleapis.com/v1beta/projects/urbandirectintracity/instances pageSize=100&pageToken=
+[2026-10-25T13:42:24.201Z] <<< [apiv2][status] GET https://firebaseextensions.googleapis.com/v1beta/projects/urbandirectintracity/instances 200
+[2026-10-25T13:42:24.201Z] <<< [apiv2][body] GET https://firebaseextensions.googleapis.com/v1beta/projects/urbandirectintracity/instances ***
+i  functions: Loaded environment variables from .firebase/urbandirectintracity/functions/.env 
+[2026-10-25T13:42:24.202Z] Attempting to merge .env secret bindings *** into declared secrets...)***
+[2026-10-25T13:42:24.202Z] ssrurbandirectintracity declared secrets: undefined
+i  functions: preparing .firebase/urbandirectintracity/functions directory for uploading... 
+i  functions: packaged /home/runner/work/citykart.shop/citykart.shop/.firebase/urbandirectintracity/functions (55.14 MB) for uploading 
+i  functions: ensuring required API run.googleapis.com is enabled... 
+[2026-10-25T13:42:27.980Z] No OAuth tokens found
+i  functions: ensuring required API eventarc.googleapis.com is enabled... 
+[2026-10-25T13:42:27.981Z] No OAuth tokens found
+i  functions: ensuring required API pubsub.googleapis.com is enabled... 
+[2026-10-25T13:42:27.981Z] No OAuth tokens found
+i  functions: ensuring required API storage.googleapis.com is enabled... 
+[2026-10-25T13:42:27.981Z] No OAuth tokens found
+[2026-10-25T13:42:27.982Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com [none]
+[2026-10-25T13:42:27.982Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:42:27.983Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com [none]
+[2026-10-25T13:42:27.984Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:42:27.984Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com [none]
+[2026-10-25T13:42:27.985Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:42:27.985Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com [none]
+[2026-10-25T13:42:27.985Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:42:28.209Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com 200
+[2026-10-25T13:42:28.209Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com [omitted]
+✔  functions: required API storage.googleapis.com is enabled 
+[2026-10-25T13:42:28.216Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com 200
+[2026-10-25T13:42:28.216Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com [omitted]
+✔  functions: required API eventarc.googleapis.com is enabled 
+[2026-10-25T13:42:28.257Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com 200
+[2026-10-25T13:42:28.258Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com [omitted]
+✔  functions: required API pubsub.googleapis.com is enabled 
+[2026-10-25T13:42:28.263Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com 200
+[2026-10-25T13:42:28.263Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com [omitted]
+✔  functions: required API run.googleapis.com is enabled 
+i  functions: generating the service identity for pubsub.googleapis.com... 
+[2026-10-25T13:42:28.265Z] No OAuth tokens found
+i  functions: generating the service identity for eventarc.googleapis.com... 
+[2026-10-25T13:42:28.266Z] No OAuth tokens found
+[2026-10-25T13:42:28.266Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/pubsub.googleapis.com:generateServiceIdentity [none]
+[2026-10-25T13:42:28.266Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/pubsub.googleapis.com:generateServiceIdentity  x-goog-user-project=397772731387
+[2026-10-25T13:42:28.266Z] >>> [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/pubsub.googleapis.com:generateServiceIdentity ***
+[2026-10-25T13:42:28.267Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/eventarc.googleapis.com:generateServiceIdentity [none]
+[2026-10-25T13:42:28.267Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/eventarc.googleapis.com:generateServiceIdentity  x-goog-user-project=397772731387
+[2026-10-25T13:42:28.267Z] >>> [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/eventarc.googleapis.com:generateServiceIdentity ***
+[2026-10-25T13:42:28.840Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/eventarc.googleapis.com:generateServiceIdentity 200
+[2026-10-25T13:42:28.840Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/eventarc.googleapis.com:generateServiceIdentity ***"name":"operations/finished.DONE_OPERATION","done":true,"response":***"@type":"type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity","email":"service-397772731387@gcp-sa-eventarc.iam.gserviceaccount.com","uniqueId":"118290774833588301494"***
+[2026-10-25T13:42:28.847Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/pubsub.googleapis.com:generateServiceIdentity 200
+[2026-10-25T13:42:28.847Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/397772731387/services/pubsub.googleapis.com:generateServiceIdentity ***"name":"operations/finished.DONE_OPERATION","done":true,"response":***"@type":"type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity","email":"service-397772731387@gcp-sa-pubsub.iam.gserviceaccount.com","uniqueId":"109345779905083824362"***
+[2026-10-25T13:42:28.850Z] No OAuth tokens found
+[2026-10-25T13:42:28.850Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity [none]
+[2026-10-25T13:42:29.227Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity 200
+[2026-10-25T13:42:29.227Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity ***"name":"projects/urbandirectintracity/sites/urbandirectintracity","defaultUrl":"https://urbandirectintracity.web.app","type":"DEFAULT_SITE"***
+[2026-10-25T13:42:29.227Z] No OAuth tokens found
+[2026-10-25T13:42:29.228Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions [none]
+[2026-10-25T13:42:29.228Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions ***"status":"CREATED","labels":***"deployment-tool":"cli-firebase","firebase-web-framework":"next_ssr"***
+[2026-10-25T13:42:30.274Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions 200
+[2026-10-25T13:42:30.274Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions ***"name":"projects/urbandirectintracity/sites/urbandirectintracity/versions/6af573298a950b5e","status":"CREATED","config":***,"labels":***"deployment-tool":"cli-firebase","firebase-web-framework":"next_ssr"***
+[2026-10-25T13:42:30.275Z] No OAuth tokens found
+[2026-10-25T13:42:30.275Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com [none]
+[2026-10-25T13:42:30.275Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:30.529Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com 200
+[2026-10-25T13:42:30.529Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com [omitted]
+[2026-10-25T13:42:30.529Z] No OAuth tokens found
+[2026-10-25T13:42:30.529Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com:enable [none]
+[2026-10-25T13:42:30.529Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com:enable  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:31.296Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com:enable 200
+[2026-10-25T13:42:31.296Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbilling.googleapis.com:enable [omitted]
+[2026-10-25T13:42:41.299Z] No OAuth tokens found
+[2026-10-25T13:42:41.299Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/urbandirectintracity/billingInfo [none]
+[2026-10-25T13:42:41.299Z] >>> [apiv2][(partial)header] GET https://cloudbilling.googleapis.com/v1/projects/urbandirectintracity/billingInfo  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:41.435Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/urbandirectintracity/billingInfo 200
+[2026-10-25T13:42:41.435Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/urbandirectintracity/billingInfo ***"name":"projects/urbandirectintracity/billingInfo","projectId":"urbandirectintracity","billingAccountName":"billingAccounts/015346-E31C20-CEA6D3","billingEnabled":true***
+[2026-10-25T13:42:41.437Z] [functions] found 1 new HTTP functions, testing setIamPolicy permission...
+[2026-10-25T13:42:41.437Z] No OAuth tokens found
+[2026-10-25T13:42:41.437Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions [none]
+[2026-10-25T13:42:41.437Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:42:41.437Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["cloudfunctions.functions.setIamPolicy"]***
+[2026-10-25T13:42:41.502Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions 200
+[2026-10-25T13:42:41.502Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["cloudfunctions.functions.setIamPolicy"]***
+[2026-10-25T13:42:41.502Z] [functions] found setIamPolicy permission, proceeding with deploy
+[2026-10-25T13:42:41.503Z] No OAuth tokens found
+[2026-10-25T13:42:41.503Z] >>> [apiv2][query] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions:generateUploadUrl [none]
+[2026-10-25T13:42:43.120Z] <<< [apiv2][status] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions:generateUploadUrl 200
+[2026-10-25T13:42:43.120Z] <<< [apiv2][body] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions:generateUploadUrl ***"uploadUrl":"https://storage.googleapis.com/gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com/67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip?GoogleAccessId=service-397772731387@gcf-admin-robot.iam.gserviceaccount.com&Expires=1792937563&Signature=pVaZGKJAy4ekQwsR6SrlGWJ72in%2FZ3hmx3NaJpaqQBeRDgr5uF4%2F7XBGNj20dcOrsma51XtCAuCAXghL8YbX87OuhsRrICd4GAAMXePI%2FjuTXPE8PS00yXC6YYwyjtFW0wxSw2y2jqz8ZTlXNa%2FqhAwp%2BLFy3euQK91wKzD9kwXQ1q1SDTE2hFKeaf%2BU%2BrVvWu3CnxhA0qCS5lsLy%2BWFDWAB0U8W1OJjoraCDQWB44MOxBwIaTmPj5oSnkH6hrIz4BoQyHu%2BZS3RTaR57ZTx3eZCidQb3NOm5KLtFrfwJHzxQGtPqoie1ZDUxtwlXlbHnbR%2BOFnMa8P8NdiVanxjEg%3D%3D","storageSource":***"bucket":"gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com","object":"67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip"***
+[2026-10-25T13:42:43.122Z] >>> [apiv2][query] PUT https://storage.googleapis.com/gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com/67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip GoogleAccessId=service-397772731387%40gcf-admin-robot.iam.gserviceaccount.com&Expires=1792937563&Signature=pVaZGKJAy4ekQwsR6SrlGWJ72in%2FZ3hmx3NaJpaqQBeRDgr5uF4%2F7XBGNj20dcOrsma51XtCAuCAXghL8YbX87OuhsRrICd4GAAMXePI%2FjuTXPE8PS00yXC6YYwyjtFW0wxSw2y2jqz8ZTlXNa%2FqhAwp%2BLFy3euQK91wKzD9kwXQ1q1SDTE2hFKeaf%2BU%2BrVvWu3CnxhA0qCS5lsLy%2BWFDWAB0U8W1OJjoraCDQWB44MOxBwIaTmPj5oSnkH6hrIz4BoQyHu%2BZS3RTaR57ZTx3eZCidQb3NOm5KLtFrfwJHzxQGtPqoie1ZDUxtwlXlbHnbR%2BOFnMa8P8NdiVanxjEg%3D%3D
+[2026-10-25T13:42:43.122Z] >>> [apiv2][body] PUT https://storage.googleapis.com/gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com/67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip [stream]
+[2026-10-25T13:42:43.858Z] <<< [apiv2][status] PUT https://storage.googleapis.com/gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com/67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip 200
+[2026-10-25T13:42:43.858Z] <<< [apiv2][body] PUT https://storage.googleapis.com/gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com/67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip [omitted]
+✔  functions: .firebase/urbandirectintracity/functions source uploaded successfully 
+i  hosting[urbandirectintracity]: beginning deploy... 
+i  hosting[urbandirectintracity]: found 109 files in .firebase/urbandirectintracity/hosting 
+[2026-10-25T13:42:43.883Z] [hosting] uploading with 200 concurrency
+[2026-10-25T13:42:43.884Z] [hosting] hash cache [LmZpcmViYXNlL3VyYmFuZGlyZWN0aW50cmFjaXR5L2hvc3Rpbmc] not populated
+[2026-10-25T13:42:43.986Z] No OAuth tokens found
+[2026-10-25T13:42:43.987Z] [hosting] hash cache [LmZpcmViYXNlL3VyYmFuZGlyZWN0aW50cmFjaXR5L2hvc3Rpbmc] stored for 109 files
+[2026-10-25T13:42:43.987Z] [hosting][hash queue][FINAL] ***"max":98,"min":10,"avg":23.972477064220186,"active":0,"complete":109,"success":109,"errored":0,"retried":0,"total":109,"elapsed":103***
+[2026-10-25T13:42:43.987Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions/6af573298a950b5e:populateFiles [none]
+[2026-10-25T13:42:43.987Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions/6af573298a950b5e:populateFiles ***"files":***"/sitemap.xml":"b72722debcd239a10ab8b43fabdce88a3f3d471b95be441bdb4dccf65bcc5c4b","/seller.html":"616b8cb6cea458e7371cf905a60f02b983614e66af03682fb6ba205111aba2e9","/terms.html":"0c36f9daad030f82cad6dff63be128e56e6b32f704146d1208af149f154aef2f","/robots.txt":"166335f555a7df66e48157220f7aa23daa4862f125a22357361c70f51aafb05b","/seller-guide.html":"5f0318ef9d4f1ceb12cd6370fbcc23bc7bc9d7098379aa5e3c2a13baace2e987","/privacy.html":"184a6d360d947372e96096785da2f1b886009e4dbe15f6a6c5eb3172722bce42","/orders.html":"0285c94cd19e9cf227048b9170045d70231648dbb7a6bc9969d71f38c9f2b353","/pricing.html":"6367246be1b24bf4ea554cedfce2f1ea9856d460de28a939045bdda6391c9ce4","/firebase-messaging-sw.js":"de17bec4150f710e02eec62aab22ed9ec076f50236c745ce892b86ff4a3343e4","/how-it-works.html":"398b6ed158bfb8837acdae7b06fcd1dda027a
+[2026-10-25T13:42:44.281Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions/6af573298a950b5e:populateFiles 200
+[2026-10-25T13:42:44.281Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity/versions/6af573298a950b5e:populateFiles ***"uploadRequiredHashes":["398b6ed158bfb8837acdae7b06fcd1dda027ac95888c2a639c495ba95245f590","45b36f93bb08c52e360d14b0e8449c88770aa8cf5d59bff1c76cbe6e198fe7c5","1a0ef52fba7a7c7ce80c8ab5c2a15702d71d4530b0a582b80302a05abc41ef65","87952a79d79fa61464d1f5196f69639c1197b9d417546e5a805ffd2db2027c0d","616b8cb6cea458e7371cf905a60f02b983614e66af03682fb6ba205111aba2e9","01f3415303c636b90d727754b27222d2bb9765d855f9273659e12d24c37cd149","880932fc980a350b1fcbcab3870bc7199c23a8e03f82325c8838a582949effa6","7e094da0eae4a6ba32ce9547c8b8cd7a49b5d9c8a3b9330109ad71ceb9ab7e8f","fc24041eadaf08d36796855fb62235100e94509f38702e60ae9235291be97278","c4400e969d4e32401e68067e33aec3bcbfd7e02e088d4d6786c418b6fd37d602","f7e5216ff66b38beb2755a19461f71e719d4a8b642bdacf5bb35a4cdc53261c9","c3c0372e6e021acf712b40e25eee340e2274d20dab27ceacccf480018aec91b5"
+[2026-10-25T13:42:44.281Z] No OAuth tokens found
+[2026-10-25T13:42:44.282Z] No OAuth tokens found
+[2026-10-25T13:42:44.282Z] No OAuth tokens found
+[2026-10-25T13:42:44.282Z] No OAuth tokens found
+[2026-10-25T13:42:44.282Z] No OAuth tokens found
+[2026-10-25T13:42:44.283Z] No OAuth tokens found
+[2026-10-25T13:42:44.283Z] No OAuth tokens found
+[2026-10-25T13:42:44.283Z] No OAuth tokens found
+[2026-10-25T13:42:44.283Z] No OAuth tokens found
+[2026-10-25T13:42:44.284Z] No OAuth tokens found
+[2026-10-25T13:42:44.284Z] No OAuth tokens found
+[2026-10-25T13:42:44.284Z] No OAuth tokens found
+[2026-10-25T13:42:44.284Z] No OAuth tokens found
+[2026-10-25T13:42:44.285Z] No OAuth tokens found
+[2026-10-25T13:42:44.285Z] No OAuth tokens found
+[2026-10-25T13:42:44.285Z] No OAuth tokens found
+[2026-10-25T13:42:44.285Z] No OAuth tokens found
+[2026-10-25T13:42:44.286Z] No OAuth tokens found
+[2026-10-25T13:42:44.286Z] No OAuth tokens found
+[2026-10-25T13:42:44.286Z] No OAuth tokens found
+[2026-10-25T13:42:44.286Z] No OAuth tokens found
+[2026-10-25T13:42:44.287Z] No OAuth tokens found
+[2026-10-25T13:42:44.287Z] No OAuth tokens found
+[2026-10-25T13:42:44.287Z] No OAuth tokens found
+[2026-10-25T13:42:44.287Z] No OAuth tokens found
+[2026-10-25T13:42:44.288Z] No OAuth tokens found
+[2026-10-25T13:42:44.288Z] No OAuth tokens found
+[2026-10-25T13:42:44.288Z] No OAuth tokens found
+[2026-10-25T13:42:44.289Z] No OAuth tokens found
+[2026-10-25T13:42:44.289Z] No OAuth tokens found
+[2026-10-25T13:42:44.289Z] No OAuth tokens found
+[2026-10-25T13:42:44.289Z] No OAuth tokens found
+[2026-10-25T13:42:44.290Z] No OAuth tokens found
+[2026-10-25T13:42:44.290Z] No OAuth tokens found
+[2026-10-25T13:42:44.290Z] No OAuth tokens found
+[2026-10-25T13:42:44.290Z] No OAuth tokens found
+[2026-10-25T13:42:44.291Z] No OAuth tokens found
+[2026-10-25T13:42:44.291Z] No OAuth tokens found
+[2026-10-25T13:42:44.291Z] No OAuth tokens found
+[2026-10-25T13:42:44.291Z] No OAuth tokens found
+[2026-10-25T13:42:44.291Z] No OAuth tokens found
+[2026-10-25T13:42:44.292Z] No OAuth tokens found
+[2026-10-25T13:42:44.292Z] No OAuth tokens found
+[2026-10-25T13:42:44.292Z] No OAuth tokens found
+[2026-10-25T13:42:44.293Z] No OAuth tokens found
+[2026-10-25T13:42:44.293Z] No OAuth tokens found
+[2026-10-25T13:42:44.293Z] No OAuth tokens found
+[2026-10-25T13:42:44.293Z] No OAuth tokens found
+[2026-10-25T13:42:44.294Z] No OAuth tokens found
+[2026-10-25T13:42:44.294Z] No OAuth tokens found
+[2026-10-25T13:42:44.294Z] No OAuth tokens found
+[2026-10-25T13:42:44.294Z] No OAuth tokens found
+[2026-10-25T13:42:44.295Z] No OAuth tokens found
+[2026-10-25T13:42:44.295Z] No OAuth tokens found
+[2026-10-25T13:42:44.295Z] No OAuth tokens found
+[2026-10-25T13:42:44.296Z] No OAuth tokens found
+[2026-10-25T13:42:44.296Z] No OAuth tokens found
+[2026-10-25T13:42:44.296Z] No OAuth tokens found
+[2026-10-25T13:42:44.296Z] No OAuth tokens found
+[2026-10-25T13:42:44.297Z] No OAuth tokens found
+[2026-10-25T13:42:44.297Z] No OAuth tokens found
+[2026-10-25T13:42:44.297Z] No OAuth tokens found
+[2026-10-25T13:42:44.298Z] No OAuth tokens found
+[2026-10-25T13:42:44.298Z] No OAuth tokens found
+[2026-10-25T13:42:44.298Z] No OAuth tokens found
+[2026-10-25T13:42:44.298Z] No OAuth tokens found
+[2026-10-25T13:42:44.299Z] No OAuth tokens found
+[2026-10-25T13:42:44.300Z] No OAuth tokens found
+[2026-10-25T13:42:44.300Z] No OAuth tokens found
+[2026-10-25T13:42:44.300Z] No OAuth tokens found
+[2026-10-25T13:42:44.301Z] No OAuth tokens found
+[2026-10-25T13:42:44.301Z] No OAuth tokens found
+[2026-10-25T13:42:44.301Z] No OAuth tokens found
+[2026-10-25T13:42:44.301Z] No OAuth tokens found
+[2026-10-25T13:42:44.302Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/398b6ed158bfb8837acdae7b06fcd1dda027ac95888c2a639c495ba95245f590 [none]
+[2026-10-25T13:42:44.302Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/398b6ed158bfb8837acdae7b06fcd1dda027ac95888c2a639c495ba95245f590 [stream]
+[2026-10-25T13:42:44.304Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/45b36f93bb08c52e360d14b0e8449c88770aa8cf5d59bff1c76cbe6e198fe7c5 [none]
+[2026-10-25T13:42:44.304Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/45b36f93bb08c52e360d14b0e8449c88770aa8cf5d59bff1c76cbe6e198fe7c5 [stream]
+[2026-10-25T13:42:44.304Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1a0ef52fba7a7c7ce80c8ab5c2a15702d71d4530b0a582b80302a05abc41ef65 [none]
+[2026-10-25T13:42:44.305Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1a0ef52fba7a7c7ce80c8ab5c2a15702d71d4530b0a582b80302a05abc41ef65 [stream]
+[2026-10-25T13:42:44.305Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/87952a79d79fa61464d1f5196f69639c1197b9d417546e5a805ffd2db2027c0d [none]
+[2026-10-25T13:42:44.305Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/87952a79d79fa61464d1f5196f69639c1197b9d417546e5a805ffd2db2027c0d [stream]
+[2026-10-25T13:42:44.306Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/616b8cb6cea458e7371cf905a60f02b983614e66af03682fb6ba205111aba2e9 [none]
+[2026-10-25T13:42:44.306Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/616b8cb6cea458e7371cf905a60f02b983614e66af03682fb6ba205111aba2e9 [stream]
+[2026-10-25T13:42:44.306Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/01f3415303c636b90d727754b27222d2bb9765d855f9273659e12d24c37cd149 [none]
+[2026-10-25T13:42:44.306Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/01f3415303c636b90d727754b27222d2bb9765d855f9273659e12d24c37cd149 [stream]
+[2026-10-25T13:42:44.307Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/880932fc980a350b1fcbcab3870bc7199c23a8e03f82325c8838a582949effa6 [none]
+[2026-10-25T13:42:44.307Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/880932fc980a350b1fcbcab3870bc7199c23a8e03f82325c8838a582949effa6 [stream]
+[2026-10-25T13:42:44.307Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7e094da0eae4a6ba32ce9547c8b8cd7a49b5d9c8a3b9330109ad71ceb9ab7e8f [none]
+[2026-10-25T13:42:44.307Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7e094da0eae4a6ba32ce9547c8b8cd7a49b5d9c8a3b9330109ad71ceb9ab7e8f [stream]
+[2026-10-25T13:42:44.308Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/fc24041eadaf08d36796855fb62235100e94509f38702e60ae9235291be97278 [none]
+[2026-10-25T13:42:44.308Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/fc24041eadaf08d36796855fb62235100e94509f38702e60ae9235291be97278 [stream]
+[2026-10-25T13:42:44.308Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c4400e969d4e32401e68067e33aec3bcbfd7e02e088d4d6786c418b6fd37d602 [none]
+[2026-10-25T13:42:44.308Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c4400e969d4e32401e68067e33aec3bcbfd7e02e088d4d6786c418b6fd37d602 [stream]
+[2026-10-25T13:42:44.309Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f7e5216ff66b38beb2755a19461f71e719d4a8b642bdacf5bb35a4cdc53261c9 [none]
+[2026-10-25T13:42:44.309Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f7e5216ff66b38beb2755a19461f71e719d4a8b642bdacf5bb35a4cdc53261c9 [stream]
+[2026-10-25T13:42:44.309Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c3c0372e6e021acf712b40e25eee340e2274d20dab27ceacccf480018aec91b5 [none]
+[2026-10-25T13:42:44.309Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c3c0372e6e021acf712b40e25eee340e2274d20dab27ceacccf480018aec91b5 [stream]
+[2026-10-25T13:42:44.310Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/af99458eb0e11539291e8304a93731e1d6f99df4ff87a59b76885a9ef97d43a4 [none]
+[2026-10-25T13:42:44.310Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/af99458eb0e11539291e8304a93731e1d6f99df4ff87a59b76885a9ef97d43a4 [stream]
+[2026-10-25T13:42:44.310Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/80488982fad3a6b319f6839319bc7e2f54cae268296144b9c7b1195db2277842 [none]
+[2026-10-25T13:42:44.310Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/80488982fad3a6b319f6839319bc7e2f54cae268296144b9c7b1195db2277842 [stream]
+[2026-10-25T13:42:44.311Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7da89c0e94f2d9d1bab164c009c52bb1d4f15a8666e692899b10538ce8835ab [none]
+[2026-10-25T13:42:44.311Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7da89c0e94f2d9d1bab164c009c52bb1d4f15a8666e692899b10538ce8835ab [stream]
+[2026-10-25T13:42:44.312Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/8d6884775d4730b1ff45b64f935c44f100c14bdfe43696396217f8cc4b71e24e [none]
+[2026-10-25T13:42:44.312Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/8d6884775d4730b1ff45b64f935c44f100c14bdfe43696396217f8cc4b71e24e [stream]
+[2026-10-25T13:42:44.314Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f44cfaa7e13cc8880cf0ed5e3db15e474c5eb529af975815bdd296fe467acc9f [none]
+[2026-10-25T13:42:44.314Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f44cfaa7e13cc8880cf0ed5e3db15e474c5eb529af975815bdd296fe467acc9f [stream]
+[2026-10-25T13:42:44.314Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5f0318ef9d4f1ceb12cd6370fbcc23bc7bc9d7098379aa5e3c2a13baace2e987 [none]
+[2026-10-25T13:42:44.314Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5f0318ef9d4f1ceb12cd6370fbcc23bc7bc9d7098379aa5e3c2a13baace2e987 [stream]
+[2026-10-25T13:42:44.315Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3183e05dfd9ade8c49377c0d94a960f33013c8476fbbf7a1465011175cd5cfeb [none]
+[2026-10-25T13:42:44.315Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3183e05dfd9ade8c49377c0d94a960f33013c8476fbbf7a1465011175cd5cfeb [stream]
+[2026-10-25T13:42:44.315Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/94b093b810f7eee5d7c08795c48d7ecdb9396ddf4c658b70303a2475998d235d [none]
+[2026-10-25T13:42:44.315Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/94b093b810f7eee5d7c08795c48d7ecdb9396ddf4c658b70303a2475998d235d [stream]
+[2026-10-25T13:42:44.316Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6489fe6620bc208df8d11fc882596a7cac3e73ce0573ea6dc273a661554f37f2 [none]
+[2026-10-25T13:42:44.316Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6489fe6620bc208df8d11fc882596a7cac3e73ce0573ea6dc273a661554f37f2 [stream]
+[2026-10-25T13:42:44.316Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/924082baec2fcea4690bdc9aac2c4a9ee7e38d7cfb1d428658aface392d78f46 [none]
+[2026-10-25T13:42:44.316Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/924082baec2fcea4690bdc9aac2c4a9ee7e38d7cfb1d428658aface392d78f46 [stream]
+[2026-10-25T13:42:44.317Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/44eef8d281aa40445746052af52301b3bb3192de7c1baf62a7d9b2d3de5659e6 [none]
+[2026-10-25T13:42:44.317Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/44eef8d281aa40445746052af52301b3bb3192de7c1baf62a7d9b2d3de5659e6 [stream]
+[2026-10-25T13:42:44.317Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3ba2bf21c713d116f6333a859437f914f6564f9c25fbf60c23a8d29dd19cb953 [none]
+[2026-10-25T13:42:44.317Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3ba2bf21c713d116f6333a859437f914f6564f9c25fbf60c23a8d29dd19cb953 [stream]
+[2026-10-25T13:42:44.318Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0b4ee63f415a19a06418e0e086ff83fcb768e9137521ab38edd041c6a7225f11 [none]
+[2026-10-25T13:42:44.318Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0b4ee63f415a19a06418e0e086ff83fcb768e9137521ab38edd041c6a7225f11 [stream]
+[2026-10-25T13:42:44.318Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/63d56aa58372a381be1e4ec3422a4a34ce08669b923b7139ca21051426fa6cd1 [none]
+[2026-10-25T13:42:44.318Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/63d56aa58372a381be1e4ec3422a4a34ce08669b923b7139ca21051426fa6cd1 [stream]
+[2026-10-25T13:42:44.319Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6bee68338a9e9e89d32a07e15643ed34c1d0dcdf290f33d808cde4c5c1669dfa [none]
+[2026-10-25T13:42:44.319Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6bee68338a9e9e89d32a07e15643ed34c1d0dcdf290f33d808cde4c5c1669dfa [stream]
+[2026-10-25T13:42:44.319Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9452a9294664d5846fff25306432db8cde2e3d75a73795a41edf1bbf3bb836f6 [none]
+[2026-10-25T13:42:44.319Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9452a9294664d5846fff25306432db8cde2e3d75a73795a41edf1bbf3bb836f6 [stream]
+[2026-10-25T13:42:44.320Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7301c65ba46a83bf80f3643b1c4bf69c8c264aec41152e2e1c2ce3dc76889977 [none]
+[2026-10-25T13:42:44.320Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7301c65ba46a83bf80f3643b1c4bf69c8c264aec41152e2e1c2ce3dc76889977 [stream]
+[2026-10-25T13:42:44.320Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/84f9a9eb549df07a5ac6427b505104890cff782b4c08e38089bb9be52d2a9fd2 [none]
+[2026-10-25T13:42:44.320Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/84f9a9eb549df07a5ac6427b505104890cff782b4c08e38089bb9be52d2a9fd2 [stream]
+[2026-10-25T13:42:44.321Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/30aa059f0b9b40aab55571d8f497b6b03b31dfbb3d84f30ebc5b122c401bb414 [none]
+[2026-10-25T13:42:44.321Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/30aa059f0b9b40aab55571d8f497b6b03b31dfbb3d84f30ebc5b122c401bb414 [stream]
+[2026-10-25T13:42:44.321Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2481641c512aaf7b0dcee2e7659e9f33c99e330eeddab2a23594fef456193fc2 [none]
+[2026-10-25T13:42:44.322Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2481641c512aaf7b0dcee2e7659e9f33c99e330eeddab2a23594fef456193fc2 [stream]
+[2026-10-25T13:42:44.322Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/23123f82dcddcf86e16fe39986837af137e66eb35e956f1173c12334fc451880 [none]
+[2026-10-25T13:42:44.322Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/23123f82dcddcf86e16fe39986837af137e66eb35e956f1173c12334fc451880 [stream]
+[2026-10-25T13:42:44.323Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cfc873c9548428bc91c613360aad59109632df7307314a24537ab8409fabf371 [none]
+[2026-10-25T13:42:44.323Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cfc873c9548428bc91c613360aad59109632df7307314a24537ab8409fabf371 [stream]
+[2026-10-25T13:42:44.323Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6367246be1b24bf4ea554cedfce2f1ea9856d460de28a939045bdda6391c9ce4 [none]
+[2026-10-25T13:42:44.323Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6367246be1b24bf4ea554cedfce2f1ea9856d460de28a939045bdda6391c9ce4 [stream]
+[2026-10-25T13:42:44.324Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/d8d8790f4e673a23bec506f00699bed8a258ac0e4965bb1ca8598172cfc0ec97 [none]
+[2026-10-25T13:42:44.324Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/d8d8790f4e673a23bec506f00699bed8a258ac0e4965bb1ca8598172cfc0ec97 [stream]
+[2026-10-25T13:42:44.324Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/baa352e0a1b1bfd18be0957ea0461720c754f9e9648f6b67b2d82f16d6167d10 [none]
+[2026-10-25T13:42:44.324Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/baa352e0a1b1bfd18be0957ea0461720c754f9e9648f6b67b2d82f16d6167d10 [stream]
+[2026-10-25T13:42:44.325Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0c36f9daad030f82cad6dff63be128e56e6b32f704146d1208af149f154aef2f [none]
+[2026-10-25T13:42:44.325Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0c36f9daad030f82cad6dff63be128e56e6b32f704146d1208af149f154aef2f [stream]
+[2026-10-25T13:42:44.327Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0a297acd18605ab36a8ce7af9000f2c2a1660b8b95939ecce951bfb6c4716262 [none]
+[2026-10-25T13:42:44.327Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0a297acd18605ab36a8ce7af9000f2c2a1660b8b95939ecce951bfb6c4716262 [stream]
+[2026-10-25T13:42:44.327Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cbe2d03337bf5291f6cb4ab26817b079d3c3696c72f841da40c0723ef4e95ba6 [none]
+[2026-10-25T13:42:44.327Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cbe2d03337bf5291f6cb4ab26817b079d3c3696c72f841da40c0723ef4e95ba6 [stream]
+[2026-10-25T13:42:44.328Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/756fa6b3b10e89e4e1e8e67794d73b355864b705b9769ecdddabba8bcb3e08bb [none]
+[2026-10-25T13:42:44.328Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/756fa6b3b10e89e4e1e8e67794d73b355864b705b9769ecdddabba8bcb3e08bb [stream]
+[2026-10-25T13:42:44.328Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/166335f555a7df66e48157220f7aa23daa4862f125a22357361c70f51aafb05b [none]
+[2026-10-25T13:42:44.328Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/166335f555a7df66e48157220f7aa23daa4862f125a22357361c70f51aafb05b [stream]
+[2026-10-25T13:42:44.329Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/184a6d360d947372e96096785da2f1b886009e4dbe15f6a6c5eb3172722bce42 [none]
+[2026-10-25T13:42:44.329Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/184a6d360d947372e96096785da2f1b886009e4dbe15f6a6c5eb3172722bce42 [stream]
+[2026-10-25T13:42:44.329Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/e8882a5e5f3ba5d39845f394b43a5205b2501bf5174e2547303790cebe1ac4ad [none]
+[2026-10-25T13:42:44.329Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/e8882a5e5f3ba5d39845f394b43a5205b2501bf5174e2547303790cebe1ac4ad [stream]
+[2026-10-25T13:42:44.330Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0285c94cd19e9cf227048b9170045d70231648dbb7a6bc9969d71f38c9f2b353 [none]
+[2026-10-25T13:42:44.330Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0285c94cd19e9cf227048b9170045d70231648dbb7a6bc9969d71f38c9f2b353 [stream]
+[2026-10-25T13:42:44.330Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/733e83112559f819360a623932a1e707d9e6c4a138411eed69e5c40deee6db05 [none]
+[2026-10-25T13:42:44.330Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/733e83112559f819360a623932a1e707d9e6c4a138411eed69e5c40deee6db05 [stream]
+[2026-10-25T13:42:44.331Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9b8d4bf856e442767980d81c0fa6c32a2c3bdae3d1100b940e9611e15c47f116 [none]
+[2026-10-25T13:42:44.331Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9b8d4bf856e442767980d81c0fa6c32a2c3bdae3d1100b940e9611e15c47f116 [stream]
+[2026-10-25T13:42:44.331Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/007051e88670100dba9c7b8e03d7fc38260d75714207ac205a0084fec00d3a8b [none]
+[2026-10-25T13:42:44.332Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/007051e88670100dba9c7b8e03d7fc38260d75714207ac205a0084fec00d3a8b [stream]
+[2026-10-25T13:42:44.332Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1dfd3b79bda2cd30d35ba9ba5e4b0cae087771621d815d2e14a871ec95c00b7f [none]
+[2026-10-25T13:42:44.332Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1dfd3b79bda2cd30d35ba9ba5e4b0cae087771621d815d2e14a871ec95c00b7f [stream]
+[2026-10-25T13:42:44.332Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7495e66353008fc8688940234334c2d8326de9a38b52d5cdf8a317de9fd0f835 [none]
+[2026-10-25T13:42:44.332Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7495e66353008fc8688940234334c2d8326de9a38b52d5cdf8a317de9fd0f835 [stream]
+[2026-10-25T13:42:44.333Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7c4439dac2ddf28fe355789252da4a0df2a11a04353d5975132f8ef392049b3 [none]
+[2026-10-25T13:42:44.333Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7c4439dac2ddf28fe355789252da4a0df2a11a04353d5975132f8ef392049b3 [stream]
+[2026-10-25T13:42:44.333Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b6a54a4dd4cd2c51d02e11f71753d76af7acdabfcf7905c93883562c23680ad4 [none]
+[2026-10-25T13:42:44.333Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b6a54a4dd4cd2c51d02e11f71753d76af7acdabfcf7905c93883562c23680ad4 [stream]
+[2026-10-25T13:42:44.334Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/527c4b0eabdc2305558e8ae217a0fb9eb46398423672548fbd6e112287037600 [none]
+[2026-10-25T13:42:44.334Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/527c4b0eabdc2305558e8ae217a0fb9eb46398423672548fbd6e112287037600 [stream]
+[2026-10-25T13:42:44.334Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/997b9b195aababc44e7e1462ccce944fa84acda951650df9a02d1bf50605a7af [none]
+[2026-10-25T13:42:44.334Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/997b9b195aababc44e7e1462ccce944fa84acda951650df9a02d1bf50605a7af [stream]
+[2026-10-25T13:42:44.335Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1efd391460f90103384826d77b3ac1bfec1515ce3d84b1f8b40c5a388e8b3e8a [none]
+[2026-10-25T13:42:44.335Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1efd391460f90103384826d77b3ac1bfec1515ce3d84b1f8b40c5a388e8b3e8a [stream]
+[2026-10-25T13:42:44.335Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cc5c18493fc9041ba0624410cd9f89d1a6087e611b5a44527fe80e3d8ccbce58 [none]
+[2026-10-25T13:42:44.335Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cc5c18493fc9041ba0624410cd9f89d1a6087e611b5a44527fe80e3d8ccbce58 [stream]
+[2026-10-25T13:42:44.336Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6450cd151808a4c965434dd594d9284b104895025a0711ad908361cc247d0fe3 [none]
+[2026-10-25T13:42:44.336Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6450cd151808a4c965434dd594d9284b104895025a0711ad908361cc247d0fe3 [stream]
+[2026-10-25T13:42:44.336Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bef120e82333fdef32c958deecea92c576631996822918f79d20ba9b2ca45825 [none]
+[2026-10-25T13:42:44.336Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bef120e82333fdef32c958deecea92c576631996822918f79d20ba9b2ca45825 [stream]
+[2026-10-25T13:42:44.337Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/37a57dee368e9ca37da25e9c48e979aba8cc013ca30caac6763e75c531cea757 [none]
+[2026-10-25T13:42:44.337Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/37a57dee368e9ca37da25e9c48e979aba8cc013ca30caac6763e75c531cea757 [stream]
+[2026-10-25T13:42:44.337Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3766e183d5030f75ff6d509623531cfdee38113656aa7a1cc541c9c9ed1b78cb [none]
+[2026-10-25T13:42:44.337Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3766e183d5030f75ff6d509623531cfdee38113656aa7a1cc541c9c9ed1b78cb [stream]
+[2026-10-25T13:42:44.338Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/70513a87039823d655760ea94bba9be31cc3390e0e632b521cfcfd8614483ddc [none]
+[2026-10-25T13:42:44.338Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/70513a87039823d655760ea94bba9be31cc3390e0e632b521cfcfd8614483ddc [stream]
+[2026-10-25T13:42:44.338Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/08bce8085c1f235d8dca5f70a84b125b687f08615e68607e10f0e5cfa5180fb2 [none]
+[2026-10-25T13:42:44.338Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/08bce8085c1f235d8dca5f70a84b125b687f08615e68607e10f0e5cfa5180fb2 [stream]
+[2026-10-25T13:42:44.339Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bca380e3db620b06e72dfc3b88228ddb0fce7adf36d4519beae680a9a672fef5 [none]
+[2026-10-25T13:42:44.339Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bca380e3db620b06e72dfc3b88228ddb0fce7adf36d4519beae680a9a672fef5 [stream]
+[2026-10-25T13:42:44.339Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/809e56a39477cafc4e33f1ad76c206869eeb9bddcd5e2146e65288ce73743db1 [none]
+[2026-10-25T13:42:44.339Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/809e56a39477cafc4e33f1ad76c206869eeb9bddcd5e2146e65288ce73743db1 [stream]
+[2026-10-25T13:42:44.340Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2ee3e94407de2f186fb8956b072313c00d2e57acc636a31d734fdeca676aa09b [none]
+[2026-10-25T13:42:44.340Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2ee3e94407de2f186fb8956b072313c00d2e57acc636a31d734fdeca676aa09b [stream]
+[2026-10-25T13:42:44.340Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/daca44424e6d5891941b3999a41884b61f8c039d941041318c15b4a1be35a7ed [none]
+[2026-10-25T13:42:44.341Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/daca44424e6d5891941b3999a41884b61f8c039d941041318c15b4a1be35a7ed [stream]
+[2026-10-25T13:42:44.341Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5a514f86c62a86e21cb7bfd39b3b27f2fa2ed7a57117aed2b7b8ec9cd19117ea [none]
+[2026-10-25T13:42:44.341Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5a514f86c62a86e21cb7bfd39b3b27f2fa2ed7a57117aed2b7b8ec9cd19117ea [stream]
+[2026-10-25T13:42:44.342Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b72722debcd239a10ab8b43fabdce88a3f3d471b95be441bdb4dccf65bcc5c4b [none]
+[2026-10-25T13:42:44.342Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b72722debcd239a10ab8b43fabdce88a3f3d471b95be441bdb4dccf65bcc5c4b [stream]
+[2026-10-25T13:42:44.342Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/35c1e0f61eeb04647a288ce922360d7d369408b92aa5a0c18a6d0af9b5c96928 [none]
+[2026-10-25T13:42:44.342Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/35c1e0f61eeb04647a288ce922360d7d369408b92aa5a0c18a6d0af9b5c96928 [stream]
+[2026-10-25T13:42:44.343Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/663086a709143f973576e96fd01706cb63c430501f7c6914474c4ebd03d1dd81 [none]
+[2026-10-25T13:42:44.343Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/663086a709143f973576e96fd01706cb63c430501f7c6914474c4ebd03d1dd81 [stream]
+[2026-10-25T13:42:44.343Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7d07cae3a2a16eb24e92e3adfcd8602d0ee5520407df0ac9968f028efd01efdb [none]
+[2026-10-25T13:42:44.343Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7d07cae3a2a16eb24e92e3adfcd8602d0ee5520407df0ac9968f028efd01efdb [stream]
+[2026-10-25T13:42:44.344Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/be07f3f342301bc904dbf58379494b86e3f7532b286f98940ef079fd29b40355 [none]
+[2026-10-25T13:42:44.344Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/be07f3f342301bc904dbf58379494b86e3f7532b286f98940ef079fd29b40355 [stream]
+[2026-10-25T13:42:44.344Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7fee88f0f08ed5491bf1d2d2fbc2abae7a8b62ab8da69309e62d0a66ef0c065e [none]
+[2026-10-25T13:42:44.344Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7fee88f0f08ed5491bf1d2d2fbc2abae7a8b62ab8da69309e62d0a66ef0c065e [stream]
+[2026-10-25T13:42:44.345Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/de17bec4150f710e02eec62aab22ed9ec076f50236c745ce892b86ff4a3343e4 [none]
+[2026-10-25T13:42:44.345Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/de17bec4150f710e02eec62aab22ed9ec076f50236c745ce892b86ff4a3343e4 [stream]
+[2026-10-25T13:42:44.386Z] [hosting][populate queue][FINAL] ***"max":316,"min":316,"avg":316,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":400***
+[2026-10-25T13:42:44.386Z] [hosting] uploads queued: 74
+[2026-10-25T13:42:45.028Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f7e5216ff66b38beb2755a19461f71e719d4a8b642bdacf5bb35a4cdc53261c9 200
+[2026-10-25T13:42:45.028Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f7e5216ff66b38beb2755a19461f71e719d4a8b642bdacf5bb35a4cdc53261c9 [stream]
+[2026-10-25T13:42:45.040Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cbe2d03337bf5291f6cb4ab26817b079d3c3696c72f841da40c0723ef4e95ba6 200
+[2026-10-25T13:42:45.041Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cbe2d03337bf5291f6cb4ab26817b079d3c3696c72f841da40c0723ef4e95ba6 [stream]
+[2026-10-25T13:42:45.053Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bca380e3db620b06e72dfc3b88228ddb0fce7adf36d4519beae680a9a672fef5 200
+[2026-10-25T13:42:45.053Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bca380e3db620b06e72dfc3b88228ddb0fce7adf36d4519beae680a9a672fef5 [stream]
+[2026-10-25T13:42:45.056Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/be07f3f342301bc904dbf58379494b86e3f7532b286f98940ef079fd29b40355 200
+[2026-10-25T13:42:45.056Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/be07f3f342301bc904dbf58379494b86e3f7532b286f98940ef079fd29b40355 [stream]
+[2026-10-25T13:42:45.058Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/37a57dee368e9ca37da25e9c48e979aba8cc013ca30caac6763e75c531cea757 200
+[2026-10-25T13:42:45.058Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/37a57dee368e9ca37da25e9c48e979aba8cc013ca30caac6763e75c531cea757 [stream]
+[2026-10-25T13:42:45.058Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7c4439dac2ddf28fe355789252da4a0df2a11a04353d5975132f8ef392049b3 200
+[2026-10-25T13:42:45.058Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7c4439dac2ddf28fe355789252da4a0df2a11a04353d5975132f8ef392049b3 [stream]
+[2026-10-25T13:42:45.059Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/fc24041eadaf08d36796855fb62235100e94509f38702e60ae9235291be97278 200
+[2026-10-25T13:42:45.059Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/fc24041eadaf08d36796855fb62235100e94509f38702e60ae9235291be97278 [stream]
+[2026-10-25T13:42:45.059Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7495e66353008fc8688940234334c2d8326de9a38b52d5cdf8a317de9fd0f835 200
+[2026-10-25T13:42:45.059Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7495e66353008fc8688940234334c2d8326de9a38b52d5cdf8a317de9fd0f835 [stream]
+[2026-10-25T13:42:45.074Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6bee68338a9e9e89d32a07e15643ed34c1d0dcdf290f33d808cde4c5c1669dfa 200
+[2026-10-25T13:42:45.074Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6bee68338a9e9e89d32a07e15643ed34c1d0dcdf290f33d808cde4c5c1669dfa [stream]
+[2026-10-25T13:42:45.080Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/997b9b195aababc44e7e1462ccce944fa84acda951650df9a02d1bf50605a7af 200
+[2026-10-25T13:42:45.081Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/997b9b195aababc44e7e1462ccce944fa84acda951650df9a02d1bf50605a7af [stream]
+[2026-10-25T13:42:45.081Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/45b36f93bb08c52e360d14b0e8449c88770aa8cf5d59bff1c76cbe6e198fe7c5 200
+[2026-10-25T13:42:45.081Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/45b36f93bb08c52e360d14b0e8449c88770aa8cf5d59bff1c76cbe6e198fe7c5 [stream]
+[2026-10-25T13:42:45.082Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/924082baec2fcea4690bdc9aac2c4a9ee7e38d7cfb1d428658aface392d78f46 200
+[2026-10-25T13:42:45.082Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/924082baec2fcea4690bdc9aac2c4a9ee7e38d7cfb1d428658aface392d78f46 [stream]
+[2026-10-25T13:42:45.082Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/84f9a9eb549df07a5ac6427b505104890cff782b4c08e38089bb9be52d2a9fd2 200
+[2026-10-25T13:42:45.082Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/84f9a9eb549df07a5ac6427b505104890cff782b4c08e38089bb9be52d2a9fd2 [stream]
+[2026-10-25T13:42:45.083Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/007051e88670100dba9c7b8e03d7fc38260d75714207ac205a0084fec00d3a8b 200
+[2026-10-25T13:42:45.083Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/007051e88670100dba9c7b8e03d7fc38260d75714207ac205a0084fec00d3a8b [stream]
+[2026-10-25T13:42:45.083Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/daca44424e6d5891941b3999a41884b61f8c039d941041318c15b4a1be35a7ed 200
+[2026-10-25T13:42:45.084Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/daca44424e6d5891941b3999a41884b61f8c039d941041318c15b4a1be35a7ed [stream]
+[2026-10-25T13:42:45.087Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6489fe6620bc208df8d11fc882596a7cac3e73ce0573ea6dc273a661554f37f2 200
+[2026-10-25T13:42:45.088Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6489fe6620bc208df8d11fc882596a7cac3e73ce0573ea6dc273a661554f37f2 [stream]
+[2026-10-25T13:42:45.095Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/30aa059f0b9b40aab55571d8f497b6b03b31dfbb3d84f30ebc5b122c401bb414 200
+[2026-10-25T13:42:45.095Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/30aa059f0b9b40aab55571d8f497b6b03b31dfbb3d84f30ebc5b122c401bb414 [stream]
+[2026-10-25T13:42:45.099Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/8d6884775d4730b1ff45b64f935c44f100c14bdfe43696396217f8cc4b71e24e 200
+[2026-10-25T13:42:45.100Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/8d6884775d4730b1ff45b64f935c44f100c14bdfe43696396217f8cc4b71e24e [stream]
+[2026-10-25T13:42:45.100Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c3c0372e6e021acf712b40e25eee340e2274d20dab27ceacccf480018aec91b5 200
+[2026-10-25T13:42:45.100Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c3c0372e6e021acf712b40e25eee340e2274d20dab27ceacccf480018aec91b5 [stream]
+[2026-10-25T13:42:45.101Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1a0ef52fba7a7c7ce80c8ab5c2a15702d71d4530b0a582b80302a05abc41ef65 200
+[2026-10-25T13:42:45.101Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1a0ef52fba7a7c7ce80c8ab5c2a15702d71d4530b0a582b80302a05abc41ef65 [stream]
+[2026-10-25T13:42:45.101Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/af99458eb0e11539291e8304a93731e1d6f99df4ff87a59b76885a9ef97d43a4 200
+[2026-10-25T13:42:45.102Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/af99458eb0e11539291e8304a93731e1d6f99df4ff87a59b76885a9ef97d43a4 [stream]
+[2026-10-25T13:42:45.102Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/80488982fad3a6b319f6839319bc7e2f54cae268296144b9c7b1195db2277842 200
+[2026-10-25T13:42:45.102Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/80488982fad3a6b319f6839319bc7e2f54cae268296144b9c7b1195db2277842 [stream]
+[2026-10-25T13:42:45.103Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/d8d8790f4e673a23bec506f00699bed8a258ac0e4965bb1ca8598172cfc0ec97 200
+[2026-10-25T13:42:45.103Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/d8d8790f4e673a23bec506f00699bed8a258ac0e4965bb1ca8598172cfc0ec97 [stream]
+[2026-10-25T13:42:45.127Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7da89c0e94f2d9d1bab164c009c52bb1d4f15a8666e692899b10538ce8835ab 200
+[2026-10-25T13:42:45.127Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/a7da89c0e94f2d9d1bab164c009c52bb1d4f15a8666e692899b10538ce8835ab [stream]
+[2026-10-25T13:42:45.128Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/733e83112559f819360a623932a1e707d9e6c4a138411eed69e5c40deee6db05 200
+[2026-10-25T13:42:45.128Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/733e83112559f819360a623932a1e707d9e6c4a138411eed69e5c40deee6db05 [stream]
+[2026-10-25T13:42:45.129Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/756fa6b3b10e89e4e1e8e67794d73b355864b705b9769ecdddabba8bcb3e08bb 200
+[2026-10-25T13:42:45.129Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/756fa6b3b10e89e4e1e8e67794d73b355864b705b9769ecdddabba8bcb3e08bb [stream]
+[2026-10-25T13:42:45.133Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/01f3415303c636b90d727754b27222d2bb9765d855f9273659e12d24c37cd149 200
+[2026-10-25T13:42:45.133Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/01f3415303c636b90d727754b27222d2bb9765d855f9273659e12d24c37cd149 [stream]
+[2026-10-25T13:42:45.134Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f44cfaa7e13cc8880cf0ed5e3db15e474c5eb529af975815bdd296fe467acc9f 200
+[2026-10-25T13:42:45.134Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/f44cfaa7e13cc8880cf0ed5e3db15e474c5eb529af975815bdd296fe467acc9f [stream]
+[2026-10-25T13:42:45.143Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7fee88f0f08ed5491bf1d2d2fbc2abae7a8b62ab8da69309e62d0a66ef0c065e 200
+[2026-10-25T13:42:45.143Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7fee88f0f08ed5491bf1d2d2fbc2abae7a8b62ab8da69309e62d0a66ef0c065e [stream]
+[2026-10-25T13:42:45.143Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/184a6d360d947372e96096785da2f1b886009e4dbe15f6a6c5eb3172722bce42 200
+[2026-10-25T13:42:45.144Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/184a6d360d947372e96096785da2f1b886009e4dbe15f6a6c5eb3172722bce42 [stream]
+[2026-10-25T13:42:45.151Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1dfd3b79bda2cd30d35ba9ba5e4b0cae087771621d815d2e14a871ec95c00b7f 200
+[2026-10-25T13:42:45.151Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1dfd3b79bda2cd30d35ba9ba5e4b0cae087771621d815d2e14a871ec95c00b7f [stream]
+[2026-10-25T13:42:45.152Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/e8882a5e5f3ba5d39845f394b43a5205b2501bf5174e2547303790cebe1ac4ad 200
+[2026-10-25T13:42:45.152Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/e8882a5e5f3ba5d39845f394b43a5205b2501bf5174e2547303790cebe1ac4ad [stream]
+[2026-10-25T13:42:45.157Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b6a54a4dd4cd2c51d02e11f71753d76af7acdabfcf7905c93883562c23680ad4 200
+[2026-10-25T13:42:45.158Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b6a54a4dd4cd2c51d02e11f71753d76af7acdabfcf7905c93883562c23680ad4 [stream]
+[2026-10-25T13:42:45.158Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/23123f82dcddcf86e16fe39986837af137e66eb35e956f1173c12334fc451880 200
+[2026-10-25T13:42:45.158Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/23123f82dcddcf86e16fe39986837af137e66eb35e956f1173c12334fc451880 [stream]
+[2026-10-25T13:42:45.159Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5f0318ef9d4f1ceb12cd6370fbcc23bc7bc9d7098379aa5e3c2a13baace2e987 200
+[2026-10-25T13:42:45.159Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5f0318ef9d4f1ceb12cd6370fbcc23bc7bc9d7098379aa5e3c2a13baace2e987 [stream]
+[2026-10-25T13:42:45.161Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c4400e969d4e32401e68067e33aec3bcbfd7e02e088d4d6786c418b6fd37d602 200
+[2026-10-25T13:42:45.161Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/c4400e969d4e32401e68067e33aec3bcbfd7e02e088d4d6786c418b6fd37d602 [stream]
+[2026-10-25T13:42:45.161Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/616b8cb6cea458e7371cf905a60f02b983614e66af03682fb6ba205111aba2e9 200
+[2026-10-25T13:42:45.162Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/616b8cb6cea458e7371cf905a60f02b983614e66af03682fb6ba205111aba2e9 [stream]
+[2026-10-25T13:42:45.163Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9452a9294664d5846fff25306432db8cde2e3d75a73795a41edf1bbf3bb836f6 200
+[2026-10-25T13:42:45.163Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9452a9294664d5846fff25306432db8cde2e3d75a73795a41edf1bbf3bb836f6 [stream]
+[2026-10-25T13:42:45.164Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6367246be1b24bf4ea554cedfce2f1ea9856d460de28a939045bdda6391c9ce4 200
+[2026-10-25T13:42:45.165Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6367246be1b24bf4ea554cedfce2f1ea9856d460de28a939045bdda6391c9ce4 [stream]
+[2026-10-25T13:42:45.165Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7e094da0eae4a6ba32ce9547c8b8cd7a49b5d9c8a3b9330109ad71ceb9ab7e8f 200
+[2026-10-25T13:42:45.165Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7e094da0eae4a6ba32ce9547c8b8cd7a49b5d9c8a3b9330109ad71ceb9ab7e8f [stream]
+[2026-10-25T13:42:45.169Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/166335f555a7df66e48157220f7aa23daa4862f125a22357361c70f51aafb05b 200
+[2026-10-25T13:42:45.169Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/166335f555a7df66e48157220f7aa23daa4862f125a22357361c70f51aafb05b [stream]
+[2026-10-25T13:42:45.178Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/08bce8085c1f235d8dca5f70a84b125b687f08615e68607e10f0e5cfa5180fb2 200
+[2026-10-25T13:42:45.179Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/08bce8085c1f235d8dca5f70a84b125b687f08615e68607e10f0e5cfa5180fb2 [stream]
+[2026-10-25T13:42:45.182Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2ee3e94407de2f186fb8956b072313c00d2e57acc636a31d734fdeca676aa09b 200
+[2026-10-25T13:42:45.182Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2ee3e94407de2f186fb8956b072313c00d2e57acc636a31d734fdeca676aa09b [stream]
+[2026-10-25T13:42:45.195Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7d07cae3a2a16eb24e92e3adfcd8602d0ee5520407df0ac9968f028efd01efdb 200
+[2026-10-25T13:42:45.195Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7d07cae3a2a16eb24e92e3adfcd8602d0ee5520407df0ac9968f028efd01efdb [stream]
+[2026-10-25T13:42:45.196Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1efd391460f90103384826d77b3ac1bfec1515ce3d84b1f8b40c5a388e8b3e8a 200
+[2026-10-25T13:42:45.196Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/1efd391460f90103384826d77b3ac1bfec1515ce3d84b1f8b40c5a388e8b3e8a [stream]
+[2026-10-25T13:42:45.197Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3183e05dfd9ade8c49377c0d94a960f33013c8476fbbf7a1465011175cd5cfeb 200
+[2026-10-25T13:42:45.197Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3183e05dfd9ade8c49377c0d94a960f33013c8476fbbf7a1465011175cd5cfeb [stream]
+[2026-10-25T13:42:45.197Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/35c1e0f61eeb04647a288ce922360d7d369408b92aa5a0c18a6d0af9b5c96928 200
+[2026-10-25T13:42:45.197Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/35c1e0f61eeb04647a288ce922360d7d369408b92aa5a0c18a6d0af9b5c96928 [stream]
+[2026-10-25T13:42:45.198Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3ba2bf21c713d116f6333a859437f914f6564f9c25fbf60c23a8d29dd19cb953 200
+[2026-10-25T13:42:45.198Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3ba2bf21c713d116f6333a859437f914f6564f9c25fbf60c23a8d29dd19cb953 [stream]
+[2026-10-25T13:42:45.198Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5a514f86c62a86e21cb7bfd39b3b27f2fa2ed7a57117aed2b7b8ec9cd19117ea 200
+[2026-10-25T13:42:45.198Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/5a514f86c62a86e21cb7bfd39b3b27f2fa2ed7a57117aed2b7b8ec9cd19117ea [stream]
+[2026-10-25T13:42:45.210Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9b8d4bf856e442767980d81c0fa6c32a2c3bdae3d1100b940e9611e15c47f116 200
+[2026-10-25T13:42:45.210Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/9b8d4bf856e442767980d81c0fa6c32a2c3bdae3d1100b940e9611e15c47f116 [stream]
+[2026-10-25T13:42:45.215Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/880932fc980a350b1fcbcab3870bc7199c23a8e03f82325c8838a582949effa6 200
+[2026-10-25T13:42:45.215Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/880932fc980a350b1fcbcab3870bc7199c23a8e03f82325c8838a582949effa6 [stream]
+[2026-10-25T13:42:45.217Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2481641c512aaf7b0dcee2e7659e9f33c99e330eeddab2a23594fef456193fc2 200
+[2026-10-25T13:42:45.217Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/2481641c512aaf7b0dcee2e7659e9f33c99e330eeddab2a23594fef456193fc2 [stream]
+[2026-10-25T13:42:45.221Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0c36f9daad030f82cad6dff63be128e56e6b32f704146d1208af149f154aef2f 200
+[2026-10-25T13:42:45.221Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0c36f9daad030f82cad6dff63be128e56e6b32f704146d1208af149f154aef2f [stream]
+[2026-10-25T13:42:45.222Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/87952a79d79fa61464d1f5196f69639c1197b9d417546e5a805ffd2db2027c0d 200
+[2026-10-25T13:42:45.222Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/87952a79d79fa61464d1f5196f69639c1197b9d417546e5a805ffd2db2027c0d [stream]
+[2026-10-25T13:42:45.225Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/de17bec4150f710e02eec62aab22ed9ec076f50236c745ce892b86ff4a3343e4 200
+[2026-10-25T13:42:45.225Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/de17bec4150f710e02eec62aab22ed9ec076f50236c745ce892b86ff4a3343e4 [stream]
+[2026-10-25T13:42:45.230Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/70513a87039823d655760ea94bba9be31cc3390e0e632b521cfcfd8614483ddc 200
+[2026-10-25T13:42:45.231Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/70513a87039823d655760ea94bba9be31cc3390e0e632b521cfcfd8614483ddc [stream]
+[2026-10-25T13:42:45.232Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0285c94cd19e9cf227048b9170045d70231648dbb7a6bc9969d71f38c9f2b353 200
+[2026-10-25T13:42:45.232Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0285c94cd19e9cf227048b9170045d70231648dbb7a6bc9969d71f38c9f2b353 [stream]
+[2026-10-25T13:42:45.241Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b72722debcd239a10ab8b43fabdce88a3f3d471b95be441bdb4dccf65bcc5c4b 200
+[2026-10-25T13:42:45.241Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/b72722debcd239a10ab8b43fabdce88a3f3d471b95be441bdb4dccf65bcc5c4b [stream]
+[2026-10-25T13:42:45.250Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/809e56a39477cafc4e33f1ad76c206869eeb9bddcd5e2146e65288ce73743db1 200
+[2026-10-25T13:42:45.251Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/809e56a39477cafc4e33f1ad76c206869eeb9bddcd5e2146e65288ce73743db1 [stream]
+[2026-10-25T13:42:45.251Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/baa352e0a1b1bfd18be0957ea0461720c754f9e9648f6b67b2d82f16d6167d10 200
+[2026-10-25T13:42:45.251Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/baa352e0a1b1bfd18be0957ea0461720c754f9e9648f6b67b2d82f16d6167d10 [stream]
+[2026-10-25T13:42:45.252Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bef120e82333fdef32c958deecea92c576631996822918f79d20ba9b2ca45825 200
+[2026-10-25T13:42:45.252Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/bef120e82333fdef32c958deecea92c576631996822918f79d20ba9b2ca45825 [stream]
+[2026-10-25T13:42:45.254Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0a297acd18605ab36a8ce7af9000f2c2a1660b8b95939ecce951bfb6c4716262 200
+[2026-10-25T13:42:45.254Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0a297acd18605ab36a8ce7af9000f2c2a1660b8b95939ecce951bfb6c4716262 [stream]
+[2026-10-25T13:42:45.273Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cfc873c9548428bc91c613360aad59109632df7307314a24537ab8409fabf371 200
+[2026-10-25T13:42:45.273Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cfc873c9548428bc91c613360aad59109632df7307314a24537ab8409fabf371 [stream]
+[2026-10-25T13:42:45.274Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/398b6ed158bfb8837acdae7b06fcd1dda027ac95888c2a639c495ba95245f590 200
+[2026-10-25T13:42:45.274Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/398b6ed158bfb8837acdae7b06fcd1dda027ac95888c2a639c495ba95245f590 [stream]
+[2026-10-25T13:42:45.279Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cc5c18493fc9041ba0624410cd9f89d1a6087e611b5a44527fe80e3d8ccbce58 200
+[2026-10-25T13:42:45.279Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/cc5c18493fc9041ba0624410cd9f89d1a6087e611b5a44527fe80e3d8ccbce58 [stream]
+[2026-10-25T13:42:45.280Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/63d56aa58372a381be1e4ec3422a4a34ce08669b923b7139ca21051426fa6cd1 200
+[2026-10-25T13:42:45.280Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/63d56aa58372a381be1e4ec3422a4a34ce08669b923b7139ca21051426fa6cd1 [stream]
+[2026-10-25T13:42:45.291Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/44eef8d281aa40445746052af52301b3bb3192de7c1baf62a7d9b2d3de5659e6 200
+[2026-10-25T13:42:45.291Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/44eef8d281aa40445746052af52301b3bb3192de7c1baf62a7d9b2d3de5659e6 [stream]
+[2026-10-25T13:42:45.298Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/663086a709143f973576e96fd01706cb63c430501f7c6914474c4ebd03d1dd81 200
+[2026-10-25T13:42:45.298Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/663086a709143f973576e96fd01706cb63c430501f7c6914474c4ebd03d1dd81 [stream]
+[2026-10-25T13:42:45.314Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6450cd151808a4c965434dd594d9284b104895025a0711ad908361cc247d0fe3 200
+[2026-10-25T13:42:45.314Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/6450cd151808a4c965434dd594d9284b104895025a0711ad908361cc247d0fe3 [stream]
+[2026-10-25T13:42:45.324Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/94b093b810f7eee5d7c08795c48d7ecdb9396ddf4c658b70303a2475998d235d 200
+[2026-10-25T13:42:45.324Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/94b093b810f7eee5d7c08795c48d7ecdb9396ddf4c658b70303a2475998d235d [stream]
+[2026-10-25T13:42:45.336Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7301c65ba46a83bf80f3643b1c4bf69c8c264aec41152e2e1c2ce3dc76889977 200
+[2026-10-25T13:42:45.336Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/7301c65ba46a83bf80f3643b1c4bf69c8c264aec41152e2e1c2ce3dc76889977 [stream]
+[2026-10-25T13:42:45.341Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0b4ee63f415a19a06418e0e086ff83fcb768e9137521ab38edd041c6a7225f11 200
+[2026-10-25T13:42:45.341Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/0b4ee63f415a19a06418e0e086ff83fcb768e9137521ab38edd041c6a7225f11 [stream]
+[2026-10-25T13:42:45.342Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3766e183d5030f75ff6d509623531cfdee38113656aa7a1cc541c9c9ed1b78cb 200
+[2026-10-25T13:42:45.342Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/3766e183d5030f75ff6d509623531cfdee38113656aa7a1cc541c9c9ed1b78cb [stream]
+[2026-10-25T13:42:45.567Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/527c4b0eabdc2305558e8ae217a0fb9eb46398423672548fbd6e112287037600 200
+[2026-10-25T13:42:45.567Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/urbandirectintracity/versions/6af573298a950b5e/files/527c4b0eabdc2305558e8ae217a0fb9eb46398423672548fbd6e112287037600 [stream]
+[2026-10-25T13:42:45.567Z] [hosting][upload queue][FINAL] ***"max":1272,"min":744,"avg":884.5540540540541,"active":0,"complete":74,"success":74,"errored":0,"retried":0,"total":74,"elapsed":1286***
+i  hosting: upload complete 
+✔  hosting[urbandirectintracity]: file upload complete 
+[2026-10-25T13:42:45.568Z] [hosting] deploy completed after 1708ms
+i  functions: creating Node.js 20 (2nd Gen) function firebase-frameworks-urbandirectintracity:ssrurbandirectintracity(us-central1)... 
+[2026-10-25T13:42:45.572Z] No OAuth tokens found
+[2026-10-25T13:42:45.573Z] >>> [apiv2][query] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions functionId=ssrurbandirectintracity
+[2026-10-25T13:42:45.573Z] >>> [apiv2][body] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions ***"name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-uploads-397772731387.us-central1.cloudfunctions.appspot.com","object":"67a5cd78-69b3-4edd-93a2-5c8b4713fda1.zip"***,"environmentVariables":***"GOOGLE_NODE_RUN_SCRIPTS":""***,"serviceConfig":***"environmentVariables":***"VERCEL_URL":"urbandirectintracity.web.app","__FIREBASE_FRAMEWORKS_ENTRY__":"next.js","__FIREBASE_DEFAULTS__":"***\"config\":***\"projectId\":\"urbandirectintracity\",\"storageBucket\":\"urbandirectintracity.firebasestorage.app\",\"apiKey\":\"AIzaSyDxbT6rWpl3mrVT5RcwNHVT_T_gecLubkA\",\"authDomain\":\"urbandirectintracity.firebaseapp.com\",\"messagingSenderId\":\"397772731387\",\"projectNumber\":\"397772731387\",\"version\":\"
+[2026-10-25T13:42:47.792Z] <<< [apiv2][status] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions 200
+[2026-10-25T13:42:47.792Z] <<< [apiv2][body] POST https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/functions ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2"***,"done":false***
+[2026-10-25T13:42:47.793Z] No OAuth tokens found
+[2026-10-25T13:42:47.793Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:42:47.989Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:42:47.990Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2"***,"done":false***
+[2026-10-25T13:42:48.490Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:42:48.490Z] No OAuth tokens found
+[2026-10-25T13:42:48.490Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:42:48.690Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:42:48.691Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:42:49.691Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:42:49.692Z] No OAuth tokens found
+[2026-10-25T13:42:49.692Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:42:49.859Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:42:49.859Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:42:51.861Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:42:51.862Z] No OAuth tokens found
+[2026-10-25T13:42:51.862Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:42:52.024Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:42:52.025Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:42:56.025Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:42:56.026Z] No OAuth tokens found
+[2026-10-25T13:42:56.026Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:42:56.243Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:42:56.243Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:43:04.244Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:43:04.244Z] No OAuth tokens found
+[2026-10-25T13:43:04.244Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:43:04.367Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:43:04.367Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:43:14.368Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:43:14.369Z] No OAuth tokens found
+[2026-10-25T13:43:14.369Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:43:14.577Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:43:14.577Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:43:24.579Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:43:24.579Z] No OAuth tokens found
+[2026-10-25T13:43:24.579Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:43:24.669Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:43:24.669Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:43:34.671Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:43:34.671Z] No OAuth tokens found
+[2026-10-25T13:43:34.671Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:43:34.858Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:43:34.859Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:43:44.859Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:43:44.860Z] No OAuth tokens found
+[2026-10-25T13:43:44.860Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:43:45.068Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:43:45.068Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:43:55.069Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:43:55.069Z] No OAuth tokens found
+[2026-10-25T13:43:55.070Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:43:55.272Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:43:55.272Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:05.273Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:44:05.274Z] No OAuth tokens found
+[2026-10-25T13:44:05.274Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:44:05.480Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:44:05.480Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:15.481Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:44:15.481Z] No OAuth tokens found
+[2026-10-25T13:44:15.482Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:44:15.564Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:44:15.564Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:25.564Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:44:25.565Z] No OAuth tokens found
+[2026-10-25T13:44:25.565Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:44:25.764Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:44:25.764Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:35.765Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:44:35.766Z] No OAuth tokens found
+[2026-10-25T13:44:35.766Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:44:35.945Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:44:35.945Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:45.947Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:44:45.947Z] No OAuth tokens found
+[2026-10-25T13:44:45.947Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:44:46.160Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:44:46.160Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:46.160Z] Got source token Cldwcm9qZWN0cy8zOTc3NzI3MzEzODcvbG9jYXRpb25zL3VzLWNlbnRyYWwxL2J1aWxkcy9hOTlhNWYwMy1iMTQzLTQ1MDctYjU3OS01MTY1NjU2MzA5OTgSgwF1cy1jZW50cmFsMS1kb2NrZXIucGtnLmRldi91cmJhbmRpcmVjdGludHJhY2l0eS9nY2YtYXJ0aWZhY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5X191cy0tY2VudHJhbDFfX3NzcnVyYmFuZGlyZWN0aW50cmFjaXR5OnZlcnNpb25fMRj75+joyQsiVXByb2plY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5L2xvY2F0aW9ucy91cy1jZW50cmFsMS9mdW5jdGlvbnMvc3NydXJiYW5kaXJlY3RpbnRyYWNpdHkqDAjHj/jWBhDIipzfATIIbm9kZWpzMjA6dgojZ2NyLmlvL2dhZS1ydW50aW1lcy9ub2RlanMyMDpzdGFibGUST3VzLWNlbnRyYWwxLWRvY2tlci5wa2cuZGV2L3NlcnZlcmxlc3MtcnVudGltZXMvZ29vZ2xlLTIyLWZ1bGwvcnVudGltZXMvbm9kZWpzMjBAAQ== for region us-central1
+[2026-10-25T13:44:56.160Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:44:56.160Z] No OAuth tokens found
+[2026-10-25T13:44:56.161Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:44:56.358Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:44:56.358Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:44:56.359Z] Got source token Cldwcm9qZWN0cy8zOTc3NzI3MzEzODcvbG9jYXRpb25zL3VzLWNlbnRyYWwxL2J1aWxkcy9hOTlhNWYwMy1iMTQzLTQ1MDctYjU3OS01MTY1NjU2MzA5OTgSgwF1cy1jZW50cmFsMS1kb2NrZXIucGtnLmRldi91cmJhbmRpcmVjdGludHJhY2l0eS9nY2YtYXJ0aWZhY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5X191cy0tY2VudHJhbDFfX3NzcnVyYmFuZGlyZWN0aW50cmFjaXR5OnZlcnNpb25fMRj75+joyQsiVXByb2plY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5L2xvY2F0aW9ucy91cy1jZW50cmFsMS9mdW5jdGlvbnMvc3NydXJiYW5kaXJlY3RpbnRyYWNpdHkqDAjHj/jWBhDIipzfATIIbm9kZWpzMjA6dgojZ2NyLmlvL2dhZS1ydW50aW1lcy9ub2RlanMyMDpzdGFibGUST3VzLWNlbnRyYWwxLWRvY2tlci5wa2cuZGV2L3NlcnZlcmxlc3MtcnVudGltZXMvZ29vZ2xlLTIyLWZ1bGwvcnVudGltZXMvbm9kZWpzMjBAAQ== for region us-central1
+[2026-10-25T13:45:06.360Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:45:06.360Z] No OAuth tokens found
+[2026-10-25T13:45:06.360Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:45:06.431Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:45:06.431Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:45:06.431Z] Got source token Cldwcm9qZWN0cy8zOTc3NzI3MzEzODcvbG9jYXRpb25zL3VzLWNlbnRyYWwxL2J1aWxkcy9hOTlhNWYwMy1iMTQzLTQ1MDctYjU3OS01MTY1NjU2MzA5OTgSgwF1cy1jZW50cmFsMS1kb2NrZXIucGtnLmRldi91cmJhbmRpcmVjdGludHJhY2l0eS9nY2YtYXJ0aWZhY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5X191cy0tY2VudHJhbDFfX3NzcnVyYmFuZGlyZWN0aW50cmFjaXR5OnZlcnNpb25fMRj75+joyQsiVXByb2plY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5L2xvY2F0aW9ucy91cy1jZW50cmFsMS9mdW5jdGlvbnMvc3NydXJiYW5kaXJlY3RpbnRyYWNpdHkqDAjHj/jWBhDIipzfATIIbm9kZWpzMjA6dgojZ2NyLmlvL2dhZS1ydW50aW1lcy9ub2RlanMyMDpzdGFibGUST3VzLWNlbnRyYWwxLWRvY2tlci5wa2cuZGV2L3NlcnZlcmxlc3MtcnVudGltZXMvZ29vZ2xlLTIyLWZ1bGwvcnVudGltZXMvbm9kZWpzMjBAAQ== for region us-central1
+[2026-10-25T13:45:16.432Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:45:16.432Z] No OAuth tokens found
+[2026-10-25T13:45:16.433Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:45:16.649Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:45:16.649Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ssrurbandirectintracity/function-source.zip",
+[2026-10-25T13:45:16.649Z] Got source token Cldwcm9qZWN0cy8zOTc3NzI3MzEzODcvbG9jYXRpb25zL3VzLWNlbnRyYWwxL2J1aWxkcy9hOTlhNWYwMy1iMTQzLTQ1MDctYjU3OS01MTY1NjU2MzA5OTgSgwF1cy1jZW50cmFsMS1kb2NrZXIucGtnLmRldi91cmJhbmRpcmVjdGludHJhY2l0eS9nY2YtYXJ0aWZhY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5X191cy0tY2VudHJhbDFfX3NzcnVyYmFuZGlyZWN0aW50cmFjaXR5OnZlcnNpb25fMRj75+joyQsiVXByb2plY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5L2xvY2F0aW9ucy91cy1jZW50cmFsMS9mdW5jdGlvbnMvc3NydXJiYW5kaXJlY3RpbnRyYWNpdHkqDAjHj/jWBhDIipzfATIIbm9kZWpzMjA6dgojZ2NyLmlvL2dhZS1ydW50aW1lcy9ub2RlanMyMDpzdGFibGUST3VzLWNlbnRyYWwxLWRvY2tlci5wa2cuZGV2L3NlcnZlcmxlc3MtcnVudGltZXMvZ29vZ2xlLTIyLWZ1bGwvcnVudGltZXMvbm9kZWpzMjBAAQ== for region us-central1
+[2026-10-25T13:45:26.649Z] [create-firebase-frameworks-urbandirectintracity-us-central1-ssrurbandirectintracity] Retrying task index 0
+[2026-10-25T13:45:26.649Z] No OAuth tokens found
+[2026-10-25T13:45:26.649Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c [none]
+[2026-10-25T13:45:26.751Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c 200
+[2026-10-25T13:45:26.751Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c ***"name":"projects/urbandirectintracity/locations/us-central1/operations/operation-1792935765762-65eaa636c6368-e5c6cce0-c84b7e6c","metadata":***"@type":"type.googleapis.com/google.cloud.functions.v2.OperationMetadata","createTime":"2026-10-25T13:42:47.764350696Z","endTime":"2026-10-25T13:45:23.340070449Z","target":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","verb":"create","cancelRequested":false,"apiVersion":"v2","requestResource":***"@type":"type.googleapis.com/google.cloud.functions.v2.Function","name":"projects/urbandirectintracity/locations/us-central1/functions/ssrurbandirectintracity","buildConfig":***"runtime":"nodejs20","entryPoint":"ssrurbandirectintracity","source":***"storageSource":***"bucket":"gcf-v2-sources-397772731387-us-central1","object":"ss
+[2026-10-25T13:45:26.754Z] Got source token Cldwcm9qZWN0cy8zOTc3NzI3MzEzODcvbG9jYXRpb25zL3VzLWNlbnRyYWwxL2J1aWxkcy9hOTlhNWYwMy1iMTQzLTQ1MDctYjU3OS01MTY1NjU2MzA5OTgSgwF1cy1jZW50cmFsMS1kb2NrZXIucGtnLmRldi91cmJhbmRpcmVjdGludHJhY2l0eS9nY2YtYXJ0aWZhY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5X191cy0tY2VudHJhbDFfX3NzcnVyYmFuZGlyZWN0aW50cmFjaXR5OnZlcnNpb25fMRj75+joyQsiVXByb2plY3RzL3VyYmFuZGlyZWN0aW50cmFjaXR5L2xvY2F0aW9ucy91cy1jZW50cmFsMS9mdW5jdGlvbnMvc3NydXJiYW5kaXJlY3RpbnRyYWNpdHkqDAjHj/jWBhDIipzfATIIbm9kZWpzMjA6dgojZ2NyLmlvL2dhZS1ydW50aW1lcy9ub2RlanMyMDpzdGFibGUST3VzLWNlbnRyYWwxLWRvY2tlci5wa2cuZGV2L3NlcnZlcmxlc3MtcnVudGltZXMvZ29vZ2xlLTIyLWZ1bGwvcnVudGltZXMvbm9kZWpzMjBAAQ== for region us-central1
+[2026-10-25T13:45:26.755Z] No OAuth tokens found
+[2026-10-25T13:45:26.755Z] >>> [apiv2][query] POST https://run.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/services/ssrurbandirectintracity:setIamPolicy [none]
+[2026-10-25T13:45:26.755Z] >>> [apiv2][body] POST https://run.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/services/ssrurbandirectintracity:setIamPolicy ***"policy":***"bindings":[***"role":"roles/run.invoker","members":["allUsers"]***],"etag":"","version":3***,"updateMask":"bindings,etag,version"***
+[2026-10-25T13:45:27.190Z] <<< [apiv2][status] POST https://run.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/services/ssrurbandirectintracity:setIamPolicy 200
+[2026-10-25T13:45:27.190Z] <<< [apiv2][body] POST https://run.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/services/ssrurbandirectintracity:setIamPolicy ***"version":1,"etag":"BwZeqm0LRcE=","bindings":[***"role":"roles/run.invoker","members":["allUsers"]***]***
+✔  functions[firebase-frameworks-urbandirectintracity:ssrurbandirectintracity(us-central1)] Successful create operation. 
+[2026-10-25T13:45:27.191Z] Total Function Deployment time: 161620
+[2026-10-25T13:45:27.191Z] 1 Functions Deployed
+[2026-10-25T13:45:27.191Z] 0 Functions Errored
+[2026-10-25T13:45:27.191Z] 0 Function Deployments Aborted
+[2026-10-25T13:45:27.191Z] Average Function Deployment time: 161619
+Function URL (firebase-frameworks-urbandirectintracity:ssrurbandirectintracity(us-central1)): https://us-central1-urbandirectintracity.cloudfunctions.net/ssrurbandirectintracity
+[2026-10-25T13:45:27.193Z] No OAuth tokens found
+[2026-10-25T13:45:27.193Z] >>> [apiv2][query] GET https://artifactregistry.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/repositories/gcf-artifacts [none]
+[2026-10-25T13:45:27.443Z] <<< [apiv2][status] GET https://artifactregistry.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/repositories/gcf-artifacts 200
+[2026-10-25T13:45:27.443Z] <<< [apiv2][body] GET https://artifactregistry.googleapis.com/v1/projects/urbandirectintracity/locations/us-central1/repositories/gcf-artifacts ***"name":"projects/urbandirectintracity/locations/us-central1/repositories/gcf-artifacts","format":"DOCKER","description":"This repository is created and used by Cloud Functions for storing function docker images.","labels":***"goog-managed-by":"cloudfunctions"***,"createTime":"2026-10-25T13:42:55.712008Z","updateTime":"2026-10-25T13:44:35.919308Z","mode":"STANDARD_REPOSITORY","sizeBytes":"665423588","vulnerabilityScanningConfig":***"lastEnableTime":"2026-10-25T13:42:47.972185108Z","enablementState":"SCANNING_DISABLED","enablementStateReason":"API containerscanning.googleapis.com is not enabled."***,"satisfiesPzi":true,"registryUri":"us-central1-docker.pkg.dev/urbandirectintracity/gcf-artifacts"***
+⚠  functions: No cleanup policy detected for repositories in us-central1. This may result in a small monthly bill as container images accumulate over time. 
+Error: Functions successfully deployed but could not set up cleanup policy in location us-central1. Pass the --force option to automatically set up a cleanup policy or run 'firebase functions:artifacts:setpolicy' to manually set up a cleanup policy.
+Error: Process completed with exit code 1.

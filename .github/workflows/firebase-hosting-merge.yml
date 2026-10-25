@@ -76,7 +76,7 @@ jobs:
           NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
         run: |
           if [ "$AUTH_MODE" = "SERVICE_ACCOUNT" ]; then
-            npx firebase-tools deploy --only hosting --project urbandirectintracity --debug --non-interactive
+            npx firebase-tools deploy --only hosting --project urbandirectintracity --force --debug --non-interactive
           else
-            npx firebase-tools deploy --only hosting --project urbandirectintracity --token "${{ secrets.FIREBASE_TOKEN }}" --debug --non-interactive
+            npx firebase-tools deploy --only hosting --project urbandirectintracity --token "${{ secrets.FIREBASE_TOKEN }}" --force --debug --non-interactive
           fi

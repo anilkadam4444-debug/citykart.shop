@@ -1,0 +1,708 @@
+1m 7s
+Run if [ "$AUTH_MODE" = "SERVICE_ACCOUNT" ]; then
+  
+[2026-10-25T13:33:12.155Z] ----------------------------------------------------------------------
+[2026-10-25T13:33:12.157Z] Command:       /opt/hostedtoolcache/node/20.20.2/x64/bin/node /home/runner/work/citykart.shop/citykart.shop/node_modules/.bin/firebase deploy --only hosting --project urbandirectintracity --debug --non-interactive
+[2026-10-25T13:33:12.158Z] CLI Version:   15.34.1
+[2026-10-25T13:33:12.158Z] Platform:      linux
+[2026-10-25T13:33:12.158Z] Node Version:  v20.20.2
+[2026-10-25T13:33:12.159Z] Detected Agent: unknown
+[2026-10-25T13:33:12.159Z] Time:          Sun Oct 25 2026 13:33:12 GMT+0000 (Coordinated Universal Time)
+[2026-10-25T13:33:12.159Z] ----------------------------------------------------------------------
+[2026-10-25T13:33:13.152Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-10-25T13:33:13.289Z] Running auto auth
+[2026-10-25T13:33:13.290Z] [iam] checking project urbandirectintracity for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[2026-10-25T13:33:13.292Z] No OAuth tokens found
+[2026-10-25T13:33:13.293Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions [none]
+[2026-10-25T13:33:13.293Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:33:13.293Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["firebase.projects.get","firebasehosting.sites.update"]***
+[2026-10-25T13:33:13.444Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions 200
+[2026-10-25T13:33:13.444Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["firebase.projects.get","firebasehosting.sites.update"]***
+[2026-10-25T13:33:13.445Z] No OAuth tokens found
+[2026-10-25T13:33:13.445Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebasehosting.googleapis.com [none]
+[2026-10-25T13:33:13.445Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebasehosting.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:33:13.797Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebasehosting.googleapis.com 200
+[2026-10-25T13:33:13.797Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebasehosting.googleapis.com [omitted]
+[2026-10-25T13:33:13.807Z] No OAuth tokens found
+[2026-10-25T13:33:13.808Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity [none]
+[2026-10-25T13:33:14.137Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity 200
+[2026-10-25T13:33:14.138Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity ***"projectId":"urbandirectintracity","projectNumber":"397772731387","displayName":"CityKart","name":"projects/urbandirectintracity","resources":***"hostingSite":"urbandirectintracity"***,"state":"ACTIVE","etag":"1_a415de37-5472-4bd3-8a49-02d9b3dbec0a"***
+[2026-10-25T13:33:15.629Z] No OAuth tokens found
+[2026-10-25T13:33:15.630Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites pageToken=&pageSize=10
+[2026-10-25T13:33:15.954Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites 200
+[2026-10-25T13:33:15.954Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites ***"sites":[***"name":"projects/urbandirectintracity/sites/urbandirectintracity","defaultUrl":"https://urbandirectintracity.web.app","type":"DEFAULT_SITE"***]***
+[2026-10-25T13:33:15.955Z] No OAuth tokens found
+[2026-10-25T13:33:15.955Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites 
+[2026-10-25T13:33:16.195Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites 200
+[2026-10-25T13:33:16.195Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites ***"sites":[***"name":"projects/urbandirectintracity/sites/urbandirectintracity","defaultUrl":"https://urbandirectintracity.web.app","type":"DEFAULT_SITE"***]***
+[2026-10-25T13:33:16.195Z] No OAuth tokens found
+[2026-10-25T13:33:16.195Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/webApps/-/config [none]
+[2026-10-25T13:33:16.642Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/webApps/-/config 200
+[2026-10-25T13:33:16.642Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/webApps/-/config ***"projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app","apiKey":"AIzaSyDxbT6rWpl3mrVT5RcwNHVT_T_gecLubkA","authDomain":"urbandirectintracity.firebaseapp.com","messagingSenderId":"397772731387","projectNumber":"397772731387","version":"2"***
+No Firebase app associated with site urbandirectintracity, injecting project default config.
+  You can link a Web app to a Hosting site here https://console.firebase.google.com/project/urbandirectintracity/settings/general/web
+   Thank you for trying our early preview of Next.js support on Firebase Hosting.
+   During the preview, support is best-effort and breaking changes can be expected. Proceed with caution.
+   Documentation: https://firebase.google.com/docs/hosting/frameworks/nextjs
+   File a bug: https://github.com/firebase/firebase-tools/issues/new?template=bug_report.md
+   Submit a feature request: https://github.com/firebase/firebase-tools/issues/new?template=feature_request.md
+   We'd love to learn from you. Express your interest in helping us shape the future of Firebase Hosting: https://goo.gle/41enW5X
+WARNING: Your package.json contains a custom build that is being ignored. Only the Next.js default build script (e.g, "next build") is respected. If you have a more advanced build process you should build a custom integration https://firebase.google.com/docs/hosting/express
+[2026-10-25T13:33:20.390Z] No OAuth tokens found
+[2026-10-25T13:33:20.390Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity [none]
+[2026-10-25T13:33:20.724Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity 200
+[2026-10-25T13:33:20.724Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity ***"name":"projects/urbandirectintracity/sites/urbandirectintracity","defaultUrl":"https://urbandirectintracity.web.app","type":"DEFAULT_SITE"***
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+   ▲ Next.js 15.5.28
+   - Experiments (use with caution):
+     · cpus: 1
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 3.9s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/28) ...
+   Generating static pages (7/28) 
+   Generating static pages (14/28) 
+   Generating static pages (21/28) 
+ ✓ Generating static pages (28/28)
+   Finalizing page optimization ...
+   Collecting build traces ...
+Route (app)                                 Size  First Load JS
+┌ ○ /                                    26.3 kB         377 kB
+├ ○ /_not-found                            197 B         103 kB
+├ ○ /about                                 198 B         111 kB
+├ ○ /admin                               24.9 kB         367 kB
+├ ƒ /api/admin/action                      197 B         103 kB
+├ ƒ /api/admin/bootstrap                   197 B         103 kB
+├ ƒ /api/admin/dashboard                   197 B         103 kB
+├ ƒ /api/admin/seed-nanded-demo            197 B         103 kB
+├ ƒ /api/auth/otp                          197 B         103 kB
+├ ƒ /api/billing/campaigns                 197 B         103 kB
+├ ƒ /api/billing/create-checkout           197 B         103 kB
+├ ƒ /api/billing/services                  197 B         103 kB
+├ ƒ /api/billing/verify-payment            197 B         103 kB
+├ ƒ /api/billing/webhook                   197 B         103 kB
+├ ƒ /api/catalog-image                     197 B         103 kB
+├ ƒ /api/discovery                         197 B         103 kB
+├ ƒ /api/fcm/token                         197 B         103 kB
+├ ƒ /api/location/reverse-geocode          197 B         103 kB
+├ ƒ /api/location/search                   197 B         103 kB
+├ ƒ /api/locations/cities                  197 B         103 kB
+├ ƒ /api/locations/countries               197 B         103 kB
+├ ƒ /api/locations/missing-request         197 B         103 kB
+├ ƒ /api/locations/regions                 197 B         103 kB
+├ ƒ /api/orders                            197 B         103 kB
+├ ƒ /api/orders/[orderId]/status           197 B         103 kB
+├ ƒ /api/stores/[storeId]                  197 B         103 kB
+├ ƒ /categories/[slug]                     206 B         152 kB
+├ ○ /contact                               198 B         111 kB
+├ ○ /delivery-returns                      198 B         111 kB
+├ ○ /how-it-works                          198 B         111 kB
+├ ○ /orders                              6.74 kB         342 kB
+├ ○ /pricing                             9.34 kB         120 kB
+├ ○ /privacy                               198 B         111 kB
+├ ƒ /products/[productId]                  206 B         152 kB
+├ ○ /robots.txt                            197 B         103 kB
+├ ○ /seller                              4.46 kB         388 kB
+├ ○ /seller-guide                          198 B         111 kB
+├ ○ /seller/dashboard                    2.76 kB         386 kB
+├ ○ /sitemap.xml                           197 B         103 kB
+├ ƒ /stores/[storeId]                      206 B         152 kB
+└ ○ /terms                                 198 B         111 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/1255-23fa3dfc9a519af5.js      46.3 kB
+  ├ chunks/4bd1b696-f6bedae49f0827a5.js  54.2 kB
+  └ other shared chunks (total)          1.96 kB
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+Building a Cloud Function to run this application. This is needed due to:
+ • Image Optimization
+ • non-static component /api/billing/campaigns/route
+ • non-static component /api/billing/services/route
+ • non-static component /api/catalog-image/route
+ • non-static component /api/discovery/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/location/reverse-geocode/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/location/search/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/locations/cities/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/locations/missing-request/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/locations/regions/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/orders/[orderId]/status/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/orders/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/stores/[storeId]/route
+[2026-10-25T13:33:44.317Z]  • non-static component /api/admin/bootstrap/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/admin/seed-nanded-demo/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/admin/dashboard/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/billing/verify-payment/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/billing/create-checkout/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/fcm/token/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/locations/countries/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/billing/webhook/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/admin/action/route
+[2026-10-25T13:33:44.318Z]  • non-static component /api/auth/otp/route
+[2026-10-25T13:33:44.318Z]  • non-static component /categories/[slug]/page
+[2026-10-25T13:33:44.318Z]  • non-static component /products/[productId]/page
+[2026-10-25T13:33:44.318Z]  • non-static component /stores/[storeId]/page
+Failed to find esbuild with npx which: Error: Command failed: npx which esbuild
+esbuild not found, installing...
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: '@google-cloud/cloud-sql-connector@1.12.1',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'gaxios@8.3.2',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'google-auth-library@11.3.1',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'gcp-metadata@9.2.2',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'google-logging-utils@2.1.0',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'googleapis-common@9.3.1',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'gaxios@8.3.2',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'google-auth-library@11.3.1',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'gcp-metadata@9.2.2',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+npm warn EBADENGINE Unsupported engine ***
+npm warn EBADENGINE   package: 'google-logging-utils@2.1.0',
+npm warn EBADENGINE   required: *** node: '>=22' ***,
+npm warn EBADENGINE   current: *** node: 'v20.20.2', npm: '10.8.2' ***
+npm warn EBADENGINE ***
+added 2 packages, and audited 1061 packages in 3s
+244 packages are looking for funding
+  run `npm fund` for details
+20 vulnerabilities (15 moderate, 5 high)
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+[2026-10-25T13:33:50.793Z] No OAuth tokens found
+[2026-10-25T13:33:50.793Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity [none]
+[2026-10-25T13:33:51.160Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity 200
+[2026-10-25T13:33:51.160Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/urbandirectintracity/sites/urbandirectintracity ***"name":"projects/urbandirectintracity/sites/urbandirectintracity","defaultUrl":"https://urbandirectintracity.web.app","type":"DEFAULT_SITE"***
+added 362 packages in 16s
+57 packages are looking for funding
+  run `npm fund` for details
+[2026-10-25T13:34:07.431Z] [web frameworks] effective firebase.json:  ***
+  "hosting": [
+    ***
+      "source": ".",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "site": "urbandirectintracity",
+      "rewrites": [
+        ***
+          "source": "**",
+          "function": ***
+            "functionId": "ssrurbandirectintracity",
+            "region": "us-central1",
+            "pinTag": true
+          ***
+        ***
+      ],
+      "redirects": [],
+      "headers": [
+        ***
+          "source": "/_not-found",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/_not-found/layout,_N_T_/_not-found/page,_N_T_/_not-found"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/robots.txt",
+          "headers": [
+            ***
+              "key": "cache-control",
+              "value": "public, max-age=0, must-revalidate"
+            ***,
+            ***
+              "key": "content-type",
+              "value": "text/plain"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/robots.txt/layout,_N_T_/robots.txt/route,_N_T_/robots.txt"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/sitemap.xml",
+          "headers": [
+            ***
+              "key": "cache-control",
+              "value": "public, max-age=0, must-revalidate"
+            ***,
+            ***
+              "key": "content-type",
+              "value": "application/xml"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/sitemap.xml/layout,_N_T_/sitemap.xml/route,_N_T_/sitemap.xml"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/about",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/about/layout,_N_T_/about/page,_N_T_/about"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/admin",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/page,_N_T_/admin"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/how-it-works",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/how-it-works/layout,_N_T_/how-it-works/page,_N_T_/how-it-works"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/delivery-returns",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/delivery-returns/layout,_N_T_/delivery-returns/page,_N_T_/delivery-returns"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/orders",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/orders/layout,_N_T_/orders/page,_N_T_/orders"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/contact",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/contact/layout,_N_T_/contact/page,_N_T_/contact"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/privacy",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/privacy/layout,_N_T_/privacy/page,_N_T_/privacy"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/pricing",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/pricing/layout,_N_T_/pricing/page,_N_T_/pricing"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/seller-guide",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/seller-guide/layout,_N_T_/seller-guide/page,_N_T_/seller-guide"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/terms",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/terms/layout,_N_T_/terms/page,_N_T_/terms"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/seller",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/seller/layout,_N_T_/seller/page,_N_T_/seller"
+            ***
+          ]
+        ***,
+        ***
+          "source": "/seller/dashboard",
+          "headers": [
+            ***
+              "key": "x-nextjs-stale-time",
+              "value": "300"
+            ***,
+            ***
+              "key": "x-nextjs-prerender",
+              "value": "1"
+            ***,
+            ***
+              "key": "x-next-cache-tags",
+              "value": "_N_T_/layout,_N_T_/seller/layout,_N_T_/seller/dashboard/layout,_N_T_/seller/dashboard/page,_N_T_/seller/dashboard"
+            ***
+          ]
+        ***,
+        ***
+          "source": "**/*.[jt]s",
+          "headers": [
+            ***
+              "key": "Set-Cookie",
+              "value": "__FIREBASE_DEFAULTS__=eyJjb25maWciOnsicHJvamVjdElkIjoidXJiYW5kaXJlY3RpbnRyYWNpdHkiLCJzdG9yYWdlQnVja2V0IjoidXJiYW5kaXJlY3RpbnRyYWNpdHkuZmlyZWJhc2VzdG9yYWdlLmFwcCIsImFwaUtleSI6IkFJemFTeUR4YlQ2cldwbDNtclZUNVJjd05IVlRfVF9nZWNMdWJrQSIsImF1dGhEb21haW4iOiJ1cmJhbmRpcmVjdGludHJhY2l0eS5maXJlYmFzZWFwcC5jb20iLCJtZXNzYWdpbmdTZW5kZXJJZCI6IjM5Nzc3MjczMTM4NyIsInByb2plY3ROdW1iZXIiOiIzOTc3NzI3MzEzODciLCJ2ZXJzaW9uIjoiMiJ9LCJfYXV0aFRva2VuU3luY1VSTCI6Ii9fX3Nlc3Npb24ifQ; SameSite=Strict; Expires=2028-09-19T00:14:07.431Z; Path=/;"
+            ***
+          ]
+        ***
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false,
+      "public": ".firebase/urbandirectintracity/hosting",
+      "webFramework": "next_ssr"
+    ***
+  ],
+  "functions": [
+    ***
+      "source": ".firebase/urbandirectintracity/functions",
+      "codebase": "firebase-frameworks-urbandirectintracity"
+    ***
+  ]
+***
+[2026-10-25T13:34:07.432Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-10-25T13:34:07.433Z] Running auto auth
+[2026-10-25T13:34:07.433Z] [iam] checking project urbandirectintracity for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[2026-10-25T13:34:07.433Z] No OAuth tokens found
+[2026-10-25T13:34:07.434Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions [none]
+[2026-10-25T13:34:07.434Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:07.434Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]***
+[2026-10-25T13:34:07.589Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions 200
+[2026-10-25T13:34:07.589Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity:testIamPermissions ***"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]***
+[2026-10-25T13:34:07.590Z] No OAuth tokens found
+[2026-10-25T13:34:07.590Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/urbandirectintracity/locations/-/functions [none]
+[2026-10-25T13:34:08.102Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/urbandirectintracity/locations/-/functions 200
+[2026-10-25T13:34:08.102Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/urbandirectintracity/locations/-/functions ***
+[2026-10-25T13:34:08.103Z] No OAuth tokens found
+[2026-10-25T13:34:08.104Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/-/functions filter=environment%3D%22GEN_2%22
+[2026-10-25T13:34:08.494Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/-/functions 200
+[2026-10-25T13:34:08.494Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/urbandirectintracity/locations/-/functions ***
+i  hosting: The following function(s) are pinned to site urbandirectintracity and will be deployed as well: ssrurbandirectintracity 
+=== Deploying to 'urbandirectintracity'...
+i  deploying functions, hosting 
+[2026-10-25T13:34:08.496Z] No OAuth tokens found
+[2026-10-25T13:34:08.496Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com [none]
+[2026-10-25T13:34:08.497Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:08.661Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com 200
+[2026-10-25T13:34:08.661Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudresourcemanager.googleapis.com [omitted]
+[2026-10-25T13:34:08.682Z] No OAuth tokens found
+[2026-10-25T13:34:08.682Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity [none]
+[2026-10-25T13:34:08.776Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity 200
+[2026-10-25T13:34:08.776Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/urbandirectintracity ***"projectNumber":"397772731387","projectId":"urbandirectintracity","lifecycleState":"ACTIVE","name":"CityKart","labels":***"firebase":"enabled","firebase-core":"disabled"***,"createTime":"2026-10-23T14:21:03.864Z"***
+i  functions: preparing codebase firebase-frameworks-urbandirectintracity for deployment 
+i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[2026-10-25T13:34:08.778Z] No OAuth tokens found
+[2026-10-25T13:34:08.778Z] No OAuth tokens found
+i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[2026-10-25T13:34:08.779Z] No OAuth tokens found
+i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[2026-10-25T13:34:08.779Z] No OAuth tokens found
+[2026-10-25T13:34:08.779Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com [none]
+[2026-10-25T13:34:08.779Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:08.780Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com [none]
+[2026-10-25T13:34:08.780Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:08.782Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com [none]
+[2026-10-25T13:34:08.782Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:08.783Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com [none]
+[2026-10-25T13:34:08.783Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:08.951Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com 200
+[2026-10-25T13:34:08.951Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudfunctions.googleapis.com [omitted]
+✔  functions: required API cloudfunctions.googleapis.com is enabled 
+[2026-10-25T13:34:09.009Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com 200
+[2026-10-25T13:34:09.009Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/cloudbuild.googleapis.com [omitted]
+✔  functions: required API cloudbuild.googleapis.com is enabled 
+[2026-10-25T13:34:09.025Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com 200
+[2026-10-25T13:34:09.025Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/runtimeconfig.googleapis.com [omitted]
+[2026-10-25T13:34:09.034Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com 200
+[2026-10-25T13:34:09.034Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/artifactregistry.googleapis.com [omitted]
+✔  artifactregistry: required API artifactregistry.googleapis.com is enabled 
+[2026-10-25T13:34:09.036Z] No OAuth tokens found
+[2026-10-25T13:34:09.036Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/adminSdkConfig [none]
+[2026-10-25T13:34:09.383Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/adminSdkConfig 200
+[2026-10-25T13:34:09.384Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/urbandirectintracity/adminSdkConfig ***"projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app"***
+[2026-10-25T13:34:09.384Z] No OAuth tokens found
+[2026-10-25T13:34:09.384Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs [none]
+[2026-10-25T13:34:09.629Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs 403
+[2026-10-25T13:34:09.629Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs ***"error":***"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"***
+Request to https://runtimeconfig.googleapis.com/v1beta1/projects/urbandirectintracity/configs had HTTP Error: 403, The caller does not have permission
+[2026-10-25T13:34:09.631Z] Validating nodejs source
+⚠  functions: Runtime Node.js 20 was deprecated on 2026-04-30 and will be decommissioned on 2026-10-30, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+⚠  functions: Please note that there will be breaking changes when you upgrade. 
+[2026-10-25T13:34:10.003Z] > [functions] package.json contents: ***
+  "name": "ai-studio-applet",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": ***
+    "@google/genai": "^2.4.0",
+    "autoprefixer": "^10.4.21",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "firebase": "^12.7.0",
+    "firebase-admin": "^13.0.0",
+    "lucide-react": "^0.553.0",
+    "motion": "^12.23.24",
+    "next": "^15.4.9",
+    "postcss": "^8.5.6",
+    "razorpay": "^2.9.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwind-merge": "^3.3.1",
+    "sharp": "^0.32 || ^0.33",
+    "firebase-frameworks": "^0.11.0",
+    "firebase-functions": "^6.0.1"
+  ***,
+  "main": "server.js",
+  "engines": ***
+    "node": "20"
+  ***
+***
+[2026-10-25T13:34:10.003Z] Building nodejs source
+i  functions: Loaded environment variables from .firebase/urbandirectintracity/functions/.env 
+i  functions: Loading and analyzing source code for codebase firebase-frameworks-urbandirectintracity to determine what to deploy 
+[2026-10-25T13:34:10.006Z] Could not find functions.yaml. Must use http discovery
+[2026-10-25T13:34:10.010Z] Found firebase-functions binary at '/home/runner/work/citykart.shop/citykart.shop/.firebase/urbandirectintracity/functions/node_modules/.bin/firebase-functions'
+Serving at port 8031
+[2026-10-25T13:34:10.256Z] Got response from /__/functions.yaml ***"endpoints":***"ssrurbandirectintracity":***"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":***,"httpsTrigger":***,"entryPoint":"ssrurbandirectintracity"***,"specVersion":"v1alpha1","requiredAPIs":[],"extensions":***
+i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[2026-10-25T13:34:13.281Z] No OAuth tokens found
+[2026-10-25T13:34:13.281Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com [none]
+[2026-10-25T13:34:13.281Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:13.529Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com 200
+[2026-10-25T13:34:13.529Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com [omitted]
+⚠  extensions: missing required API firebaseextensions.googleapis.com. Enabling now... 
+[2026-10-25T13:34:13.530Z] No OAuth tokens found
+[2026-10-25T13:34:13.530Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable [none]
+[2026-10-25T13:34:13.530Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable  x-goog-user-project=urbandirectintracity
+[2026-10-25T13:34:13.740Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable 403
+[2026-10-25T13:34:13.740Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/urbandirectintracity/services/firebaseextensions.googleapis.com:enable [omitted]
+⬢  extensions: Failed to fetch the list of extensions. Assuming for now that there are no existing extensions. If you are trying to install an extension through Firebase Functions this may fail later. 
+i  functions: Loaded environment variables from .firebase/urbandirectintracity/functions/.env 
+[2026-10-25T13:34:13.742Z] Attempting to merge .env secret bindings *** into declared secrets...)***
+[2026-10-25T13:34:13.742Z] ssrurbandirectintracity declared secrets: undefined
+i  functions: preparing .firebase/urbandirectintracity/functions directory for uploading... 
+i  functions: packaged /home/runner/work/citykart.shop/citykart.shop/.firebase/urbandirectintracity/functions (54.74 MB) for uploading 
+i  functions: ensuring required API run.googleapis.com is enabled... 
+[2026-10-25T13:34:17.499Z] No OAuth tokens found
+i  functions: ensuring required API eventarc.googleapis.com is enabled... 
+[2026-10-25T13:34:17.499Z] No OAuth tokens found
+i  functions: ensuring required API pubsub.googleapis.com is enabled... 
+[2026-10-25T13:34:17.500Z] No OAuth tokens found
+i  functions: ensuring required API storage.googleapis.com is enabled... 
+[2026-10-25T13:34:17.500Z] No OAuth tokens found
+[2026-10-25T13:34:17.500Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com [none]
+[2026-10-25T13:34:17.500Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:34:17.501Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com [none]
+[2026-10-25T13:34:17.501Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:34:17.504Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com [none]
+[2026-10-25T13:34:17.504Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:34:17.505Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com [none]
+[2026-10-25T13:34:17.505Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com  x-goog-user-project=397772731387
+[2026-10-25T13:34:17.661Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com 200
+[2026-10-25T13:34:17.661Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/run.googleapis.com [omitted]
+✔  functions: required API run.googleapis.com is enabled 
+[2026-10-25T13:34:17.776Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com 200
+[2026-10-25T13:34:17.776Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com [omitted]
+⚠  functions: missing required API eventarc.googleapis.com. Enabling now... 
+[2026-10-25T13:34:17.777Z] No OAuth tokens found
+[2026-10-25T13:34:17.777Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com:enable [none]
+[2026-10-25T13:34:17.777Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com:enable  x-goog-user-project=397772731387
+[2026-10-25T13:34:17.779Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com 200
+[2026-10-25T13:34:17.779Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/storage.googleapis.com [omitted]
+✔  functions: required API storage.googleapis.com is enabled 
+[2026-10-25T13:34:17.781Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com 200
+[2026-10-25T13:34:17.781Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/397772731387/services/pubsub.googleapis.com [omitted]
+✔  functions: required API pubsub.googleapis.com is enabled 
+[2026-10-25T13:34:17.930Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com:enable 403
+[2026-10-25T13:34:17.930Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/397772731387/services/eventarc.googleapis.com:enable [omitted]
+Error: Permissions denied enabling eventarc.googleapis.com.
+        Please ask a project owner to visit the following URL to enable this service:
+        
+        https://console.cloud.google.com/apis/library/eventarc.googleapis.com?project=397772731387
+[2026-10-25T13:34:17.932Z] Error Context: ***
+  "body": ***
+    "error": ***
+      "code": 403,
+      "message": "Permission denied to enable service [eventarc.googleapis.com]\nHelp Token: Ad9DraCxeuqrr_rji11si7J7RVcTL6Jqp3p71fyKjNLAfxTrQ3xClaMvylYQMqV2_BjdS44bP_e9iCUCmiFICD6pAvoqmd0n6IEMcXcweKqGgUgX",
+      "status": "PERMISSION_DENIED",
+      "details": [
+        ***
+          "@type": "type.googleapis.com/google.rpc.PreconditionFailure",
+          "violations": [
+            ***
+              "type": "googleapis.com",
+              "subject": "?error_code=110002&service=serviceusage.googleapis.com&permission=serviceusage.services.enable&error_info_id=CiQwMWExNzM0NC1lNzM1LTdmNDgtOGRiMC0xZjRiNTc0NzNmNmESNnByb2plY3RzLzM5Nzc3MjczMTM4Ny9zZXJ2aWNlcy9ldmVudGFyYy5nb29nbGVhcGlzLmNvbQ%3D%3D&troubleshooter_url=https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId%3DCiQwMWExNzM0NC1lNzM1LTdmNDgtOGRiMC0xZjRiNTc0NzNmNmESNnByb2plY3RzLzM5Nzc3MjczMTM4Ny9zZXJ2aWNlcy9ldmVudGFyYy5nb29nbGVhcGlzLmNvbQ%253D%253D"
+            ***
+          ]
+        ***,
+        ***
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "AUTH_PERMISSION_DENIED",
+          "domain": "serviceusage.googleapis.com",
+          "metadata": ***
+            "service": "serviceusage.googleapis.com",
+            "permission": "serviceusage.services.enable",
+            "error_info_id": "CiQwMWExNzM0NC1lNzM1LTdmNDgtOGRiMC0xZjRiNTc0NzNmNmESNnByb2plY3RzLzM5Nzc3MjczMTM4Ny9zZXJ2aWNlcy9ldmVudGFyYy5nb29nbGVhcGlzLmNvbQ==",
+            "troubleshooter_url": "https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExNzM0NC1lNzM1LTdmNDgtOGRiMC0xZjRiNTc0NzNmNmESNnByb2plY3RzLzM5Nzc3MjczMTM4Ny9zZXJ2aWNlcy9ldmVudGFyYy5nb29nbGVhcGlzLmNvbQ%3D%3D"
+          ***
+        ***
+      ]
+    ***
+  ***,
+  "response": ***
+    "statusCode": 403
+  ***
+***
+Error: Process completed with exit code 1.
