@@ -22,7 +22,7 @@ jobs:
       - name: Ensure package-lock.json exists
         run: |
           if [ ! -f package-lock.json ]; then
-            echo "package-lock.json not found in repository. Generating lockfile..."
+            echo "package-lock.json not found. Generating lockfile..."
             npm i --package-lock-only
           else
             echo "Found existing package-lock.json"
@@ -39,7 +39,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node_modules-
 
-      - name: Install dependencies using package-lock.json
+      - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
             npm ci --prefer-offline || npm install
@@ -51,49 +51,31 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
-      - name: Verify Firebase Authentication Secret
-        id: check-secret
+      - name: Authenticate with Google Cloud
+        id: auth
         env:
-          SA_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
-          TOKEN_SECRET: ${{ secrets.FIREBASE_TOKEN }}
+          SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          if [ -n "$SA_SECRET" ]; then
-            echo "Deploying using Firebase Service Account."
-            echo "AUTH_MODE=SERVICE_ACCOUNT" >> $GITHUB_ENV
-          elif [ -n "$TOKEN_SECRET" ]; then
-            echo "Deploying using FIREBASE_TOKEN CLI token."
-            echo "AUTH_MODE=TOKEN" >> $GITHUB_ENV
-          else
-            echo "::error title=Missing Secret::No Firebase deployment secret was found in your GitHub repository Secrets. Please add 'FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY' (or 'FIREBASE_SERVICE_ACCOUNT') in GitHub under Settings > Secrets and variables > Actions."
+          if [ -z "$SA_KEY" ] && [ -z "${{ secrets.FIREBASE_TOKEN }}" ]; then
+            echo "::error title=Missing Secret::Please add 'FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY' or 'FIREBASE_TOKEN' to your GitHub repository secrets."
             exit 1
           fi
+          if [ -n "$SA_KEY" ]; then
+            echo "$SA_KEY" > "$RUNNER_TEMP/firebase_sa.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase_sa.json" >> $GITHUB_ENV
+            echo "AUTH_MODE=SERVICE_ACCOUNT" >> $GITHUB_ENV
+          else
+            echo "AUTH_MODE=TOKEN" >> $GITHUB_ENV
+          fi
 
-      - name: Deploy via Firebase Action (Service Account)
-        id: deploy-action
-        if: env.AUTH_MODE == 'SERVICE_ACCOUNT'
-        continue-on-error: true
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}
-          channelId: live
-          projectId: urbandirectintracity
-        env:
-          FIREBASE_CLI_EXPERIMENTS: webframeworks
-
-      - name: Fallback Direct Firebase CLI Deploy
-        if: env.AUTH_MODE == 'SERVICE_ACCOUNT' && steps.deploy-action.outcome != 'success'
+      - name: Deploy to Firebase Hosting
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
         run: |
-          echo "Primary action deploy did not complete; executing direct Firebase CLI deploy..."
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY || secrets.FIREBASE_SERVICE_ACCOUNT || secrets.GCP_SA_KEY || secrets.FIREBASE_CREDENTIALS || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.SERVICE_ACCOUNT_KEY }}' > "$RUNNER_TEMP/firebase_sa.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase_sa.json"
-          npx firebase-tools deploy --only hosting --project urbandirectintracity --non-interactive
-
-      - name: Deploy via Firebase CLI (Token)
-        if: env.AUTH_MODE == 'TOKEN'
-        env:
-          FIREBASE_CLI_EXPERIMENTS: webframeworks
-        run: npx firebase-tools deploy --only hosting --project urbandirectintracity --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive
+          if [ "$AUTH_MODE" = "SERVICE_ACCOUNT" ]; then
+            npx firebase-tools deploy --only hosting --project urbandirectintracity --debug --non-interactive
+          else
+            npx firebase-tools deploy --only hosting --project urbandirectintracity --token "${{ secrets.FIREBASE_TOKEN }}" --debug --non-interactive
+          fi
