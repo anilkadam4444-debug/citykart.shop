@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   ShieldCheck,
   Sparkles,
+  Handshake,
 } from 'lucide-react';
 import {
   CustomerShoppingLocation,
@@ -813,6 +814,20 @@ export default function UrbanDirectPlatform() {
               <span>For Sellers</span>
             </Link>
 
+            {/* PROMINENT CITY PARTNER PROGRAM BUTTON: "Become a Partner" -> /partner */}
+            <Link
+              href="/partner"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-300/90 bg-emerald-50/90 hover:bg-emerald-600 text-emerald-900 hover:text-white text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
+              title="Apply to become an exclusive Citykart City Partner (50/50 Net City Revenue Share)"
+            >
+              <Handshake className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {isMounted && authenticatedUser?.isPartner
+                  ? 'Partner Console'
+                  : 'Become a Partner'}
+              </span>
+            </Link>
+
             {/* Platform Owner Super Admin Console Link (Shown only to server-verified +918329306616 super_admin) */}
             {isMounted &&
               authenticatedUser?.phoneE164 === '+918329306616' &&
@@ -964,6 +979,21 @@ export default function UrbanDirectPlatform() {
                   <span>For Sellers</span>
                 </span>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+              </Link>
+              <Link
+                href="/partner"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 hover:bg-emerald-100 flex items-center justify-between"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Handshake className="w-4 h-4 text-emerald-700" />
+                  <span>
+                    {isMounted && authenticatedUser?.isPartner
+                      ? 'City Partner Console'
+                      : 'Become a Partner (50/50 Share)'}
+                  </span>
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
               </Link>
             </div>
           </div>
@@ -1912,6 +1942,12 @@ export default function UrbanDirectPlatform() {
                 <li>
                   <Link href="/pricing" className="hover:text-[#003B8E] hover:underline">
                     Merchant Plans &amp; Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/partner" className="font-bold text-emerald-700 hover:text-emerald-800 hover:underline inline-flex items-center gap-1">
+                    <Handshake className="w-3.5 h-3.5" />
+                    <span>Become a City Partner</span>
                   </Link>
                 </li>
               </ul>

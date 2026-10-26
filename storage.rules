@@ -32,8 +32,15 @@ service firebase.storage {
     // Publicly readable store & product media; writable only by owner or verified Admin/Super Admin
     match /stores/{storeId}/{allPaths=**} {
       allow read: if true;
-      allow create, update: if (isAuthenticated() || isAdmin()) && isValidImageUpload();
-      allow delete: if isAuthenticated() || isAdmin();
+      allow create: if (isSuperAdmin() || isAdmin() || isAuthenticated()) && isValidImageUpload();
+      allow update: if (
+          isSuperAdmin()
+          || isAdmin()
+          || (isAuthenticated() && (resource == null || !('ownerUid' in resource.metadata) || resource.metadata.ownerUid == request.auth.uid))
+        ) && isValidImageUpload();
+      allow delete: if isSuperAdmin()
+        || isAdmin()
+        || (isAuthenticated() && (resource == null || !('ownerUid' in resource.metadata) || resource.metadata.ownerUid == request.auth.uid));
     }
 
     match /products/{sellerUid}/{allPaths=**} {
@@ -41,6 +48,30 @@ service firebase.storage {
       allow create, update: if (isSuperAdmin() || isAdmin() || (isAuthenticated() && request.auth.uid == sellerUid))
         && isValidImageUpload();
       allow delete: if isSuperAdmin() || isAdmin() || (isAuthenticated() && request.auth.uid == sellerUid);
+    }
+
+    function isValidPartnerKycDocument() {
+      return request.resource != null
+        && request.resource.size <= 5 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/(jpeg|png|webp)')
+          || request.resource.contentType == 'application/pdf'
+        );
+    }
+
+    // Restricted Partner KYC Documents: Never publicly readable; accessible only to the applicant or Super Admin
+    match /partner_kyc/{applicantUid}/{allPaths=**} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == applicantUid);
+      allow create, update: if (isSuperAdmin() || (isAuthenticated() && request.auth.uid == applicantUid))
+        && isValidPartnerKycDocument();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Restricted Partner Settlement Bank Transfer Proofs: Writable only by Super Admin; readable by Super Admin or Admin
+    match /partner_settlement_proofs/{settlementId}/{allPaths=**} {
+      allow read: if isSuperAdmin() || isAdmin();
+      allow create, update: if isSuperAdmin() && isValidPartnerKycDocument();
+      allow delete: if isSuperAdmin();
     }
 
     // Default deny for all other Storage paths

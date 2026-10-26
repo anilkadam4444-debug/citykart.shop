@@ -29,6 +29,10 @@ import {
   verifyFirebaseIdTokenCryptographically,
   verifySignedSessionToken,
 } from '@/lib/super-admin-auth';
+import {
+  hydratePartnerRegistriesFromFirestore,
+  resolvePartnerStatusForUser,
+} from '@/lib/partner-program';
 import firebaseConfig from '@/firebase-applet-config.json';
 
 export const dynamic = 'force-dynamic';
@@ -152,18 +156,28 @@ export async function GET(req: NextRequest) {
     phoneE164: canonicalPhone,
   });
 
+  await hydratePartnerRegistriesFromFirestore();
+  const partnerStatus = resolvePartnerStatusForUser({
+    uid: firebaseUid,
+    phoneE164: canonicalPhone,
+  });
+
   const existing =
     serverUserAccounts.get(canonicalPhone) ||
     (await fetchUserAccountFromFirestore(firebaseUid)) ||
     (await findUserAccountByPhoneInFirestore(canonicalPhone));
 
-  const baseRoles: ('BUYER' | 'SELLER' | 'ADMIN')[] = existing?.roles
+  const baseRoles: ('BUYER' | 'SELLER' | 'ADMIN' | 'PARTNER')[] = existing?.roles
     ? Array.from(
         new Set(
           existing.roles.filter((r) => r === 'BUYER' || r === 'SELLER')
         )
       )
     : ['BUYER'];
+
+  if (partnerStatus.isActivePartner && !baseRoles.includes('PARTNER')) {
+    baseRoles.push('PARTNER');
+  }
 
   if (adminResolution.isAuthorizedSuperAdmin) {
     if (!baseRoles.includes('SELLER')) baseRoles.push('SELLER');
@@ -185,10 +199,21 @@ export async function GET(req: NextRequest) {
     countryCode: existing?.countryCode || 'IN',
     fullName: isDesignatedOwnerPhone(canonicalPhone)
       ? existing?.fullName || DESIGNATED_SUPER_ADMIN_NAME
-      : adminResolution.authorizationRecord?.name || existing?.fullName || 'Verified User',
+      : adminResolution.authorizationRecord?.name ||
+        partnerStatus.partnerRecord?.fullName ||
+        existing?.fullName ||
+        'Verified User',
     roles: baseRoles.length > 0 ? baseRoles : ['BUYER'],
     isAdmin: isUserAdmin,
-    role: isUserAdmin ? adminResolution.adminRole : undefined,
+    isPartner: partnerStatus.isActivePartner,
+    partnerId: partnerStatus.partnerRecord?.id,
+    assignedCityId: partnerStatus.partnerRecord?.assignedCityId,
+    assignedCityName: partnerStatus.partnerRecord?.assignedCityName,
+    role: isUserAdmin
+      ? adminResolution.adminRole
+      : partnerStatus.isActivePartner
+        ? 'partner'
+        : undefined,
     sellerId: existing?.sellerId || sessionPayload.sellerId,
     storeIds: existing?.storeIds || [],
     createdAt: existing?.createdAt || new Date().toISOString().slice(0, 10),
@@ -202,6 +227,8 @@ export async function GET(req: NextRequest) {
     user: resolvedUser,
     isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
     isAdmin: isUserAdmin,
+    isPartner: partnerStatus.isActivePartner,
+    partnerRecord: partnerStatus.partnerRecord,
     adminRole: adminResolution.adminRole,
     requiresBootstrap: adminResolution.requiresBootstrap,
   });
@@ -419,6 +446,12 @@ export async function POST(req: NextRequest) {
         phoneE164,
       });
 
+      await hydratePartnerRegistriesFromFirestore();
+      const partnerStatus = resolvePartnerStatusForUser({
+        uid: firebaseUid,
+        phoneE164,
+      });
+
       const isUserAdmin =
         adminResolution.isAuthorizedSuperAdmin || adminResolution.isAuthorizedAdmin;
 
@@ -444,7 +477,11 @@ export async function POST(req: NextRequest) {
               (r) => r === 'BUYER' || r === 'SELLER'
             )
           )
-        ) as ('BUYER' | 'SELLER' | 'ADMIN')[];
+        ) as ('BUYER' | 'SELLER' | 'ADMIN' | 'PARTNER')[];
+
+        if (partnerStatus.isActivePartner && !sanitizedRoles.includes('PARTNER')) {
+          sanitizedRoles.push('PARTNER');
+        }
 
         if (adminResolution.isAuthorizedSuperAdmin) {
           if (!sanitizedRoles.includes('SELLER')) sanitizedRoles.push('SELLER');
@@ -462,10 +499,20 @@ export async function POST(req: NextRequest) {
           countryCode: countryRecord.code,
           fullName: isDesignatedOwnerPhone(phoneE164)
             ? existingAccount.fullName || DESIGNATED_SUPER_ADMIN_NAME
-            : adminResolution.authorizationRecord?.name || existingAccount.fullName,
+            : adminResolution.authorizationRecord?.name ||
+              partnerStatus.partnerRecord?.fullName ||
+              existingAccount.fullName,
           roles: sanitizedRoles.length > 0 ? sanitizedRoles : ['BUYER'],
           isAdmin: isUserAdmin,
-          role: isUserAdmin ? adminResolution.adminRole : undefined,
+          isPartner: partnerStatus.isActivePartner,
+          partnerId: partnerStatus.partnerRecord?.id,
+          assignedCityId: partnerStatus.partnerRecord?.assignedCityId,
+          assignedCityName: partnerStatus.partnerRecord?.assignedCityName,
+          role: isUserAdmin
+            ? adminResolution.adminRole
+            : partnerStatus.isActivePartner
+              ? 'partner'
+              : undefined,
         };
         serverUserAccounts.set(phoneE164, updatedExisting);
         await syncUserAccountToFirestore(updatedExisting);
@@ -475,7 +522,7 @@ export async function POST(req: NextRequest) {
           firebaseUid,
           phoneE164: updatedExisting.phoneE164,
           roles: updatedExisting.roles,
-          role: isUserAdmin ? adminResolution.adminRole : undefined,
+          role: updatedExisting.role,
           adminRole: adminResolution.adminRole,
           adminAuthorized: isUserAdmin,
           superAdminAuthorized: adminResolution.isAuthorizedSuperAdmin,
@@ -490,6 +537,8 @@ export async function POST(req: NextRequest) {
           user: updatedExisting,
           isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
           isAdmin: isUserAdmin,
+          isPartner: partnerStatus.isActivePartner,
+          partnerRecord: partnerStatus.partnerRecord,
           adminRole: adminResolution.adminRole,
           requiresBootstrap: adminResolution.requiresBootstrap,
           redirectTo: isUserAdmin ? '/admin' : undefined,
@@ -771,6 +820,12 @@ export async function POST(req: NextRequest) {
         (await findUserAccountByPhoneInFirestore(phoneE164)) ||
         serverUserAccounts.get(phoneE164);
 
+      await hydratePartnerRegistriesFromFirestore();
+      const partnerStatus = resolvePartnerStatusForUser({
+        uid: effectiveUid,
+        phoneE164,
+      });
+
       const updated: UserAccount = existing
         ? {
             ...existing,
@@ -781,9 +836,19 @@ export async function POST(req: NextRequest) {
                 ...existing.roles.filter((r) => r === 'BUYER' || r === 'SELLER'),
                 'BUYER',
                 'SELLER',
+                ...(partnerStatus.isActivePartner ? (['PARTNER'] as const) : []),
               ])
-            ) as ('BUYER' | 'SELLER')[],
+            ) as UserAccount['roles'],
             isAdmin: false,
+            isPartner: partnerStatus.isActivePartner,
+            partnerId: partnerStatus.partnerRecord?.id || existing.partnerId,
+            assignedCityId:
+              partnerStatus.partnerRecord?.assignedCityId ||
+              existing.assignedCityId,
+            assignedCityName:
+              partnerStatus.partnerRecord?.assignedCityName ||
+              existing.assignedCityName,
+            role: partnerStatus.isActivePartner ? 'partner' : undefined,
             sellerId,
             storeIds: storeId
               ? Array.from(new Set([...existing.storeIds, storeId]))

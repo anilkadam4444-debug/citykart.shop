@@ -13,8 +13,12 @@
         "fullName": { "type": "string", "description": "Full name of the buyer or seller" },
         "roles": {
           "type": "array",
-          "items": { "type": "string", "enum": ["BUYER", "SELLER", "ADMIN"] }
+          "items": { "type": "string", "enum": ["BUYER", "SELLER", "ADMIN", "PARTNER"] }
         },
+        "isPartner": { "type": "boolean", "description": "True when user has an ACTIVE City Partner record" },
+        "partnerId": { "type": "string", "description": "Active City Partner ID if user is an approved partner" },
+        "assignedCityId": { "type": "string", "description": "Canonical cityId allocated to this partner" },
+        "assignedCityName": { "type": "string", "description": "Display city name allocated to this partner" },
         "sellerId": { "type": "string", "description": "Linked seller profile ID if user is a seller" },
         "storeIds": {
           "type": "array",
@@ -435,8 +439,8 @@
         "actorUid": { "type": "string" },
         "actorPhone": { "type": "string" },
         "actorName": { "type": "string" },
-        "actorRole": { "type": "string", "enum": ["super_admin"] },
-        "targetType": { "type": "string", "enum": ["STORE", "SELLER", "BUYER", "PRODUCT", "CATEGORY", "ORDER", "SUBSCRIPTION_PLAN", "PLATFORM_SETTINGS", "LOCATION", "SYSTEM"] },
+        "actorRole": { "type": "string", "enum": ["super_admin", "admin"] },
+        "targetType": { "type": "string", "enum": ["STORE", "SELLER", "BUYER", "PRODUCT", "CATEGORY", "ORDER", "SUBSCRIPTION_PLAN", "PLATFORM_SETTINGS", "LOCATION", "ADMIN_USER", "PARTNER", "PARTNER_APPLICATION", "PARTNER_SETTLEMENT", "SYSTEM"] },
         "targetId": { "type": "string" },
         "targetLabel": { "type": "string" },
         "summary": { "type": "string" },
@@ -463,6 +467,114 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["platformName", "domain", "supportPhone", "defaultCurrency", "updatedAt"]
+    },
+    "PartnerApplicationRecord": {
+      "title": "Partner Application Record",
+      "description": "Application submitted by a prospective City Partner for a canonical city.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referenceId": { "type": "string" },
+        "applicantUid": { "type": "string" },
+        "fullLegalName": { "type": "string" },
+        "phoneE164": { "type": "string" },
+        "otpVerified": { "type": "boolean" },
+        "email": { "type": "string" },
+        "residentialOrBusinessAddress": { "type": "string" },
+        "country": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "cityId": { "type": "string" },
+        "cityName": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "experienceSummary": { "type": "string" },
+        "localGrowthPlan": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "pending_otp_verification", "pending_review", "additional_information_required", "approved", "rejected", "withdrawn"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "referenceId", "applicantUid", "fullLegalName", "phoneE164", "otpVerified", "cityId", "cityName", "status", "createdAt", "updatedAt"]
+    },
+    "CityPartnerRecord": {
+      "title": "City Partner Record",
+      "description": "Authorized City Partner with city-scoped access and 50/50 net eligible revenue share.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "applicationId": { "type": "string" },
+        "partnerUid": { "type": "string" },
+        "phoneE164": { "type": "string" },
+        "fullLegalName": { "type": "string" },
+        "role": { "type": "string", "enum": ["partner"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED", "DEACTIVATED"] },
+        "assignedCityId": { "type": "string" },
+        "assignedCityName": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "country": { "type": "string" },
+        "revenueSharePercent": { "type": "number" },
+        "activatedAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "applicationId", "partnerUid", "phoneE164", "fullLegalName", "role", "status", "assignedCityId", "assignedCityName", "revenueSharePercent", "activatedAt", "updatedAt"]
+    },
+    "CityPartnerAllocationRecord": {
+      "title": "City Partner Allocation Record",
+      "description": "Canonical city exclusivity lock keyed by cityId ensuring at most one ACTIVE partner per city.",
+      "type": "object",
+      "properties": {
+        "cityId": { "type": "string" },
+        "cityName": { "type": "string" },
+        "stateRegion": { "type": "string" },
+        "country": { "type": "string" },
+        "status": { "type": "string", "enum": ["AVAILABLE", "ALLOCATED", "RELEASED", "SUSPENDED"] },
+        "activePartnerId": { "type": "string" },
+        "activePartnerUid": { "type": "string" },
+        "activePartnerName": { "type": "string" },
+        "activePartnerPhoneE164": { "type": "string" },
+        "allocatedAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["cityId", "cityName", "status", "updatedAt"]
+    },
+    "PartnerSettlementStatement": {
+      "title": "Partner Settlement Statement",
+      "description": "Monthly 50/50 revenue-share settlement statement and manual bank transfer payout record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "partnerUid": { "type": "string" },
+        "partnerName": { "type": "string" },
+        "partnerPhoneE164": { "type": "string" },
+        "assignedCityId": { "type": "string" },
+        "assignedCityName": { "type": "string" },
+        "periodKey": { "type": "string" },
+        "netEligibleRevenue": { "type": "number" },
+        "partnerSharePercent": { "type": "number" },
+        "partnerPayableAmount": { "type": "number" },
+        "citykartShareAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["DRAFT", "PENDING_APPROVAL", "APPROVED", "PAID", "ON_HOLD"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "partnerId", "assignedCityId", "periodKey", "netEligibleRevenue", "partnerSharePercent", "partnerPayableAmount", "status", "createdAt", "updatedAt"]
+    },
+    "PartnerNotificationRecord": {
+      "title": "Partner Notification Record",
+      "description": "In-app and multi-channel notification dispatched to a City Partner or applicant.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientUid": { "type": "string" },
+        "recipientPhoneE164": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "applicationId": { "type": "string" },
+        "eventType": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "recipientPhoneE164", "eventType", "title", "message", "isRead", "createdAt"]
     }
   },
   "firestore": {
@@ -553,6 +665,26 @@
     "/platformSettings/{settingId}": {
       "schema": { "$ref": "#/entities/PlatformSettingsConfig" },
       "description": "Global platform configuration documents."
+    },
+    "/partnerApplications/{applicationId}": {
+      "schema": { "$ref": "#/entities/PartnerApplicationRecord" },
+      "description": "Prospective City Partner applications with restricted KYC & payout details."
+    },
+    "/cityPartners/{partnerId}": {
+      "schema": { "$ref": "#/entities/CityPartnerRecord" },
+      "description": "Authorized City Partner records scoped to a single canonical cityId."
+    },
+    "/cityPartnerAllocations/{cityId}": {
+      "schema": { "$ref": "#/entities/CityPartnerAllocationRecord" },
+      "description": "Canonical city exclusivity allocation records keyed by cityId."
+    },
+    "/partnerSettlements/{settlementId}": {
+      "schema": { "$ref": "#/entities/PartnerSettlementStatement" },
+      "description": "Monthly 50/50 revenue-share settlement statements and manual payout records."
+    },
+    "/partnerNotifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/PartnerNotificationRecord" },
+      "description": "In-app and SMS/Push notifications for City Partners and applicants."
     }
   }
 }

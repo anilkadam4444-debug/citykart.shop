@@ -98,7 +98,17 @@ export type AdminActionType =
   | 'SEED_DEMO_DATA'
   | 'REMOVE_DEMO_DATA'
   | 'UPDATE_SPONSORED_PRICING'
-  | 'MODERATE_SPONSORED_CAMPAIGN';
+  | 'MODERATE_SPONSORED_CAMPAIGN'
+  | 'APPROVE_PARTNER_APPLICATION'
+  | 'REJECT_PARTNER_APPLICATION'
+  | 'REQUEST_PARTNER_ADDITIONAL_INFO'
+  | 'SUSPEND_PARTNER'
+  | 'REACTIVATE_PARTNER'
+  | 'DEACTIVATE_PARTNER'
+  | 'REASSIGN_PARTNER_CITY'
+  | 'GENERATE_PARTNER_SETTLEMENT'
+  | 'APPROVE_PARTNER_SETTLEMENT'
+  | 'RECORD_PARTNER_SETTLEMENT_PAYOUT';
 
 export interface AdminAuditLogRecord {
   id: string;
@@ -122,6 +132,9 @@ export interface AdminAuditLogRecord {
     | 'LOCATION_REQUEST'
     | 'ADMIN_USER'
     | 'SPONSORED_CAMPAIGN'
+    | 'PARTNER'
+    | 'PARTNER_APPLICATION'
+    | 'PARTNER_SETTLEMENT'
     | 'SYSTEM';
   targetId: string;
   targetLabel?: string;
@@ -146,6 +159,9 @@ export interface AdminAuditLogRecord {
     | 'LOCATION_REQUEST'
     | 'ADMIN_USER'
     | 'SPONSORED_CAMPAIGN'
+    | 'PARTNER'
+    | 'PARTNER_APPLICATION'
+    | 'PARTNER_SETTLEMENT'
     | 'SYSTEM';
   targetEntityId: string;
   targetEntityName?: string;
@@ -397,17 +413,18 @@ export async function setAuthoritativeSubscriptionPlan(
       JSON.stringify(SUBSCRIPTION_PLANS)
     );
   }
-  globalThis.__serverSubscriptionPlansOverride![planId] = updatedPlan;
+  const currentOverrides = globalThis.__serverSubscriptionPlansOverride!;
+  currentOverrides[planId] = updatedPlan;
 
   try {
     await adminDb
       .doc('platformSettings/subscriptionPlans')
-      .set(globalThis.__serverSubscriptionPlansOverride, { merge: true });
+      .set(currentOverrides, { merge: true });
   } catch {
     try {
       await setDoc(
         doc(db, 'platformSettings', 'subscriptionPlans'),
-        globalThis.__serverSubscriptionPlansOverride,
+        currentOverrides,
         { merge: true }
       );
     } catch {
@@ -2097,6 +2114,7 @@ export interface VerifiedCallerIdentity {
   uid: string;
   phoneE164: string;
   sellerId?: string;
+  storeIds?: string[];
   roles: string[];
 }
 

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { SubscriptionTierId } from '@/lib/revenue-model';
-import { getAuthoritativeSubscriptionPlansAsync } from '@/lib/super-admin-auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { PlatformFeeLedgerEntry } from '@/lib/revenue-model';
+import { INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
+import { SubscriptionTierId } from '@/lib/revenue-model';
+import {
+  getAuthoritativeSubscriptionPlansAsync,
+  verifyAdminRequest,
+  verifyAuthenticatedCaller,
+} from '@/lib/super-admin-auth';
+import { reserveSellerOutstandingFeesForInvoice } from '@/lib/fees';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,52 +34,88 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Verify caller session isolation and store-to-seller ownership
+    const [caller, adminCheck] = await Promise.all([
+      verifyAuthenticatedCaller(req),
+      verifyAdminRequest(req),
+    ]);
+
+    if (
+      caller.authenticated &&
+      caller.sellerId &&
+      caller.sellerId !== sellerId &&
+      !adminCheck.authorized
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Forbidden: Authenticated seller session does not match the requested sellerId.',
+        },
+        { status: 403 }
+      );
+    }
+
+    let targetStore: LocalStore | null =
+      INITIAL_STORES.find((s) => s.id === storeId) || null;
+    if (!targetStore) {
+      try {
+        const snap = await getDoc(doc(db, 'stores', storeId));
+        if (snap.exists()) {
+          targetStore = snap.data() as LocalStore;
+        }
+      } catch {
+        // Ignore Firestore read error if store is only in local state
+      }
+    }
+
+    if (
+      targetStore &&
+      targetStore.sellerId &&
+      targetStore.sellerId !== sellerId &&
+      !adminCheck.authorized
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Forbidden: Store ownership mismatch. You can only initiate subscription checkout for your own store.',
+        },
+        { status: 403 }
+      );
+    }
+
     const authoritativePlans = await getAuthoritativeSubscriptionPlansAsync();
     const plan = authoritativePlans[planId as SubscriptionTierId];
     if (!plan) {
-      return NextResponse.json({ error: 'Invalid subscription tier selected' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid subscription tier selected' },
+        { status: 400 }
+      );
     }
 
     const isAnnual = billingCycle === 'ANNUAL';
-    const basePrice = currency === 'USD'
-      ? (isAnnual ? plan.annualPriceUsd : plan.monthlyPriceUsd)
-      : (isAnnual ? plan.annualPriceInr : plan.monthlyPriceInr);
-
-    // Calculate outstanding platform fees
-    let outstandingFees = 0;
-    const ledgerCol = collection(db, 'platformFeeLedger');
-    const q = query(
-      ledgerCol,
-      where('sellerId', '==', sellerId),
-      where('status', '==', 'outstanding')
-    );
-    const snap = await getDocs(q);
-    const feeEntries: PlatformFeeLedgerEntry[] = [];
-    snap.forEach((docSnap) => {
-      const entry = docSnap.data() as PlatformFeeLedgerEntry;
-      if (entry.currency === currency) {
-        outstandingFees += entry.totalFee;
-        feeEntries.push(entry);
-      }
-    });
-
-    const taxRate = currency === 'INR' ? 0.18 : 0.0;
-    const taxAmount = Math.round((basePrice + outstandingFees) * taxRate * 100) / 100;
-    const totalAmount = Math.round((basePrice + outstandingFees + taxAmount) * 100) / 100;
+    const basePrice =
+      currency === 'USD'
+        ? isAnnual
+          ? plan.annualPriceUsd
+          : plan.monthlyPriceUsd
+        : isAnnual
+          ? plan.annualPriceInr
+          : plan.monthlyPriceInr;
 
     const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Reserve fees for this invoice
-    const nowIso = new Date().toISOString();
-    const reservePromises = feeEntries.map((entry) => 
-      setDoc(doc(db, 'platformFeeLedger', entry.id), {
-        ...entry,
-        status: 'reserved_for_invoice',
-        invoiceNumber,
-        updatedAt: nowIso
-      })
+    // Calculate and reserve outstanding platform fees for this invoice
+    const { outstandingFees } = await reserveSellerOutstandingFeesForInvoice(
+      sellerId,
+      currency,
+      invoiceNumber
     );
-    await Promise.all(reservePromises);
+
+    const taxRate = currency === 'INR' ? 0.18 : 0.0;
+    const taxAmount =
+      Math.round((basePrice + outstandingFees) * taxRate * 100) / 100;
+    const totalAmount =
+      Math.round((basePrice + outstandingFees + taxAmount) * 100) / 100;
 
     const isPlaceholderCreds =
       !keyId ||
@@ -88,7 +129,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         needsConfig: true,
-        message: 'Razorpay credentials are not yet configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.',
+        message:
+          'Razorpay credentials are not yet configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.',
         checkoutSession: {
           invoiceNumber,
           sellerId,
@@ -100,12 +142,18 @@ export async function POST(req: NextRequest) {
           totalAmount,
           taxAmount,
           basePrice,
-        }
+          outstandingFees,
+        },
       });
     }
 
     // Create Razorpay Order
-    let razorpayOrder: { id: string; amount: number | string; currency: string; notes?: unknown };
+    let razorpayOrder: {
+      id: string;
+      amount: number | string;
+      currency: string;
+      notes?: unknown;
+    };
     try {
       razorpayOrder = await razorpay.orders.create({
         amount: Math.round(totalAmount * 100), // in paise
@@ -116,6 +164,8 @@ export async function POST(req: NextRequest) {
           sellerId,
           planId,
           billingCycle,
+          invoiceNumber,
+          outstandingFees: String(outstandingFees),
           type: 'SUBSCRIPTION',
         },
       });
@@ -138,6 +188,7 @@ export async function POST(req: NextRequest) {
             totalAmount,
             taxAmount,
             basePrice,
+            outstandingFees,
           },
         });
       }
@@ -156,6 +207,7 @@ export async function POST(req: NextRequest) {
         billingCycle,
         currency,
         basePrice,
+        outstandingFees,
         taxAmount,
         totalAmount,
         gatewayOptions: {
@@ -167,7 +219,7 @@ export async function POST(req: NextRequest) {
           order_id: razorpayOrder.id,
           prefill: {
             name: '',
-            email: '', 
+            email: '',
             contact: '',
           },
           notes: razorpayOrder.notes,
@@ -176,9 +228,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Create Checkout Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to create checkout session';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Failed to create checkout session';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-

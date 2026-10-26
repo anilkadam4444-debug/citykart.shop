@@ -470,7 +470,12 @@ import { LocalStore, UserAccount, Product, OrderRecord, SellerProfile } from './
  * Calculates platform-wide or city-filtered revenue and marketplace metrics.
  * Centralized logic to be shared between Admin dashboards.
  */
-export type FeeStatus = 'pending_eligibility' | 'outstanding' | 'paid' | 'reversed';
+export type FeeStatus =
+  | 'pending_eligibility'
+  | 'outstanding'
+  | 'reserved_for_invoice'
+  | 'paid'
+  | 'reversed';
 
 export interface PlatformFeeLedgerEntry {
   id: string;
@@ -485,6 +490,8 @@ export interface PlatformFeeLedgerEntry {
   totalFee: number;
   currency: string;
   status: FeeStatus;
+  invoiceNumber?: string;
+  paidByTransactionId?: string;
   createdAt: string;
   updatedAt: string;
 }

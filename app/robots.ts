@@ -17,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
           '/categories/',
           '/stores/',
           '/products/',
+          '/partner',
           '/about',
           '/how-it-works',
           '/seller-guide',
@@ -27,6 +28,9 @@ export default function robots(): MetadataRoute.Robots {
         ],
         disallow: [
           '/api/',
+          '/admin',
+          '/admin/',
+          '/orders',
           '/seller/dashboard/',
           '/seller/inventory',
           '/seller/orders',

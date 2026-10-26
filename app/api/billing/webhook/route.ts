@@ -265,7 +265,7 @@ export async function POST(req: NextRequest) {
           status: 'SUCCESS',
           paymentGateway: 'RAZORPAY',
           gatewayTransactionId: paymentId,
-          invoiceNumber: `INV-W-${Date.now().toString().slice(-6)}`,
+          invoiceNumber: notes.invoiceNumber || `INV-W-${Date.now().toString().slice(-6)}`,
           createdAt: now.toISOString(),
         };
 
@@ -336,17 +336,29 @@ export async function POST(req: NextRequest) {
             console.warn('[webhook] Web SDK write notice:', fallbackErr);
           }
         }
+
+        const { markInvoicePlatformFeesPaid } = await import('@/lib/fees');
+        await markInvoicePlatformFeesPaid(
+          sellerId,
+          notes.invoiceNumber,
+          txId
+        );
       }
     }
 
     // =========================================================================
-    // 2. PAYMENT FAILED OR REFUND PROCESSED FOR AD_CAMPAIGN
+    // 2. PAYMENT FAILED OR REFUND PROCESSED FOR AD_CAMPAIGN / SUBSCRIPTION
     // =========================================================================
     if (eventType === 'payment.failed' || eventType === 'refund.processed') {
       const entity =
         event.payload?.payment?.entity || event.payload?.refund?.entity;
       const notes = entity?.notes || {};
       const campaignId = notes.campaignId;
+
+      if (notes.type === 'SUBSCRIPTION' && notes.sellerId && eventType === 'payment.failed') {
+        const { releaseReservedInvoicePlatformFees } = await import('@/lib/fees');
+        await releaseReservedInvoicePlatformFees(notes.sellerId, notes.invoiceNumber);
+      }
 
       if (notes.type === 'AD_CAMPAIGN' && campaignId) {
         const nowIso = new Date().toISOString();

@@ -129,6 +129,7 @@ async function handleStatusUpdate(
         deliveryFee: 0,
         discount: 0,
         total: 0,
+        totalPlatformFee: 0,
         paymentMethod: 'UPI_ON_DELIVERY',
         customer: {
           fullName: 'Customer',
@@ -314,6 +315,8 @@ async function handleStatusUpdate(
           defaultNote,
           caller.uid || actorSellerId || actorBuyerUid || actor
         )) || order.deliveryPinInfo;
+      const { reversePlatformFeesForOrder } = await import('@/lib/fees');
+      await reversePlatformFeesForOrder(orderId);
     }
 
     const updatedOrder: OrderRecord = sanitizeOrderForStorageAndListing({

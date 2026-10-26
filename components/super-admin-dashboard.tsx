@@ -50,9 +50,11 @@ import {
   Users,
   UserX,
   X,
+  Handshake,
 } from 'lucide-react';
 import { useUrbanDirect } from '@/components/urbandirect-provider';
 import { AdminLocationManager } from '@/components/admin-location-manager';
+import { AdminPartnerManagement } from '@/components/admin-partner-management';
 import { CategoryIcon } from '@/components/category-icon';
 import { auth, db } from '@/lib/firebase';
 import {
@@ -90,6 +92,7 @@ type AdminSectionId =
   | 'dashboard'
   | 'analytics'
   | 'admin-management'
+  | 'partners'
   | 'sellers-stores'
   | 'buyers'
   | 'products-categories'
@@ -142,6 +145,9 @@ interface AuditLogEntry {
     | 'PLATFORM_SETTINGS'
     | 'LOCATION'
     | 'ADMIN_USER'
+    | 'PARTNER'
+    | 'PARTNER_APPLICATION'
+    | 'PARTNER_SETTLEMENT'
     | 'SYSTEM';
   targetId: string;
   targetLabel?: string;
@@ -1572,6 +1578,12 @@ export function SuperAdminDashboard() {
           {
             groupLabel: 'Governance',
             items: [
+              {
+                id: 'partners' as AdminSectionId,
+                label: 'City Partners',
+                icon: Handshake,
+                badge: '50/50',
+              },
               {
                 id: 'admin-management' as AdminSectionId,
                 label: 'Admin Management',
@@ -5302,6 +5314,19 @@ export function SuperAdminDashboard() {
                 </ol>
               </div>
             </div>
+          )}
+
+          {/* ================================================================
+              SECTION: CITY PARTNERS (APPLICATIONS, ALLOCATIONS & SETTLEMENTS)
+             ================================================================ */}
+          {activeSection === 'partners' && (
+            <AdminPartnerManagement
+              isSuperAdmin={isSuperAdmin}
+              onActionCompleted={(msg) => {
+                setActionFeedback(msg);
+                fetchDashboard();
+              }}
+            />
           )}
         </main>
       </div>

@@ -389,12 +389,16 @@ export interface UserAccount {
   maskedPhone: string;
   countryCode: string;
   fullName: string;
-  roles: ('BUYER' | 'SELLER' | 'ADMIN')[];
-  role?: 'super_admin' | 'admin' | 'buyer' | 'seller';
+  roles: ('BUYER' | 'SELLER' | 'ADMIN' | 'PARTNER')[];
+  role?: 'super_admin' | 'admin' | 'partner' | 'buyer' | 'seller';
   sellerId?: string;
   storeIds: string[];
   createdAt: string;
   isAdmin?: boolean;
+  isPartner?: boolean;
+  partnerId?: string;
+  assignedCityId?: string;
+  assignedCityName?: string;
   accountStatus?: 'ACTIVE' | 'SUSPENDED';
   suspensionReason?: string;
   suspendedAt?: string;

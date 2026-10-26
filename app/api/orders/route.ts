@@ -62,13 +62,18 @@ for (const p of INITIAL_PRODUCTS) {
 import { serverOrdersRegistry, serverNotificationsRegistry, SellerNotification } from '@/lib/orders-registry';
 import { isStoreDeletedServer, serverDeletedStoresRegistry } from '@/lib/stores-registry';
 import { sendNewOrderPushNotifications } from '@/lib/server-fcm';
-import { verifyAdminRequest } from '@/lib/super-admin-auth';
+import {
+  normalizePhoneE164,
+  verifyAdminRequest,
+  verifyAuthenticatedCaller,
+} from '@/lib/super-admin-auth';
 import {
   dispatchSellerOrderSmsNotification,
   issueDeliveryPinForOrder,
   MANDATORY_BUYER_PIN_WARNING,
   resolveSellerPhoneForOrder,
   sanitizeOrderForStorageAndListing,
+  verifyBuyerOrderAccessToken,
 } from '@/lib/delivery-pin';
 
 
@@ -634,9 +639,58 @@ export async function GET(req: NextRequest) {
     if (!ord) {
       return NextResponse.json({ok: false, error: 'Order not found'}, {status: 404});
     }
+
+    const sanitized = sanitizeOrderForStorageAndListing(ord);
+    const buyerToken =
+      searchParams.get('buyerOrderAccessToken') ||
+      req.headers.get('x-buyer-order-token');
+    const verifiedBuyerToken = verifyBuyerOrderAccessToken(buyerToken, ord.id);
+    const callerSession = await verifyAuthenticatedCaller(req);
+    const adminCheck = await verifyAdminRequest(req);
+
+    const normalizedOrderBuyerPhone = normalizePhoneE164(ord.customer?.phone || '');
+    const normalizedQueryPhone = buyerPhone ? normalizePhoneE164(buyerPhone) : '';
+    const normalizedCallerPhone = callerSession.phoneE164
+      ? normalizePhoneE164(callerSession.phoneE164)
+      : '';
+
+    const isAuthorizedForFullOrderPii =
+      adminCheck.authorized ||
+      Boolean(verifiedBuyerToken) ||
+      (Boolean(buyerUid) && Boolean(ord.buyerUid) && buyerUid === ord.buyerUid) ||
+      (Boolean(sellerId) && sellerId === ord.sellerId) ||
+      (Boolean(normalizedQueryPhone) &&
+        normalizedQueryPhone === normalizedOrderBuyerPhone) ||
+      (callerSession.authenticated &&
+        ((Boolean(ord.buyerUid) && callerSession.uid === ord.buyerUid) ||
+          (Boolean(normalizedCallerPhone) &&
+            normalizedCallerPhone === normalizedOrderBuyerPhone) ||
+          callerSession.uid === `seller-${ord.sellerId}`));
+
+    if (!isAuthorizedForFullOrderPii) {
+      const rawPhone = sanitized.customer?.phone || '';
+      const maskedCustomerPhone =
+        rawPhone.length > 4
+          ? `${'*'.repeat(Math.max(0, rawPhone.length - 4))}${rawPhone.slice(-4)}`
+          : '****';
+      return NextResponse.json({
+        ok: true,
+        order: {
+          ...sanitized,
+          sellerPhone: undefined,
+          sellerUnifiedNotification: undefined,
+          customer: {
+            ...sanitized.customer,
+            phone: maskedCustomerPhone,
+            address: sanitized.customer?.locality || sanitized.customer?.city || 'Protected',
+          },
+        },
+      });
+    }
+
     return NextResponse.json({
       ok: true,
-      order: sanitizeOrderForStorageAndListing(ord),
+      order: sanitized,
     });
   }
 

@@ -47,6 +47,12 @@ jobs:
             npm install
           fi
 
+      - name: Run ESLint static analysis
+        run: npm run lint
+
+      - name: Run automated security and financial verification tests
+        run: node --test scripts/audit-verification.test.mjs scripts/partner-program.test.mjs scripts/revenue-attribution-verification.test.mjs
+
       - name: Build Next.js application
         run: npm run build
         env:
