@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { stripTypeScriptTypes } from 'node:module';
+import ts from 'typescript';
 
 const ROOT_DIR = process.cwd();
 const PARTNER_PROGRAM_PATH = path.join(ROOT_DIR, 'lib/partner-program.ts');
@@ -29,15 +29,21 @@ function loadBackendRevenueAttributionEngine() {
     'Could not locate Section 10 (Revenue Attribution Engine) in lib/partner-program.ts'
   );
 
-  const sectionTs = rawTs.slice(startIdx, endIdx);
-
-  // Strip TypeScript type annotations using Node's native stripTypeScriptTypes
-  const strippedJs = stripTypeScriptTypes(sectionTs, { mode: 'strip' }).replace(
+  const sectionTs = rawTs.slice(startIdx, endIdx).replace(
     /export\s+function\s+calculateCityPartnerRevenueReport/g,
     'function calculateCityPartnerRevenueReport'
   );
 
+  // Transpile TypeScript using the project's TypeScript compiler (compatible with Node 18, 20, 22+)
+  const { outputText: strippedJs } = ts.transpileModule(sectionTs, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.None,
+    },
+  });
+
   const sandbox = {
+    exports: {},
     DEFAULT_PARTNER_REVENUE_SHARE_PERCENT: 50,
     DEFAULT_CITYKART_RETAINED_SHARE_PERCENT: 50,
     serverPlatformFeeLedgerRegistry: new Map(),
