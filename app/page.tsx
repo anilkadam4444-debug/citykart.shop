@@ -131,6 +131,69 @@ export default function UrbanDirectPlatform() {
     };
   }, [isMounted]);
 
+  // Deep-Link to Product from Social Media Sharing (?product=[id] or ?productId=[id])
+  const hasProcessedDeepLinkRef = useRef(false);
+
+  useEffect(() => {
+    if (!isMounted || !products || products.length === 0) return;
+    if (typeof window === 'undefined') return;
+
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const deepLinkProductId =
+        searchParams.get('product') || searchParams.get('productId');
+      if (deepLinkProductId && !hasProcessedDeepLinkRef.current) {
+        const matched = products.find((p) => p.id === deepLinkProductId);
+        if (matched) {
+          hasProcessedDeepLinkRef.current = true;
+          const timer = setTimeout(() => {
+            setActivePdpProduct(matched);
+            setViewMode('BUYER_HOME');
+
+            // Align customer browsing city with product store's city so the customer can seamlessly view and order
+            const productStore = stores.find((s) => s.id === matched.storeId);
+            if (
+              productStore &&
+              (!hasSelectedCity ||
+                customerLocation.city.toLowerCase() !==
+                  productStore.cityName.toLowerCase())
+            ) {
+              confirmLocationInContext({
+                mode: 'SELECTED_LOCATION',
+                cityId: productStore.cityId,
+                city: productStore.cityName,
+                country:
+                  productStore.country || customerLocation.country || 'India',
+                stateRegion:
+                  productStore.stateRegion ||
+                  customerLocation.stateRegion ||
+                  '',
+                locality:
+                  productStore.neighborhood ||
+                  customerLocation.locality ||
+                  '',
+                postalCode:
+                  productStore.postalCode ||
+                  customerLocation.postalCode ||
+                  '',
+              });
+            }
+          }, 0);
+          return () => clearTimeout(timer);
+        }
+      }
+    } catch {
+      // URL parsing fallback
+    }
+  }, [
+    isMounted,
+    products,
+    stores,
+    hasSelectedCity,
+    customerLocation,
+    confirmLocationInContext,
+  ]);
+
   // Active Sponsored Products & Featured Stores Advertising Campaigns
   const activeCampaigns = useMemo<FeaturedCampaign[]>(() => {
     if (!isMounted) return [];
@@ -181,6 +244,7 @@ export default function UrbanDirectPlatform() {
 
   const shouldShowLocationModal =
     isMounted &&
+    !activePdpProduct &&
     (isLocationModalOpen ||
       (!hasSelectedCity &&
         (viewMode === 'BUYER_HOME' || viewMode === 'STORE_PAGE')));
@@ -514,6 +578,36 @@ export default function UrbanDirectPlatform() {
       recordCampaignMetric(camp.id, 'CLICK');
     }
     setActivePdpProduct(product);
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('product', product.id);
+        url.searchParams.delete('productId');
+        window.history.replaceState(
+          {},
+          '',
+          url.pathname + (url.search ? url.search : '')
+        );
+      } catch {}
+    }
+  };
+
+  const handleClosePdp = () => {
+    setActivePdpProduct(null);
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        if (
+          url.searchParams.has('product') ||
+          url.searchParams.has('productId')
+        ) {
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+          const cleanQuery = url.search ? url.search : '';
+          window.history.replaceState({}, '', url.pathname + cleanQuery);
+        }
+      } catch {}
+    }
   };
 
   const renderProductCard = (product: Product) => {
@@ -2018,7 +2112,7 @@ export default function UrbanDirectPlatform() {
             : undefined
         }
         customerLocation={customerLocation}
-        onClose={() => setActivePdpProduct(null)}
+        onClose={handleClosePdp}
         onViewStore={handleOpenStorePage}
         onAddToCart={handleAddToCart}
       />

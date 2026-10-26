@@ -14,6 +14,7 @@ import {
   INITIAL_SELLERS,
   INITIAL_STORES,
   INITIAL_USER_ACCOUNTS,
+  serverUserAccounts,
 } from '@/lib/initial-data';
 import {
   NANDED_DEMO_BATCH_ID,
@@ -30,7 +31,6 @@ import {
 import { getDefaultFreeSubscription } from '@/lib/entitlements';
 import { serverOrdersRegistry, serverNotificationsRegistry } from '@/lib/orders-registry';
 import { serverDeletedStoresRegistry } from '@/lib/stores-registry';
-import { serverUserAccounts } from '@/app/api/auth/otp/route';
 import {
   getAdminAuditLogs,
   getAuthoritativeAdminAuthorizations,

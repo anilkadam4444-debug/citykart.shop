@@ -391,6 +391,7 @@ export interface UserAccount {
   fullName: string;
   roles: ('BUYER' | 'SELLER' | 'ADMIN' | 'PARTNER')[];
   role?: 'super_admin' | 'admin' | 'partner' | 'buyer' | 'seller';
+  phoneVerified?: boolean;
   sellerId?: string;
   storeIds: string[];
   createdAt: string;

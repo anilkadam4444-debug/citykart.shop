@@ -312,17 +312,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {/* Action Bar */}
             <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
               <Link
-                href="/"
+                href={`/?product=${product.id}`}
                 className="flex-1 py-3.5 px-5 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs sm:text-sm font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Order in {product.city}</span>
+                <span>Order in {product.city} (Live Storefront)</span>
               </Link>
               <Link
                 href={`/stores/${product.storeId}`}
-                className="py-3.5 px-5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#003B8E] text-xs sm:text-sm font-bold text-center transition-colors"
+                className="py-3.5 px-5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#003B8E] text-xs sm:text-sm font-bold text-center transition-colors flex items-center justify-center"
               >
-                View More from Store
+                View Store
               </Link>
             </div>
           </div>

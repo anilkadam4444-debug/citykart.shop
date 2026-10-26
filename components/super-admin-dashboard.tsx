@@ -5490,6 +5490,25 @@ export function SuperAdminDashboard() {
               }}
               className="space-y-4 text-xs"
             >
+              {/* City Partner vs Admin Architecture Warning Banner */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-950 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong>Looking to onboard a City Partner?</strong> City Partners must NOT be authorized here as administrators. Use the{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddAdminModalOpen(false);
+                      setActiveSection('partners');
+                    }}
+                    className="text-[#003B8E] underline font-bold cursor-pointer hover:text-[#002D6E]"
+                  >
+                    City Partner Program tab &rarr; Direct Onboard Partner
+                  </button>{' '}
+                  to assign exclusive canonical city rights, 50/50 revenue attribution, and KYC payout capture without granting platform-wide administrative privileges.
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-800 mb-1">
                   Administrator Mobile Number <span className="text-rose-500">*</span>

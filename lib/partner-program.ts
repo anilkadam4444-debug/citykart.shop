@@ -10,6 +10,7 @@ import {
   OrderRecord,
   Product,
   SellerProfile,
+  UserAccount,
 } from './catalog-data';
 import {
   BillingTransaction,
@@ -28,6 +29,13 @@ import {
   loadCustomApprovedCities,
 } from './location-service';
 import { serverPlatformFeeLedgerRegistry } from './fees';
+import {
+  DESIGNATED_SUPER_ADMIN_PHONE,
+  isDesignatedOwnerPhone,
+  normalizePhoneE164,
+  serverUserAccounts,
+} from './super-admin-auth';
+import { syncUserAccountToFirestore } from './firebase';
 
 // ============================================================================
 // 1. CONSTANTS & POLICY DEFINITIONS
@@ -1493,6 +1501,359 @@ export async function approvePartnerApplicationAndAllocateCity(params: {
       application: updatedApp,
       partner: partnerRecord,
       allocation,
+    };
+  } finally {
+    cityAllocationMutex.delete(cleanCityId);
+  }
+}
+
+// ============================================================================
+// 9B. DEDICATED DIRECT CITY PARTNER ONBOARDING ARCHITECTURE
+// ============================================================================
+
+export interface DirectOnboardPartnerInput {
+  adminUid: string;
+  adminPhone: string;
+  adminName: string;
+  isSuperAdmin: boolean;
+  partnerFullName: string;
+  phoneE164: string;
+  email?: string;
+  residentialOrBusinessAddress?: string;
+  country?: string;
+  countryCode?: string;
+  stateRegion?: string;
+  cityId: string;
+  cityName?: string;
+  district?: string;
+  postalCode?: string;
+  panOrTaxId?: string;
+  bankAccountHolderName?: string;
+  bankAccountNumber?: string;
+  bankIfscOrRoutingCode?: string;
+  bankName?: string;
+  notes?: string;
+}
+
+/**
+ * Dedicated Architecture for direct Super Admin onboarding of City Partners.
+ * Strictly isolates Partner role (`role: 'partner'`, `isPartner: true`, city-scoped)
+ * from Platform Administrator rights (`isAdmin: false`, never touches `admin_authorizations`).
+ * Atomically verifies canonical city validity, locks exclusive allocation, captures KYC,
+ * initializes 50/50 revenue attribution, and creates auto-approved audit records.
+ */
+export async function directOnboardCityPartner(
+  params: DirectOnboardPartnerInput
+): Promise<{
+  ok: boolean;
+  partner?: CityPartnerRecord;
+  allocation?: CityPartnerAllocationRecord;
+  application?: PartnerApplicationRecord;
+  error?: string;
+  statusCode?: number;
+}> {
+  // 1. Authorization Guard: Only Platform Owner Super Admin can direct onboard partners
+  const adminPhone = normalizePhoneE164(params.adminPhone);
+  if (!params.isSuperAdmin || !isDesignatedOwnerPhone(adminPhone)) {
+    return {
+      ok: false,
+      error:
+        'Forbidden: Only the Platform Owner Super Admin (+918329306616) can direct onboard City Partners.',
+      statusCode: 403,
+    };
+  }
+
+  // 2. Partner Phone Validation & Normalization
+  const targetPhone = normalizePhoneE164(params.phoneE164);
+  if (!targetPhone || targetPhone.length < 8) {
+    return {
+      ok: false,
+      error:
+        'A valid mobile number with country code in E.164 format (e.g. +919876543210) is required.',
+      statusCode: 400,
+    };
+  }
+
+  // 3. Self-Approval & Role Separation Guard: Super Admin cannot direct onboard themselves
+  if (isDesignatedOwnerPhone(targetPhone)) {
+    return {
+      ok: false,
+      error:
+        'Conflict: The Platform Owner Super Admin (+918329306616) cannot be onboarded as a City Partner. Platform Admin and City Partner roles are strictly isolated.',
+      statusCode: 400,
+    };
+  }
+
+  // 4. Partner Legal Name Validation
+  const fullName = (params.partnerFullName || '').trim();
+  if (fullName.length < 3) {
+    return {
+      ok: false,
+      error: "Please enter the partner's full legal name (at least 3 characters).",
+      statusCode: 400,
+    };
+  }
+
+  // 5. Canonical City Record Validation
+  const canonicalCheck = findCanonicalCityRecord({
+    cityId: params.cityId,
+    country: params.country,
+    countryCode: params.countryCode,
+    stateRegion: params.stateRegion,
+    cityName: params.cityName,
+  });
+  if (!canonicalCheck.valid || !canonicalCheck.cityRecord) {
+    return {
+      ok: false,
+      error:
+        canonicalCheck.error ||
+        'Selected city failed canonical location directory validation.',
+      statusCode: 400,
+    };
+  }
+
+  const canonicalCity = canonicalCheck.cityRecord;
+  const cleanCityId = canonicalCity.cityId.toLowerCase();
+
+  // 6. City Exclusivity Mutex & Allocation Lock Check
+  if (cityAllocationMutex.has(cleanCityId)) {
+    return {
+      ok: false,
+      error: `Concurrent city allocation in progress for "${cleanCityId}". Request rejected to preserve city exclusivity.`,
+      statusCode: 409,
+    };
+  }
+
+  cityAllocationMutex.add(cleanCityId);
+  try {
+    const availability = checkCityPartnerAvailability(cleanCityId);
+    if (!availability.isAvailable) {
+      return {
+        ok: false,
+        error: `City Exclusivity Conflict: ${canonicalCity.cityName} (${cleanCityId}) is already allocated to active partner ${availability.activePartnerName || availability.activePartnerId}.`,
+        statusCode: 409,
+      };
+    }
+
+    // 7. Check if phone number already holds an active City Partner assignment
+    for (const existingPartner of serverCityPartnersRegistry.values()) {
+      if (
+        existingPartner.phoneE164 === targetPhone &&
+        existingPartner.status === 'ACTIVE'
+      ) {
+        return {
+          ok: false,
+          error: `Partner with mobile number ${targetPhone} already has an active City Partner assignment for ${existingPartner.assignedCityName}.`,
+          statusCode: 409,
+        };
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const cleanIdSuffix = Date.now().toString(36);
+    const partnerId = `partner_${cleanCityId}_${cleanIdSuffix}`;
+    const appId = `app_direct_${cleanCityId}_${cleanIdSuffix}`;
+    const refId = `CKP-${cleanCityId.slice(0, 4).toUpperCase()}-${cleanIdSuffix.slice(-4).toUpperCase()}`;
+
+    const pan = (params.panOrTaxId || '').trim().toUpperCase();
+    const bankAccount = (params.bankAccountNumber || '')
+      .trim()
+      .replace(/\s+/g, '');
+    const bankHolder = (params.bankAccountHolderName || fullName).trim();
+    const bankIfsc = (params.bankIfscOrRoutingCode || '').trim().toUpperCase();
+    const bankName = (params.bankName || 'Direct Scheduled Bank').trim();
+    const email =
+      (params.email || '').trim().toLowerCase() ||
+      `${targetPhone.replace(/[^0-9]/g, '')}@partner.citykart.shop`;
+    const address =
+      (params.residentialOrBusinessAddress || '').trim() ||
+      `${canonicalCity.cityName}, ${canonicalCity.stateRegion}`;
+    const postalCode = (params.postalCode || '').trim() || '400001';
+
+    // 8. Create Atomic CityPartnerAllocationRecord
+    const allocation: CityPartnerAllocationRecord = {
+      cityId: cleanCityId,
+      cityName: canonicalCity.cityName,
+      stateRegion: canonicalCity.stateRegion,
+      country: canonicalCity.country,
+      countryCode: canonicalCity.countryCode,
+      status: 'ALLOCATED',
+      activePartnerId: partnerId,
+      partnerUid: targetPhone,
+      partnerPhoneE164: targetPhone,
+      partnerName: fullName,
+      applicationId: appId,
+      allocatedAt: nowIso,
+      allocatedByUid: params.adminUid,
+      allocatedByPhone: adminPhone,
+      updatedAt: nowIso,
+    };
+
+    // 9. Create Distinct CityPartnerRecord (Role: partner, 50/50 revenue attribution, STRICTLY NOT admin)
+    const partnerRecord: CityPartnerRecord = {
+      id: partnerId,
+      applicationId: appId,
+      applicationReferenceId: refId,
+      partnerUid: targetPhone,
+      phoneE164: targetPhone,
+      maskedPhone: maskSensitiveIdentifier(targetPhone, 4),
+      fullName,
+      email,
+      residentialOrBusinessAddress: address,
+      role: 'partner',
+      status: 'ACTIVE',
+      assignedCityId: cleanCityId,
+      assignedCityName: canonicalCity.cityName,
+      assignedStateRegion: canonicalCity.stateRegion,
+      assignedCountry: canonicalCity.country,
+      assignedCountryCode: canonicalCity.countryCode,
+      assignedDistrict: params.district || canonicalCity.district,
+      assignedPostalCode: postalCode,
+      revenueSharePercent: DEFAULT_PARTNER_REVENUE_SHARE_PERCENT,
+      citykartRetainedPercent: DEFAULT_CITYKART_RETAINED_SHARE_PERCENT,
+      kycVerificationStatus: 'VERIFIED',
+      payoutSummary: {
+        bankAccountHolderName: bankHolder,
+        bankAccountNumberMasked: maskSensitiveIdentifier(
+          bankAccount || '0000',
+          4
+        ),
+        bankIfscOrRoutingCode: bankIfsc || 'N/A',
+        bankName,
+        panOrTaxIdMasked: maskSensitiveIdentifier(pan || 'DIRECT', 4),
+      },
+      activatedAt: nowIso,
+      activatedByUid: params.adminUid,
+      activatedByPhone: adminPhone,
+      updatedAt: nowIso,
+    };
+
+    // 10. Create Auto-Approved PartnerApplicationRecord for Audit Trail & Complete Lifecycle Record
+    const application: PartnerApplicationRecord = {
+      id: appId,
+      referenceId: refId,
+      applicantUid: targetPhone,
+      fullLegalName: fullName,
+      phoneE164: targetPhone,
+      maskedPhone: maskSensitiveIdentifier(targetPhone, 4),
+      otpVerified: true,
+      otpVerifiedAt: nowIso,
+      email,
+      residentialOrBusinessAddress: address,
+      country: canonicalCity.country,
+      countryCode: canonicalCity.countryCode,
+      stateRegion: canonicalCity.stateRegion,
+      cityId: cleanCityId,
+      cityName: canonicalCity.cityName,
+      district: params.district || canonicalCity.district,
+      postalCode,
+      relevantExperience: 'Direct onboarding by Platform Owner Super Admin.',
+      localGrowthPlan: `Authoritative direct city partner allocation for ${canonicalCity.cityName}.`,
+      kyc: {
+        identityDocType: 'PAN_CARD',
+        identityDocNumber: pan || 'DIRECT_ONBOARDED',
+        identityDocNumberMasked: maskSensitiveIdentifier(
+          pan || 'DIRECT',
+          4
+        ),
+        addressProofType: 'BUSINESS_REGISTRATION',
+        panOrTaxId: pan || 'DIRECT_ONBOARDED',
+        panOrTaxIdMasked: maskSensitiveIdentifier(pan || 'DIRECT', 4),
+        bankAccountHolderName: bankHolder,
+        bankAccountNumber: bankAccount || 'DIRECT_ONBOARDED',
+        bankAccountNumberMasked: maskSensitiveIdentifier(
+          bankAccount || '0000',
+          4
+        ),
+        bankIfscOrRoutingCode: bankIfsc || 'N/A',
+        bankName,
+        supportingDocuments: [],
+        kycVerificationStatus: 'VERIFIED',
+        kycVerifiedByUid: params.adminUid,
+        kycVerifiedByName: params.adminName,
+        kycVerifiedAt: nowIso,
+        kycReviewNotes:
+          params.notes ||
+          'Directly onboarded and authorized by Platform Owner Super Admin.',
+      },
+      consentAccepted: true,
+      consentAcceptedAt: nowIso,
+      consentVersion: PARTNER_CONSENT_VERSION,
+      status: 'approved',
+      statusReason:
+        params.notes ||
+        `Direct onboarding authorized for ${canonicalCity.cityName}.`,
+      assignedPartnerId: partnerId,
+      history: [
+        {
+          id: `hist_${Date.now()}`,
+          timestamp: nowIso,
+          fromStatus: 'NONE',
+          toStatus: 'approved',
+          actorUid: params.adminUid,
+          actorName: params.adminName,
+          actorRole: 'super_admin',
+          note: `Directly onboarded as City Partner for ${canonicalCity.cityName} (${cleanCityId}). Exclusive allocation locked with 50/50 revenue attribution.`,
+        },
+      ],
+      submittedAt: nowIso,
+      updatedAt: nowIso,
+      reviewedByUid: params.adminUid,
+      reviewedByName: params.adminName,
+      reviewedAt: nowIso,
+    };
+
+    // 11. Persist to Firestore and Memory Registries (Never write to admin_authorizations)
+    await Promise.all([
+      persistCityAllocation(allocation),
+      persistCityPartner(partnerRecord),
+      persistPartnerApplication(application),
+      createPartnerNotification({
+        recipientUid: targetPhone,
+        recipientPhoneE164: targetPhone,
+        partnerId: partnerRecord.id,
+        applicationId: appId,
+        type: 'APPLICATION_APPROVED',
+        title: `Welcome to Citykart Partner Program: ${canonicalCity.cityName}`,
+        message: `You have been directly onboarded as the authorized City Partner for ${canonicalCity.cityName}. Access your Partner Dashboard at /partner.`,
+      }),
+    ]);
+
+    // 12. Synchronize user account without granting administrative rights
+    const existingUser = serverUserAccounts.get(targetPhone);
+    const updatedRoles = Array.from(
+      new Set([...(existingUser?.roles || ['BUYER']), 'PARTNER'])
+    ) as UserAccount['roles'];
+    const updatedUser: UserAccount = {
+      ...(existingUser || {
+        id: targetPhone,
+        uid: targetPhone,
+        phoneE164: targetPhone,
+        maskedPhone: maskSensitiveIdentifier(targetPhone, 4),
+        countryCode: canonicalCity.countryCode || 'IN',
+        fullName,
+        roles: ['BUYER'],
+        storeIds: [],
+        createdAt: nowIso,
+      }),
+      roles: updatedRoles,
+      isPartner: true,
+      partnerId: partnerRecord.id,
+      assignedCityId: cleanCityId,
+      assignedCityName: canonicalCity.cityName,
+      isAdmin: existingUser?.isAdmin || false,
+      role: existingUser?.isAdmin ? existingUser.role : 'partner',
+    };
+    serverUserAccounts.set(targetPhone, updatedUser);
+    try {
+      await syncUserAccountToFirestore(updatedUser);
+    } catch {}
+
+    return {
+      ok: true,
+      partner: partnerRecord,
+      allocation,
+      application,
     };
   } finally {
     cityAllocationMutex.delete(cleanCityId);

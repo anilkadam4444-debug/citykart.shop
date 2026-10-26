@@ -1095,3 +1095,16 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   ...NANDED_DEMO_PRODUCTS,
 ];
+
+declare global {
+  var __serverUserAccounts: Map<string, UserAccount> | undefined;
+}
+
+if (!globalThis.__serverUserAccounts) {
+  globalThis.__serverUserAccounts = new Map<string, UserAccount>(
+    INITIAL_USER_ACCOUNTS.map((u) => [u.phoneE164, { ...u }])
+  );
+}
+
+export const serverUserAccounts = globalThis.__serverUserAccounts;
+

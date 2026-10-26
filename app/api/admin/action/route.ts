@@ -25,11 +25,11 @@ import {
 import {
   INITIAL_PRODUCTS,
   INITIAL_STORES,
+  serverUserAccounts,
 } from '@/lib/initial-data';
 
 import { recordStoreDeletedServer } from '@/lib/stores-registry';
 import { serverOrdersRegistry } from '@/lib/orders-registry';
-import { serverUserAccounts } from '@/app/api/auth/otp/route';
 import { SubscriptionPlan, SubscriptionTierId } from '@/lib/revenue-model';
 import {
   createAdminAuthorization,

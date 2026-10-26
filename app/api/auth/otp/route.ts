@@ -11,6 +11,7 @@ import {
 import {
   INITIAL_SELLERS,
   INITIAL_USER_ACCOUNTS,
+  serverUserAccounts,
 } from '@/lib/initial-data';
 
 import {
@@ -51,19 +52,9 @@ interface VerifiedPhoneSession {
   expiresAtMs: number;
 }
 
-declare global {
-  var __serverUserAccounts: Map<string, UserAccount> | undefined;
-}
-
-if (!globalThis.__serverUserAccounts) {
-  globalThis.__serverUserAccounts = new Map<string, UserAccount>(
-    INITIAL_USER_ACCOUNTS.map((u) => [u.phoneE164, {...u}])
-  );
-}
-
+void INITIAL_USER_ACCOUNTS;
 const requestRateLimits = new Map<string, RateWindowRecord>();
 const verifiedPhoneTokens = new Map<string, VerifiedPhoneSession>();
-export const serverUserAccounts = globalThis.__serverUserAccounts;
 
 const RESEND_COOLDOWN_MS = 30 * 1000; // 30 seconds
 const RATE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
@@ -238,6 +229,38 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = String(body.action || '');
+    const registrationIntent =
+      body.registrationIntent === 'partner'
+        ? 'partner'
+        : body.registrationIntent === 'store_owner' ||
+            body.registrationIntent === 'seller'
+          ? 'store_owner'
+          : 'buyer';
+
+    // Security Gate: Block any client-supplied privilege escalation fields during OTP verification
+    const FORBIDDEN_PRIVILEGE_ESCALATION_FIELDS = [
+      'isPartner',
+      'isAdmin',
+      'isSuperAdmin',
+      'role',
+      'roles',
+      'status',
+      'assignedCityId',
+      'partnerId',
+    ];
+    for (const field of FORBIDDEN_PRIVILEGE_ESCALATION_FIELDS) {
+      if (field in body && body[field] !== undefined) {
+        return NextResponse.json(
+          {
+            ok: false,
+            success: false,
+            error:
+              'Security violation: Client cannot assign partner, admin, or approval status during OTP verification.',
+          },
+          {status: 403}
+        );
+      }
+    }
 
     // 1. VALIDATE PHONE NUMBER BEFORE FIREBASE PHONE AUTH DISPATCH
     if (action === 'VALIDATE_PHONE' || action === 'REQUEST_OTP') {
@@ -322,8 +345,10 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         ok: true,
+        success: true,
         status: 'PHONE_VALIDATED',
         phoneAuthState: 'OTP_REQUEST_VALIDATED',
+        registrationIntent,
         phoneE164: e164,
         maskedPhone,
         countryCode: countryRecord.code,
@@ -532,8 +557,11 @@ export async function POST(req: NextRequest) {
 
         const res = NextResponse.json({
           ok: true,
+          success: true,
+          isNewUser: false,
           phoneAuthState: 'PHONE_VERIFIED',
           status: 'AUTHENTICATED_EXISTING',
+          registrationIntent,
           user: updatedExisting,
           isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
           isAdmin: isUserAdmin,
@@ -541,7 +569,12 @@ export async function POST(req: NextRequest) {
           partnerRecord: partnerStatus.partnerRecord,
           adminRole: adminResolution.adminRole,
           requiresBootstrap: adminResolution.requiresBootstrap,
-          redirectTo: isUserAdmin ? '/admin' : undefined,
+          redirectTo:
+            registrationIntent === 'partner'
+              ? '/partner?tab=apply'
+              : isUserAdmin
+                ? '/admin'
+                : undefined,
           verificationToken,
         });
 
@@ -595,14 +628,22 @@ export async function POST(req: NextRequest) {
 
         const res = NextResponse.json({
           ok: true,
+          success: true,
+          isNewUser: false,
           phoneAuthState: 'PHONE_VERIFIED',
           status: 'AUTHENTICATED_EXISTING',
+          registrationIntent,
           user: adminUser,
           isSuperAdmin: adminResolution.isAuthorizedSuperAdmin,
           isAdmin: isUserAdmin,
           adminRole: adminResolution.adminRole,
           requiresBootstrap: adminResolution.requiresBootstrap,
-          redirectTo: isUserAdmin ? '/admin' : undefined,
+          redirectTo:
+            registrationIntent === 'partner'
+              ? '/partner?tab=apply'
+              : isUserAdmin
+                ? '/admin'
+                : undefined,
           verificationToken,
         });
 
@@ -617,8 +658,11 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         ok: true,
+        success: true,
+        isNewUser: true,
         phoneAuthState: 'PHONE_VERIFIED',
         status: 'VERIFIED_NEW_PHONE',
+        registrationIntent,
         phoneE164,
         maskedPhone,
         countryCode: countryRecord.code,
@@ -710,8 +754,23 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const assignedRoles: ('BUYER' | 'SELLER')[] =
-        journey === 'SELLER' ? ['BUYER', 'SELLER'] : ['BUYER'];
+      await hydratePartnerRegistriesFromFirestore();
+      const partnerStatus = resolvePartnerStatusForUser({
+        uid: verifiedRecord.firebaseUid,
+        phoneE164: verifiedRecord.phoneE164,
+      });
+      const approvedPartnerRecord = partnerStatus.isActivePartner
+        ? partnerStatus.partnerRecord
+        : undefined;
+
+      const assignedRoles: ('BUYER' | 'SELLER' | 'PARTNER')[] =
+        registrationIntent === 'partner'
+          ? approvedPartnerRecord
+            ? ['BUYER', 'PARTNER']
+            : ['BUYER']
+          : journey === 'SELLER'
+            ? ['BUYER', 'SELLER']
+            : ['BUYER'];
 
       const newUser: UserAccount = {
         id: existingByPhone?.id || verifiedRecord.firebaseUid,
@@ -719,7 +778,12 @@ export async function POST(req: NextRequest) {
         phoneE164: verifiedRecord.phoneE164,
         maskedPhone: verifiedRecord.maskedPhone,
         countryCode: verifiedRecord.countryCode,
-        fullName: fullName || existingByPhone?.fullName || 'Verified Customer',
+        fullName:
+          fullName ||
+          existingByPhone?.fullName ||
+          (registrationIntent === 'partner'
+            ? 'City Partner Applicant'
+            : 'Verified Customer'),
         roles: Array.from(
           new Set([
             ...(existingByPhone?.roles || []).filter(
@@ -727,8 +791,13 @@ export async function POST(req: NextRequest) {
             ),
             ...assignedRoles,
           ])
-        ) as ('BUYER' | 'SELLER')[],
+        ) as ('BUYER' | 'SELLER' | 'PARTNER')[],
         isAdmin: false,
+        isPartner: Boolean(approvedPartnerRecord),
+        partnerId: approvedPartnerRecord?.id,
+        assignedCityId: approvedPartnerRecord?.assignedCityId,
+        assignedCityName: approvedPartnerRecord?.assignedCityName,
+        role: approvedPartnerRecord ? 'partner' : undefined,
         sellerId: existingByPhone?.sellerId,
         storeIds: existingByPhone?.storeIds || [],
         createdAt:
@@ -743,14 +812,26 @@ export async function POST(req: NextRequest) {
         firebaseUid: verifiedRecord.firebaseUid,
         phoneE164: newUser.phoneE164,
         roles: newUser.roles,
+        role: newUser.role,
         sellerId: newUser.sellerId,
         iat: Date.now(),
       });
 
       const res = NextResponse.json({
         ok: true,
+        success: true,
         phoneAuthState: 'PHONE_VERIFIED',
-        status: 'AUTHENTICATED_NEW',
+        status:
+          registrationIntent === 'partner'
+            ? 'AUTHENTICATED_PARTNER_APPLICANT'
+            : 'AUTHENTICATED_NEW',
+        registrationIntent,
+        partnerOnboardingStage:
+          registrationIntent === 'partner' && !approvedPartnerRecord
+            ? 'phone_verified_application_not_submitted'
+            : undefined,
+        redirectTo:
+          registrationIntent === 'partner' ? '/partner?tab=apply' : undefined,
         user: newUser,
       });
 

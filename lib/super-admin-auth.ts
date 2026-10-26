@@ -25,6 +25,21 @@ import {
   SubscriptionPlan,
   SubscriptionTierId,
 } from './revenue-model';
+import { UserAccount } from './catalog-data';
+import { INITIAL_USER_ACCOUNTS } from './initial-data';
+
+declare global {
+  var __serverUserAccounts: Map<string, UserAccount> | undefined;
+}
+
+if (!globalThis.__serverUserAccounts) {
+  globalThis.__serverUserAccounts = new Map<string, UserAccount>(
+    INITIAL_USER_ACCOUNTS.map((u) => [u.phoneE164, { ...u }])
+  );
+}
+
+export const serverUserAccounts: Map<string, UserAccount> =
+  globalThis.__serverUserAccounts;
 
 export const DESIGNATED_SUPER_ADMIN_PHONE = '+918329306616';
 export const DESIGNATED_SUPER_ADMIN_NAME = 'Platform Owner';
@@ -100,6 +115,7 @@ export type AdminActionType =
   | 'UPDATE_SPONSORED_PRICING'
   | 'MODERATE_SPONSORED_CAMPAIGN'
   | 'APPROVE_PARTNER_APPLICATION'
+  | 'DIRECT_ONBOARD_PARTNER'
   | 'REJECT_PARTNER_APPLICATION'
   | 'REQUEST_PARTNER_ADDITIONAL_INFO'
   | 'SUSPEND_PARTNER'
@@ -1590,6 +1606,18 @@ export async function createAdminAuthorization(params: {
   const assignedRole: AdminRole = params.role === 'super_admin' ? 'super_admin' : 'admin';
   const cleanName = (params.name || '').trim() || 'Authorized Administrator';
   const cleanDesignation = (params.designation || '').trim() || 'Administrator';
+
+  // Conflict Guard: City Partners must never be onboarded through admin authorizations
+  if (
+    cleanDesignation.toLowerCase().includes('partner') ||
+    cleanName.toLowerCase().includes('partner')
+  ) {
+    return {
+      ok: false,
+      error:
+        'Role Conflict: City Partners must not be authorized as platform administrators. Use the dedicated City Partner Direct Onboarding architecture under the City Partner Program tab to assign exclusive canonical city rights and 50/50 revenue attribution.',
+    };
+  }
 
   const newRecord: AdminAuthorizationRecord = {
     id: canonicalTargetPhone,

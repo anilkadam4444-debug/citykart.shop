@@ -604,6 +604,15 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
   }, [isMounted, authenticatedUser]);
 
   const openOtpAuthModal = (options?: OtpModalLaunchOptions) => {
+    const isPartnerRoute =
+      pathname === '/partner' || pathname?.startsWith('/partner/');
+    if (
+      options?.authContextMode === 'PARTNER_REGISTRATION' ||
+      (isPartnerRoute && !options?.authContextMode)
+    ) {
+      router.push('/partner/verify-otp');
+      return;
+    }
     authSuccessCallbackRef.current = options?.onSuccessCallback;
     setAuthModalState({
       isOpen: true,

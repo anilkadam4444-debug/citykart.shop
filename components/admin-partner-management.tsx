@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   TrendingUp,
   UserCheck,
+  UserPlus,
   UserX,
   X,
 } from 'lucide-react';
@@ -132,6 +133,50 @@ export function AdminPartnerManagement({
   const [payoutNotes, setPayoutNotes] = useState<string>('');
   const [payoutProofUrl, setPayoutProofUrl] = useState<string>('');
 
+  // Dedicated Direct City Partner Onboarding Architecture State
+  const [isDirectOnboardModalOpen, setIsDirectOnboardModalOpen] =
+    useState<boolean>(false);
+  const [directFullName, setDirectFullName] = useState<string>('');
+  const [directCountryDialCode, setDirectCountryDialCode] =
+    useState<string>('+91');
+  const [directPhoneSubscriber, setDirectPhoneSubscriber] =
+    useState<string>('');
+  const [directEmail, setDirectEmail] = useState<string>('');
+  const [directAddress, setDirectAddress] = useState<string>('');
+  const [directCountryCode, setDirectCountryCode] = useState<string>('IN');
+  const directRegions = useMemo(
+    () => getRegionsByCountry(directCountryCode),
+    [directCountryCode]
+  );
+  const [directStateRegion, setDirectStateRegion] =
+    useState<string>('Maharashtra');
+  const directCities = useMemo(
+    () =>
+      getCitiesByCountryAndRegion(directCountryCode, directStateRegion),
+    [directCountryCode, directStateRegion]
+  );
+  const [directCityId, setDirectCityId] = useState<string>(
+    'india-maharashtra-pune'
+  );
+  const [directDistrict, setDirectDistrict] = useState<string>('');
+  const [directPostalCode, setDirectPostalCode] = useState<string>('');
+  const [directPanOrTaxId, setDirectPanOrTaxId] = useState<string>('');
+  const [directBankAccountHolderName, setDirectBankAccountHolderName] =
+    useState<string>('');
+  const [directBankAccountNumber, setDirectBankAccountNumber] =
+    useState<string>('');
+  const [directBankIfsc, setDirectBankIfsc] = useState<string>('');
+  const [directBankName, setDirectBankName] = useState<string>(
+    'State Bank of India'
+  );
+  const [directNotes, setDirectNotes] = useState<string>('');
+  const [directAgreeTerms, setDirectAgreeTerms] = useState<boolean>(true);
+  const [directCityChecking, setDirectCityChecking] = useState<boolean>(false);
+  const [directCityAvailability, setDirectCityAvailability] = useState<{
+    isAvailable: boolean;
+    activePartnerName?: string;
+  } | null>(null);
+
   const fetchPartnersData = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/partners', { cache: 'no-store' });
@@ -185,6 +230,96 @@ export function AdminPartnerManagement({
       return false;
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Live availability check when selected city changes in Direct Onboarding modal
+  useEffect(() => {
+    if (!directCityId || !isDirectOnboardModalOpen) {
+      return;
+    }
+    let cancelled = false;
+    const fetchCityAvailability = async () => {
+      try {
+        setDirectCityChecking(true);
+        const res = await fetch(
+          `/api/admin/partners?checkCityAvailability=${encodeURIComponent(directCityId)}`
+        );
+        const resData = await res.json();
+        if (!cancelled && resData?.ok && resData.availability) {
+          setDirectCityAvailability({
+            isAvailable: Boolean(resData.availability.isAvailable),
+            activePartnerName: resData.availability.activePartnerName,
+          });
+        }
+      } catch {
+        // Ignore network check errors
+      } finally {
+        if (!cancelled) setDirectCityChecking(false);
+      }
+    };
+    void fetchCityAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [directCityId, isDirectOnboardModalOpen]);
+
+  const handleDirectOnboardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directAgreeTerms) {
+      setActionError(
+        'Please confirm the 50/50 net eligible revenue share agreement.'
+      );
+      return;
+    }
+    const cleanSubscriber = directPhoneSubscriber.replace(/[^0-9]/g, '');
+    if (cleanSubscriber.length < 8) {
+      setActionError(
+        'Please enter a valid mobile number with at least 8 digits.'
+      );
+      return;
+    }
+    const phoneE164 = `${directCountryDialCode}${cleanSubscriber}`;
+    const selectedCity = directCities.find((c) => c.cityId === directCityId);
+
+    const ok = await executePartnerAdminAction(
+      {
+        action: 'DIRECT_ONBOARD_PARTNER',
+        partnerFullName: directFullName.trim(),
+        phoneE164,
+        email: directEmail.trim(),
+        residentialOrBusinessAddress: directAddress.trim(),
+        countryCode: directCountryCode,
+        stateRegion: directStateRegion,
+        cityId: directCityId,
+        cityName: selectedCity?.cityName,
+        district: directDistrict.trim() || selectedCity?.district,
+        postalCode: directPostalCode.trim() || '400001',
+        panOrTaxId: directPanOrTaxId.trim().toUpperCase(),
+        bankAccountHolderName:
+          directBankAccountHolderName.trim() || directFullName.trim(),
+        bankAccountNumber: directBankAccountNumber.trim(),
+        bankIfscOrRoutingCode: directBankIfsc.trim().toUpperCase(),
+        bankName: directBankName.trim(),
+        notes:
+          directNotes.trim() ||
+          'Direct onboarding authorized by Super Admin.',
+      },
+      `Successfully onboarded ${directFullName} as City Partner for ${selectedCity?.cityName || directCityId}.`
+    );
+
+    if (ok) {
+      setIsDirectOnboardModalOpen(false);
+      setDirectFullName('');
+      setDirectPhoneSubscriber('');
+      setDirectEmail('');
+      setDirectAddress('');
+      setDirectPostalCode('');
+      setDirectPanOrTaxId('');
+      setDirectBankAccountHolderName('');
+      setDirectBankAccountNumber('');
+      setDirectBankIfsc('');
+      setDirectNotes('');
     }
   };
 
@@ -272,14 +407,26 @@ export function AdminPartnerManagement({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={fetchPartnersData}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsDirectOnboardModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              >
+                <UserPlus className="w-4 h-4 text-amber-300" />
+                <span>Direct Onboard Partner</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={fetchPartnersData}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* KPI Strip */}
@@ -1404,6 +1551,381 @@ export function AdminPartnerManagement({
                 Confirm &amp; Mark Settlement Paid
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ====================================================================
+          MODAL 4: DIRECT ONBOARD CITY PARTNER (DEDICATED ARCHITECTURE)
+         ==================================================================== */}
+      {isDirectOnboardModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="max-w-2xl w-full my-8 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#003B8E] text-white flex items-center justify-center shrink-0">
+                  <UserPlus className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    Direct Onboard City Partner
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Dedicated Architecture · Canonical City Exclusivity · 50/50 Revenue Attribution
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDirectOnboardModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Strict Role Isolation Notice */}
+            <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-950 space-y-1">
+              <div className="flex items-center gap-2 font-bold text-[#003B8E]">
+                <ShieldCheck className="w-4 h-4 text-[#003B8E] shrink-0" />
+                <span>Strict Role Segregation &amp; City-Scoped Access</span>
+              </div>
+              <p className="text-[11px] text-blue-900 leading-relaxed">
+                City Partners are onboarded into the dedicated partner architecture (<code className="font-mono">/cityPartners</code> &amp; <code className="font-mono">/cityPartnerAllocations</code>) with <code className="font-mono">role: &apos;partner&apos;</code>. They receive city-scoped visibility and are <strong>strictly excluded from Platform Administrator privileges</strong>.
+              </p>
+            </div>
+
+            <form onSubmit={handleDirectOnboardSubmit} className="space-y-5 text-xs">
+              {/* SECTION 1: CANONICAL CITY EXCLUSIVITY */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-[#003B8E]" />
+                    <span>Canonical City Allocation &amp; Exclusivity Lock</span>
+                  </h4>
+                  {directCityChecking ? (
+                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Checking availability...
+                    </span>
+                  ) : directCityAvailability ? (
+                    directCityAvailability.isAvailable ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                        <Check className="w-3 h-3" />
+                        Available for Allocation
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px]">
+                        <AlertCircle className="w-3 h-3" />
+                        Already Allocated ({directCityAvailability.activePartnerName || 'Active Partner'})
+                      </span>
+                    )
+                  ) : null}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Country
+                    </label>
+                    <select
+                      value={directCountryCode}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        setDirectCountryCode(code);
+                        const reg = getRegionsByCountry(code);
+                        if (reg.length > 0) {
+                          setDirectStateRegion(reg[0].name);
+                          const cities = getCitiesByCountryAndRegion(code, reg[0].name);
+                          if (cities.length > 0) setDirectCityId(cities[0].cityId);
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold"
+                    >
+                      {countries.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      State / Region
+                    </label>
+                    <select
+                      value={directStateRegion}
+                      onChange={(e) => {
+                        const reg = e.target.value;
+                        setDirectStateRegion(reg);
+                        const cities = getCitiesByCountryAndRegion(directCountryCode, reg);
+                        if (cities.length > 0) setDirectCityId(cities[0].cityId);
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold"
+                    >
+                      {directRegions.map((r) => (
+                        <option key={r.code || r.name} value={r.name}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Canonical City <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={directCityId}
+                      onChange={(e) => setDirectCityId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-[#003B8E]"
+                    >
+                      {directCities.map((c) => (
+                        <option key={c.cityId} value={c.cityId}>
+                          {c.cityName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      District / Sub-Division (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={directDistrict}
+                      onChange={(e) => setDirectDistrict(e.target.value)}
+                      placeholder="e.g. Pune Urban"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Postal / PIN Code
+                    </label>
+                    <input
+                      type="text"
+                      value={directPostalCode}
+                      onChange={(e) => setDirectPostalCode(e.target.value)}
+                      placeholder="e.g. 411001"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: PARTNER APPLICANT PROFILE */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-[#003B8E]" />
+                  <span>Partner Identity &amp; Contact Information</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Full Legal Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={directFullName}
+                      onChange={(e) => setDirectFullName(e.target.value)}
+                      placeholder="e.g. Sunita Deshmukh"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Mobile Number (E.164) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={directCountryDialCode}
+                        onChange={(e) => setDirectCountryDialCode(e.target.value)}
+                        className="w-24 px-2 py-2 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-800"
+                      >
+                        <option value="+91">🇮🇳 +91</option>
+                        <option value="+1">🇺🇸 +1</option>
+                        <option value="+44">🇬🇧 +44</option>
+                        <option value="+971">🇦🇪 +971</option>
+                      </select>
+                      <input
+                        type="tel"
+                        required
+                        value={directPhoneSubscriber}
+                        onChange={(e) => setDirectPhoneSubscriber(e.target.value)}
+                        placeholder="9876543210"
+                        className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-slate-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={directEmail}
+                      onChange={(e) => setDirectEmail(e.target.value)}
+                      placeholder="sunita@example.com"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Residential or Business Address
+                    </label>
+                    <input
+                      type="text"
+                      value={directAddress}
+                      onChange={(e) => setDirectAddress(e.target.value)}
+                      placeholder="Commercial Complex, FC Road, Pune"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: KYC & BANK SETTLEMENT ACCOUNT */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Landmark className="w-4 h-4 text-[#003B8E]" />
+                  <span>KYC Verification &amp; Bank Settlement Account</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      PAN / Tax Identification #
+                    </label>
+                    <input
+                      type="text"
+                      value={directPanOrTaxId}
+                      onChange={(e) => setDirectPanOrTaxId(e.target.value.toUpperCase())}
+                      placeholder="ABCDE1234F"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Bank Name
+                    </label>
+                    <input
+                      type="text"
+                      value={directBankName}
+                      onChange={(e) => setDirectBankName(e.target.value)}
+                      placeholder="State Bank of India / HDFC Bank"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Account Holder Name
+                    </label>
+                    <input
+                      type="text"
+                      value={directBankAccountHolderName}
+                      onChange={(e) => setDirectBankAccountHolderName(e.target.value)}
+                      placeholder="As per bank passbook"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Bank Account Number
+                    </label>
+                    <input
+                      type="text"
+                      value={directBankAccountNumber}
+                      onChange={(e) => setDirectBankAccountNumber(e.target.value)}
+                      placeholder="987654321012"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      IFSC / Routing Code
+                    </label>
+                    <input
+                      type="text"
+                      value={directBankIfsc}
+                      onChange={(e) => setDirectBankIfsc(e.target.value.toUpperCase())}
+                      placeholder="SBIN0001234"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: ADMINISTRATIVE NOTES */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Administrative Onboarding Notes (logged in audit trail)
+                </label>
+                <input
+                  type="text"
+                  value={directNotes}
+                  onChange={(e) => setDirectNotes(e.target.value)}
+                  placeholder="Direct onboarding authorized by Super Admin for exclusive city growth"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+
+              {/* SECTION 5: 50/50 REVENUE AGREEMENT */}
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={directAgreeTerms}
+                    onChange={(e) => setDirectAgreeTerms(e.target.checked)}
+                    className="mt-0.5 rounded text-[#003B8E]"
+                  />
+                  <span className="text-[11px] text-amber-950 leading-relaxed font-semibold">
+                    Confirm 50/50 Net Eligible Revenue Split Agreement: 50% of net eligible collected platform fees (2% capped at ₹70/unit) and SaaS subscription revenue in this canonical city will be attributed to this City Partner.
+                  </span>
+                </label>
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsDirectOnboardModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    submitting ||
+                    !directAgreeTerms ||
+                    Boolean(directCityAvailability && !directCityAvailability.isAvailable)
+                  }
+                  className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  <UserPlus className="w-4 h-4 text-amber-300" />
+                  <span>
+                    {submitting ? 'Onboarding Partner...' : 'Direct Onboard & Allocate City'}
+                  </span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

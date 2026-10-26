@@ -34,7 +34,8 @@ import {
 export type OtpAuthContextMode =
   | 'BUYER_SIGN_IN'
   | 'SELLER_SIGN_IN'
-  | 'SELLER_OPEN_STORE';
+  | 'SELLER_OPEN_STORE'
+  | 'PARTNER_REGISTRATION';
 
 interface MobileOtpAuthModalProps {
   isOpen: boolean;

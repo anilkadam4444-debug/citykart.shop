@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   Award,
   Banknote,
@@ -20,6 +22,7 @@ import {
   Handshake,
   Info,
   Landmark,
+  Loader2,
   Lock,
   MapPin,
   Package,
@@ -40,6 +43,18 @@ import {
 import { useUrbanDirect } from '@/components/urbandirect-provider';
 import { formatCurrency } from '@/lib/catalog-data';
 import {
+  CountryCallingRecord,
+  getCountryRecordByCodeOrName,
+  INTERNATIONAL_COUNTRIES,
+  validatePhoneNumberForCountry,
+} from '@/lib/countries-data';
+import {
+  auth,
+  ConfirmationResult,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+} from '@/lib/firebase';
+import {
   getAllCountries,
   getCitiesByCountryAndRegion,
   getRegionsByCountry,
@@ -54,6 +69,12 @@ import {
   PartnerNotificationRecord,
   PartnerSupportingDocument,
 } from '@/lib/partner-program';
+import {
+  formatFirebasePhoneAuthError,
+  readPartnerOnboardingContext,
+  setActivePartnerConfirmationSession,
+  writePartnerOnboardingContext,
+} from '@/lib/partner-onboarding-context';
 
 type PortalTab =
   | 'overview'
@@ -123,10 +144,10 @@ interface PartnerDashboardApiResponse {
 }
 
 export function CityPartnerPortal() {
+  const router = useRouter();
   const {
     isMounted,
     authenticatedUser,
-    openOtpAuthModal,
     showToast,
   } = useUrbanDirect();
 
@@ -211,6 +232,246 @@ export function CityPartnerPortal() {
 
   // Store filter in Partner Dashboard
   const [partnerStoreSearch, setPartnerStoreSearch] = useState<string>('');
+
+  // Inline Partner Phone Entry State (Step 1 -> /partner/verify-otp)
+  const [partnerPhoneCountry, setPartnerPhoneCountry] =
+    useState<CountryCallingRecord>(INTERNATIONAL_COUNTRIES[0]);
+  const [partnerMobileInput, setPartnerMobileInput] = useState<string>('');
+  const [partnerPhoneError, setPartnerPhoneError] = useState<string | null>(
+    null
+  );
+  const [sendingPartnerOtp, setSendingPartnerOtp] = useState<boolean>(false);
+  const inlineRecaptchaRef = useRef<RecaptchaVerifier | null>(null);
+
+  const cleanupInlineRecaptcha = () => {
+    if (inlineRecaptchaRef.current) {
+      try {
+        inlineRecaptchaRef.current.clear();
+      } catch {
+        // Ignore
+      }
+      inlineRecaptchaRef.current = null;
+    }
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById('partner-portal-recaptcha-container');
+      if (el) el.innerHTML = '';
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      cleanupInlineRecaptcha();
+    };
+  }, []);
+
+  const buildCurrentDraftApplication = useCallback(() => {
+    return {
+      fullLegalName,
+      email,
+      residentialOrBusinessAddress,
+      countryCode: selectedCountryCode,
+      stateRegion: selectedStateRegion,
+      cityId: selectedCityId,
+      postalCode,
+      relevantExperience,
+      localGrowthPlan,
+      identityDocType,
+      addressProofType,
+      bankAccountHolderName,
+      bankName,
+      bankIfscOrRoutingCode,
+      consentAccepted,
+    };
+  }, [
+    fullLegalName,
+    email,
+    residentialOrBusinessAddress,
+    selectedCountryCode,
+    selectedStateRegion,
+    selectedCityId,
+    postalCode,
+    relevantExperience,
+    localGrowthPlan,
+    identityDocType,
+    addressProofType,
+    bankAccountHolderName,
+    bankName,
+    bankIfscOrRoutingCode,
+    consentAccepted,
+  ]);
+
+  const navigateToPartnerOtpRoute = useCallback(
+    (returnTab: 'overview' | 'apply' | 'application-status' = 'apply') => {
+      writePartnerOnboardingContext({
+        registrationIntent: 'partner',
+        countryCode: partnerPhoneCountry.code,
+        dialCode: partnerPhoneCountry.dialCode,
+        mobileNumber: partnerMobileInput.replace(/\D/g, ''),
+        verificationStep: 'PHONE_ENTRY',
+        returnTab,
+        draftApplication: buildCurrentDraftApplication(),
+      });
+      router.push('/partner/verify-otp');
+    },
+    [
+      partnerPhoneCountry,
+      partnerMobileInput,
+      buildCurrentDraftApplication,
+      router,
+    ]
+  );
+
+  const handleRequestPartnerOtpInline = async () => {
+    setPartnerPhoneError(null);
+    const validation = validatePhoneNumberForCountry(
+      partnerMobileInput,
+      partnerPhoneCountry
+    );
+    if (!validation.isValid) {
+      setPartnerPhoneError(
+        validation.error || 'Please enter a valid mobile number.'
+      );
+      return;
+    }
+
+    setSendingPartnerOtp(true);
+    try {
+      const validateRes = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'VALIDATE_PHONE',
+          countryCode: partnerPhoneCountry.code,
+          mobileNumber: validation.digitsOnly,
+          registrationIntent: 'partner',
+        }),
+      });
+      const validateData = await validateRes.json();
+
+      if (!validateRes.ok || !validateData.success) {
+        setPartnerPhoneError(
+          validateData.error || 'Could not validate mobile number.'
+        );
+        setSendingPartnerOtp(false);
+        return;
+      }
+
+      const targetE164: string = validateData.phoneE164;
+      const targetMasked: string = validateData.maskedPhone;
+      const cooldownSec: number = validateData.resendCooldownSeconds || 30;
+      const resendAvailableAtMs = Date.now() + cooldownSec * 1000;
+
+      let confirmationResult: ConfirmationResult | null = null;
+      let previewFallback = false;
+      let noticeText: string | null = null;
+
+      try {
+        cleanupInlineRecaptcha();
+        const verifier = new RecaptchaVerifier(
+          auth,
+          'partner-portal-recaptcha-container',
+          { size: 'invisible' }
+        );
+        inlineRecaptchaRef.current = verifier;
+        confirmationResult = await signInWithPhoneNumber(
+          auth,
+          targetE164,
+          verifier
+        );
+      } catch (firebaseErr: unknown) {
+        cleanupInlineRecaptcha();
+        const formatted = formatFirebasePhoneAuthError(firebaseErr);
+        if (formatted.isConsoleConfigNotice) {
+          previewFallback = true;
+          noticeText = formatted.userMessage;
+        } else {
+          setPartnerPhoneError(formatted.userMessage);
+          setSendingPartnerOtp(false);
+          return;
+        }
+      }
+
+      setActivePartnerConfirmationSession({
+        phoneE164: targetE164,
+        maskedPhone: targetMasked,
+        countryCode: partnerPhoneCountry.code,
+        dialCode: partnerPhoneCountry.dialCode,
+        mobileNumber: validation.digitsOnly,
+        confirmationResult,
+        isPreviewTestFallback: previewFallback,
+        consoleNotice: noticeText,
+        resendAvailableAtMs,
+        createdAtMs: Date.now(),
+      });
+
+      writePartnerOnboardingContext({
+        registrationIntent: 'partner',
+        countryCode: partnerPhoneCountry.code,
+        dialCode: partnerPhoneCountry.dialCode,
+        mobileNumber: validation.digitsOnly,
+        phoneE164: targetE164,
+        maskedPhone: targetMasked,
+        verificationStep: 'OTP_SENT',
+        resendAvailableAtMs,
+        returnTab: 'apply',
+        draftApplication: buildCurrentDraftApplication(),
+      });
+
+      setSendingPartnerOtp(false);
+      router.push('/partner/verify-otp');
+    } catch {
+      setSendingPartnerOtp(false);
+      setPartnerPhoneError(
+        'Network error while requesting verification OTP. Please try again.'
+      );
+    }
+  };
+
+  // Restore saved partner application draft & URL tab parameter on mount
+  useEffect(() => {
+    if (!isMounted) return;
+    const timer = setTimeout(() => {
+      const saved = readPartnerOnboardingContext();
+      if (saved) {
+        setPartnerPhoneCountry(getCountryRecordByCodeOrName(saved.countryCode));
+        if (saved.mobileNumber) setPartnerMobileInput(saved.mobileNumber);
+        if (saved.draftApplication) {
+          const d = saved.draftApplication;
+          if (d.fullLegalName) setFullLegalName(d.fullLegalName);
+          if (d.email) setEmail(d.email);
+          if (d.residentialOrBusinessAddress)
+            setResidentialOrBusinessAddress(d.residentialOrBusinessAddress);
+          if (d.countryCode) setSelectedCountryCode(d.countryCode);
+          if (d.stateRegion) setSelectedStateRegion(d.stateRegion);
+          if (d.cityId) setSelectedCityId(d.cityId);
+          if (d.postalCode) setPostalCode(d.postalCode);
+          if (d.relevantExperience)
+            setRelevantExperience(d.relevantExperience);
+          if (d.localGrowthPlan) setLocalGrowthPlan(d.localGrowthPlan);
+          if (d.identityDocType) setIdentityDocType(d.identityDocType);
+          if (d.addressProofType) setAddressProofType(d.addressProofType);
+          if (d.bankAccountHolderName)
+            setBankAccountHolderName(d.bankAccountHolderName);
+          if (d.bankName) setBankName(d.bankName);
+          if (d.bankIfscOrRoutingCode)
+            setBankIfscOrRoutingCode(d.bankIfscOrRoutingCode);
+          if (d.consentAccepted) setConsentAccepted(d.consentAccepted);
+        }
+      }
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        if (
+          tabParam === 'apply' ||
+          tabParam === 'overview' ||
+          tabParam === 'application-status'
+        ) {
+          setActiveTab(tabParam);
+        }
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isMounted]);
 
   const checkSelectedCityAvailability = useCallback(async (cityId: string) => {
     if (!cityId) return;
@@ -313,10 +574,7 @@ export function CityPartnerPortal() {
     setAppSubmitError(null);
 
     if (!authenticatedUser) {
-      openOtpAuthModal({
-        defaultJourney: 'BUYER',
-        authContextMode: 'BUYER_SIGN_IN',
-      });
+      navigateToPartnerOtpRoute('apply');
       return;
     }
 
@@ -592,16 +850,12 @@ export function CityPartnerPortal() {
             ) : (
               <button
                 type="button"
-                onClick={() =>
-                  openOtpAuthModal({
-                    defaultJourney: 'BUYER',
-                    authContextMode: 'BUYER_SIGN_IN',
-                  })
-                }
+                data-testid="partner-header-verify-otp-btn"
+                onClick={() => navigateToPartnerOtpRoute('apply')}
                 className="px-3.5 py-1.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Phone className="w-3.5 h-3.5" />
-                <span>Verify Mobile OTP / Sign In</span>
+                <span>Verify Mobile OTP (Partner Flow)</span>
               </button>
             )}
 
@@ -969,35 +1223,101 @@ export function CityPartnerPortal() {
                 </div>
 
                 {/* Step 1: Mobile OTP Status Pill */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs min-w-[260px]">
+                  <div id="partner-portal-recaptcha-container" aria-hidden="true" />
                   {authenticatedUser ? (
-                    <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <div>OTP Verified Mobile</div>
-                        <div className="font-mono text-slate-900">
-                          {authenticatedUser.phoneE164}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <div>OTP Verified Mobile (Partner Flow)</div>
+                          <div className="font-mono text-slate-900">
+                            {authenticatedUser.phoneE164}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="text-amber-800 font-bold flex items-center gap-1.5">
-                        <AlertCircle className="w-4 h-4 text-amber-600" />
-                        <span>Mobile OTP Verification Required</span>
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
-                          openOtpAuthModal({
-                            defaultJourney: 'BUYER',
-                            authContextMode: 'BUYER_SIGN_IN',
-                          })
-                        }
-                        className="w-full py-1.5 px-3 rounded-lg bg-[#003B8E] text-white font-bold cursor-pointer"
+                        onClick={() => {
+                          writePartnerOnboardingContext({
+                            registrationIntent: 'partner',
+                            phoneE164: authenticatedUser.phoneE164,
+                            maskedPhone: authenticatedUser.maskedPhone,
+                            verificationStep: 'PHONE_ENTRY',
+                            returnTab: 'apply',
+                            draftApplication: buildCurrentDraftApplication(),
+                          });
+                          router.push('/partner/verify-otp?changePhone=1');
+                        }}
+                        className="text-[11px] font-bold text-[#003B8E] hover:underline cursor-pointer"
                       >
-                        Verify Mobile via OTP
+                        Change verified phone number
                       </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <div className="text-amber-800 font-bold flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Step 1: Verify Partner Mobile via OTP</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <select
+                          aria-label="Country Dial Code"
+                          value={partnerPhoneCountry.code}
+                          onChange={(e) => {
+                            setPartnerPhoneCountry(
+                              getCountryRecordByCodeOrName(e.target.value)
+                            );
+                            setPartnerPhoneError(null);
+                          }}
+                          className="px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-800"
+                        >
+                          {INTERNATIONAL_COUNTRIES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.code} {c.dialCode}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          data-testid="partner-inline-phone-input"
+                          value={partnerMobileInput}
+                          onChange={(e) => {
+                            setPartnerMobileInput(
+                              e.target.value.replace(/[^\d\s-]/g, '')
+                            );
+                            setPartnerPhoneError(null);
+                          }}
+                          placeholder="10-digit mobile"
+                          className="w-36 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-mono text-slate-900"
+                        />
+                      </div>
+                      {partnerPhoneError && (
+                        <div className="text-[11px] text-rose-700 font-semibold">
+                          {partnerPhoneError}
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          data-testid="partner-inline-send-otp-btn"
+                          disabled={sendingPartnerOtp}
+                          onClick={handleRequestPartnerOtpInline}
+                          className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold cursor-pointer inline-flex items-center justify-center gap-1.5"
+                        >
+                          {sendingPartnerOtp ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Sending Partner OTP...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Send OTP &amp; Verify on /partner/verify-otp</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

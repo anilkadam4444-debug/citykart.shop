@@ -6,7 +6,7 @@ import {
   OrderRecord,
   UserAccount,
 } from '@/lib/catalog-data';
-import { INITIAL_STORES } from '@/lib/initial-data';
+import { INITIAL_STORES, serverUserAccounts } from '@/lib/initial-data';
 import {
   BillingTransaction,
   PlatformFeeLedgerEntry,
@@ -14,7 +14,6 @@ import {
 import { serverOrdersRegistry } from '@/lib/orders-registry';
 import { serverDeletedStoresRegistry } from '@/lib/stores-registry';
 import { serverPlatformFeeLedgerRegistry } from '@/lib/fees';
-import { serverUserAccounts } from '@/app/api/auth/otp/route';
 import {
   recordAdminAuditLog,
   serverStoreOverridesRegistry,
@@ -24,7 +23,9 @@ import {
   approvePartnerApplicationAndAllocateCity,
   approvePartnerSettlementStatement,
   calculateCityPartnerRevenueReport,
+  checkCityPartnerAvailability,
   CityRevenueAttributionSummary,
+  directOnboardCityPartner,
   generateOrUpdateMonthlyPartnerSettlement,
   hydratePartnerRegistriesFromFirestore,
   recordManualPartnerSettlementPayout,
@@ -120,6 +121,17 @@ export async function GET(req: NextRequest) {
 
   await hydratePartnerRegistriesFromFirestore();
   const { searchParams } = new URL(req.url);
+
+  // Fast check for City Partner Availability during Onboarding
+  const checkCityAvailabilityId = searchParams.get('checkCityAvailability');
+  if (checkCityAvailabilityId) {
+    const availability = checkCityPartnerAvailability(checkCityAvailabilityId);
+    return NextResponse.json({
+      ok: true,
+      availability,
+    });
+  }
+
   const periodMonth = searchParams.get('periodMonth') || 'ALL';
 
   const { stores, orders, transactions, platformFeeLedger } =
@@ -234,6 +246,98 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = String(body.action || '').trim();
+
+    // 0. DEDICATED DIRECT ONBOARD CITY PARTNER ARCHITECTURE
+    if (action === 'DIRECT_ONBOARD_PARTNER') {
+      const partnerFullName = String(
+        body.partnerFullName || body.fullName || ''
+      ).trim();
+      const phoneE164 = String(body.phoneE164 || '').trim();
+      const email = String(body.email || '').trim();
+      const cityId = String(body.cityId || '').trim();
+      const cityName = body.cityName ? String(body.cityName).trim() : undefined;
+      const stateRegion = body.stateRegion
+        ? String(body.stateRegion).trim()
+        : undefined;
+      const country = body.country ? String(body.country).trim() : undefined;
+      const countryCode = body.countryCode
+        ? String(body.countryCode).trim()
+        : undefined;
+      const district = body.district ? String(body.district).trim() : undefined;
+      const postalCode = body.postalCode
+        ? String(body.postalCode).trim()
+        : undefined;
+      const residentialOrBusinessAddress = body.residentialOrBusinessAddress
+        ? String(body.residentialOrBusinessAddress).trim()
+        : undefined;
+      const panOrTaxId = body.panOrTaxId
+        ? String(body.panOrTaxId).trim()
+        : undefined;
+      const bankAccountHolderName = body.bankAccountHolderName
+        ? String(body.bankAccountHolderName).trim()
+        : undefined;
+      const bankAccountNumber = body.bankAccountNumber
+        ? String(body.bankAccountNumber).trim()
+        : undefined;
+      const bankIfscOrRoutingCode = body.bankIfscOrRoutingCode
+        ? String(body.bankIfscOrRoutingCode).trim()
+        : undefined;
+      const bankName = body.bankName ? String(body.bankName).trim() : undefined;
+      const notes = body.notes ? String(body.notes).trim() : undefined;
+
+      const result = await directOnboardCityPartner({
+        adminUid,
+        adminPhone,
+        adminName,
+        isSuperAdmin: true,
+        partnerFullName,
+        phoneE164,
+        email,
+        residentialOrBusinessAddress,
+        country,
+        countryCode,
+        stateRegion,
+        cityId,
+        cityName,
+        district,
+        postalCode,
+        panOrTaxId,
+        bankAccountHolderName,
+        bankAccountNumber,
+        bankIfscOrRoutingCode,
+        bankName,
+        notes,
+      });
+
+      if (!result.ok || !result.partner || !result.allocation) {
+        return NextResponse.json(
+          { ok: false, error: result.error },
+          { status: result.statusCode || 400 }
+        );
+      }
+
+      await recordAdminAuditLog({
+        adminUid,
+        adminPhone,
+        adminRole: 'super_admin',
+        actionType: 'DIRECT_ONBOARD_PARTNER',
+        targetEntityType: 'PARTNER',
+        targetEntityId: result.partner.id,
+        targetEntityName: `${result.partner.fullName} · ${result.partner.assignedCityName} (${result.partner.assignedCityId})`,
+        status: 'SUCCESS',
+        reason:
+          notes ||
+          `Directly onboarded City Partner ${result.partner.fullName} (${result.partner.phoneE164}) with exclusive allocation for ${result.partner.assignedCityName} (${result.partner.assignedCityId}).`,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        partner: result.partner,
+        allocation: result.allocation,
+        application: result.application,
+        message: `Successfully onboarded ${result.partner.fullName} as City Partner for ${result.partner.assignedCityName}.`,
+      });
+    }
 
     // 1. APPROVE PARTNER APPLICATION & ATOMICALLY ALLOCATE CITY
     if (action === 'APPROVE_APPLICATION') {
