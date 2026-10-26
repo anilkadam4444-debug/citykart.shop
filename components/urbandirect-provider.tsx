@@ -13,6 +13,7 @@ import {Check} from 'lucide-react';
 import {usePathname, useRouter} from 'next/navigation';
 import {
   AUTHORITATIVE_STORE_CATEGORIES,
+  BuyerUnifiedOrderNotification,
   CartItem,
   CategoryDefinition,
   CustomerShoppingLocation,
@@ -20,6 +21,7 @@ import {
   LocalStore,
   normalizeCityId,
   OrderRecord,
+  PaymentMethod,
   Product,
   SellerProfile,
   StoreCategoryId,
@@ -30,6 +32,7 @@ import {
   INITIAL_SELLERS,
   INITIAL_STORES,
 } from '@/lib/initial-data';
+import { calculateItemPlatformFee } from '@/lib/fees';
 
 import {
   MobileOtpAuthModal,
@@ -48,7 +51,12 @@ import {
   syncStoreToFirestore,
   syncUserAccountToFirestore,
 } from '@/lib/firebase';
-import { requestAndRegisterFcmToken, subscribeToForegroundMessages } from '@/lib/fcm-client';
+import {
+  requestAndRegisterFcmToken,
+  subscribeToForegroundMessages,
+  triggerUnifiedBuyerOrderBrowserNotification,
+  triggerUnifiedSellerOrderBrowserNotification,
+} from '@/lib/fcm-client';
 
 export const BUYER_CITY_STORAGE_KEY = 'urbandirect_buyer_city_v1';
 export const AUTH_USER_STORAGE_KEY = 'urbandirect_otp_user_v2';
@@ -57,6 +65,15 @@ const CUSTOM_STORES_STORAGE_KEY = 'urbandirect_custom_stores_v1';
 const CUSTOM_SELLERS_STORAGE_KEY = 'urbandirect_custom_sellers_v1';
 const CUSTOM_PRODUCTS_STORAGE_KEY = 'urbandirect_custom_products_v1';
 const CUSTOM_ORDERS_STORAGE_KEY = 'urbandirect_custom_orders_v1';
+const BUYER_PIN_VAULT_STORAGE_KEY = 'urbandirect_buyer_pin_vault_v1';
+
+export interface BuyerPinVaultEntry {
+  orderId: string;
+  pin?: string;
+  buyerAccessToken?: string;
+  unifiedNotification?: BuyerUnifiedOrderNotification;
+  updatedAt: string;
+}
 
 export function readStoredDeletedStoreIds(): Set<string> {
   if (typeof window === 'undefined') return new Set<string>();
@@ -156,11 +173,13 @@ export const INITIAL_DEMO_ORDER: OrderRecord = {
       product: INITIAL_PRODUCTS[0],
       variant: INITIAL_PRODUCTS[0].variants[0] || 'Standard',
       quantity: 1,
+      platformFee: calculateItemPlatformFee(INITIAL_PRODUCTS[0].price, 1),
     },
   ],
   subtotal: INITIAL_PRODUCTS[0].price,
   deliveryFee: 0,
   discount: 0,
+  totalPlatformFee: calculateItemPlatformFee(INITIAL_PRODUCTS[0].price, 1),
   total: INITIAL_PRODUCTS[0].price,
   paymentMethod: 'UPI_ON_DELIVERY',
   upiId: 'anilkadam@okicici',
@@ -261,6 +280,46 @@ export interface UrbanDirectContextValue {
     nextStatus?: OrderRecord['orderStatus']
   ) => void;
   handleCancelOrder: (orderId: string, reason?: string) => Promise<boolean>;
+  handleVerifyOrderDeliveryPin: (
+    orderId: string,
+    pin: string,
+    actorSellerId?: string
+  ) => Promise<{
+    ok: boolean;
+    success: boolean;
+    error?: string;
+    remainingAttempts?: number;
+    order?: OrderRecord;
+    message?: string;
+  }>;
+  handleUpdateOrderPaymentStatus: (
+    orderId: string,
+    paymentStatus: 'PENDING' | 'PAID' | 'DISPUTED',
+    paymentReferenceNoteOrOptions?:
+      | string
+      | {
+          actorSellerId?: string;
+          collectionMethod?: PaymentMethod;
+          referenceNote?: string;
+        },
+    actorSellerId?: string
+  ) => Promise<{
+    ok: boolean;
+    success: boolean;
+    error?: string;
+    order?: OrderRecord;
+    message?: string;
+  }>;
+  handleRegenerateBuyerDeliveryPin: (
+    orderId: string
+  ) => Promise<{
+    ok: boolean;
+    success: boolean;
+    pin?: string;
+    error?: string;
+    message?: string;
+  }>;
+  getBuyerPinVaultEntry: (orderId: string) => BuyerPinVaultEntry | null;
   toastNotice: string | null;
   showToast: (msg: string) => void;
 }
@@ -344,41 +403,55 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     AUTHORITATIVE_STORE_CATEGORIES
   );
 
-  // Sync live stores and products from Firestore (`urbandirectintracity`) on mount
+  // Sync live stores, products, and Super Admin overrides from Firestore (`urbandirectintracity`) with real-time polling
   useEffect(() => {
+    if (!isMounted) return;
     let active = true;
-    fetchStoresAndProductsFromFirestore().then((live) => {
-      if (!active) return;
-      const currentDeleted = readStoredDeletedStoreIds();
-      if (live.stores.length > 0) {
-        setStores((prev) => {
-          const map = new Map<string, LocalStore>();
-          for (const s of prev) {
-            if (!currentDeleted.has(s.id)) map.set(s.id, s);
-          }
-          for (const s of live.stores) {
-            if (!currentDeleted.has(s.id)) map.set(s.id, s);
-          }
-          return Array.from(map.values());
-        });
+
+    const refreshLiveStoresAndProducts = async () => {
+      try {
+        const live = await fetchStoresAndProductsFromFirestore();
+        if (!active) return;
+        const currentDeleted = readStoredDeletedStoreIds();
+        if (live.stores.length > 0) {
+          setStores((prev) => {
+            const map = new Map<string, LocalStore>();
+            for (const s of prev) {
+              if (!currentDeleted.has(s.id)) map.set(s.id, s);
+            }
+            for (const s of live.stores) {
+              if (!currentDeleted.has(s.id)) map.set(s.id, s);
+            }
+            return Array.from(map.values());
+          });
+        }
+        if (live.products.length > 0) {
+          setProducts((prev) => {
+            const map = new Map<string, Product>();
+            for (const p of prev) {
+              if (!currentDeleted.has(p.storeId)) map.set(p.id, p);
+            }
+            for (const p of live.products) {
+              if (!currentDeleted.has(p.storeId)) map.set(p.id, p);
+            }
+            return Array.from(map.values());
+          });
+        }
+      } catch {
+        // Ignore network errors on background poll
       }
-      if (live.products.length > 0) {
-        setProducts((prev) => {
-          const map = new Map<string, Product>();
-          for (const p of prev) {
-            if (!currentDeleted.has(p.storeId)) map.set(p.id, p);
-          }
-          for (const p of live.products) {
-            if (!currentDeleted.has(p.storeId)) map.set(p.id, p);
-          }
-          return Array.from(map.values());
-        });
-      }
-    });
+    };
+
+    void refreshLiveStoresAndProducts();
+    const interval = setInterval(refreshLiveStoresAndProducts, 6000);
+    window.addEventListener('focus', refreshLiveStoresAndProducts);
+
     return () => {
       active = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', refreshLiveStoresAndProducts);
     };
-  }, []);
+  }, [isMounted]);
 
   // Persistent Buyer City State
   const [savedLocation, setSavedLocation] =
@@ -1096,6 +1169,7 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
       product: INITIAL_PRODUCTS[0],
       variant: INITIAL_PRODUCTS[0].variants[0],
       quantity: 1,
+      platformFee: calculateItemPlatformFee(INITIAL_PRODUCTS[0].price, 1),
     },
   ]);
 
@@ -1138,7 +1212,15 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
         return updated;
       }
       const initialQty = Math.min(quantity, product.stock);
-      return [...prev, { product, variant, quantity: initialQty }];
+      return [
+        ...prev,
+        {
+          product,
+          variant,
+          quantity: initialQty,
+          platformFee: calculateItemPlatformFee(product.price, initialQty),
+        },
+      ];
     });
     showToast(`Added "${product.name}" to your cart`);
   };
@@ -1251,7 +1333,34 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
               for (const o of prev) map.set(o.id, o);
               for (const o of fetchedOrders) {
                 if (!map.has(o.id) && o.orderStatus === 'NEW') {
-                  showToast(`🔔 New order #${o.id} received from ${o.customer.fullName}!`);
+                  const fullAddr =
+                    o.sellerUnifiedNotification?.buyerFullAddress ||
+                    [
+                      o.customer.address,
+                      o.customer.locality,
+                      o.customer.city,
+                      o.customer.stateRegion,
+                      o.customer.country,
+                    ]
+                      .filter(Boolean)
+                      .join(', ') +
+                      (o.customer.postalCode ? ` - ${o.customer.postalCode}` : '');
+                  const notePart = o.customer.notes?.trim()
+                    ? ` Delivery Note: "${o.customer.notes.trim()}".`
+                    : '';
+                  const sellerTitle =
+                    o.sellerUnifiedNotification?.title ||
+                    `New Order #${o.id} — ₹${o.total}`;
+                  const sellerBody =
+                    o.sellerUnifiedNotification?.body ||
+                    `New Order #${o.id} for ${o.storeName} (₹${o.total}) from ${o.customer.fullName}. Buyer Mobile: ${o.customer.phone}. Full Address: ${fullAddr}.${notePart}`;
+
+                  void triggerUnifiedSellerOrderBrowserNotification({
+                    orderId: o.id,
+                    title: sellerTitle,
+                    body: sellerBody,
+                  });
+                  showToast(`🔔 ${sellerBody}`);
                 }
                 map.set(o.id, o);
               }
@@ -1290,17 +1399,69 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     };
   }, [isMounted, authenticatedUser?.sellerId]);
 
+  const [buyerPinVault, setBuyerPinVault] = useState<
+    Record<string, BuyerPinVaultEntry>
+  >(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(BUYER_PIN_VAULT_STORAGE_KEY);
+      if (raw) {
+        return JSON.parse(raw) as Record<string, BuyerPinVaultEntry>;
+      }
+    } catch {
+      // Ignore storage read error
+    }
+    return {};
+  });
+
+  const saveBuyerPinVaultEntry = (entry: BuyerPinVaultEntry) => {
+    setBuyerPinVault((prev) => {
+      const next = { ...prev, [entry.orderId]: entry };
+      try {
+        window.localStorage.setItem(
+          BUYER_PIN_VAULT_STORAGE_KEY,
+          JSON.stringify(next)
+        );
+      } catch {
+        // Ignore storage quota error
+      }
+      return next;
+    });
+  };
+
+  const getBuyerPinVaultEntry = (orderId: string): BuyerPinVaultEntry | null => {
+    return buyerPinVault[orderId] || null;
+  };
+
   const handlePlaceOrder = (newOrder: OrderRecord) => {
-    const orderWithStatus: OrderRecord = {
+    const generatedPin = newOrder.buyerDeliveryPin;
+    const unifiedNotif = newOrder.buyerUnifiedNotification;
+
+    if (generatedPin || newOrder.buyerOrderAccessToken || unifiedNotif) {
+      saveBuyerPinVaultEntry({
+        orderId: newOrder.id,
+        pin: generatedPin,
+        buyerAccessToken: newOrder.buyerOrderAccessToken,
+        unifiedNotification: unifiedNotif,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    const sanitizedOrder: OrderRecord = {
       ...newOrder,
       createdAtIso: newOrder.createdAtIso || new Date().toISOString(),
       orderStatus: newOrder.orderStatus || 'NEW',
+      paymentStatus: newOrder.paymentStatus || 'PENDING',
       isDemo: Boolean(newOrder.isDemo),
       isTest: Boolean(newOrder.isTest),
     };
+    delete sanitizedOrder.buyerDeliveryPin;
+    delete sanitizedOrder.buyerOrderAccessToken;
+    delete sanitizedOrder.buyerUnifiedNotification;
+
     setOrders((prev) => {
-      const deduped = prev.filter((o) => o.id !== orderWithStatus.id);
-      const next = [orderWithStatus, ...deduped];
+      const deduped = prev.filter((o) => o.id !== sanitizedOrder.id);
+      const next = [sanitizedOrder, ...deduped];
       persistOrdersToStorage(next);
       return next;
     });
@@ -1323,8 +1484,71 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     );
 
     setCart([]);
-    void syncOrderToFirestore(orderWithStatus);
-    showToast(`Order #${newOrder.id} placed with ${newOrder.storeName}`);
+    void syncOrderToFirestore(sanitizedOrder);
+
+    if (sanitizedOrder.sellerUnifiedNotification) {
+      const sNotif = sanitizedOrder.sellerUnifiedNotification;
+      const newSellerNotif: SellerNotification = {
+        id: `notif-${sanitizedOrder.id}`,
+        sellerId: sanitizedOrder.sellerId,
+        sellerUid: sanitizedOrder.sellerUid,
+        storeId: sanitizedOrder.storeId,
+        orderId: sanitizedOrder.id,
+        title: sNotif.title,
+        message: sNotif.body,
+        smsText: sNotif.smsText,
+        buyerFullName: sNotif.buyerFullName,
+        buyerPhone: sNotif.buyerPhone,
+        buyerFullAddress: sNotif.buyerFullAddress,
+        deliveryNotes: sNotif.deliveryNotes,
+        pushStatus: sNotif.pushStatus,
+        smsStatus: sNotif.smsStatus,
+        type: 'NEW_ORDER',
+        isRead: false,
+        createdAt: sanitizedOrder.createdAtIso || new Date().toISOString(),
+      };
+      setSellerNotifications((prev) => [
+        newSellerNotif,
+        ...prev.filter((n) => n.id !== newSellerNotif.id),
+      ]);
+    }
+
+    // Dispatch a SINGLE unified Push Notification + Toast Notification containing:
+    // 1. Order Placement Confirmation
+    // 2. Seller Mobile Number & Estimated Delivery Duration
+    // 3. The 6-digit Delivery PIN
+    // 4. Clear buyer safety instructions (never send separate notifications)
+    const matchedStore = stores.find((s) => s.id === newOrder.storeId);
+    const matchedSeller = sellers.find(
+      (s) => s.id === newOrder.sellerId || s.storeIds.includes(newOrder.storeId)
+    );
+    const fallbackSellerPhone =
+      newOrder.sellerPhone ||
+      matchedStore?.phone ||
+      matchedSeller?.phoneE164 ||
+      '+919820000000';
+    const fallbackEstMins =
+      newOrder.estimatedMins || matchedStore?.avgDispatchMins || 25;
+
+    const unifiedTitle =
+      unifiedNotif?.title ||
+      (generatedPin
+        ? `Order #${newOrder.id} Placed! Delivery PIN: ${generatedPin}`
+        : `Order #${newOrder.id} placed with ${newOrder.storeName}`);
+    const unifiedBody =
+      unifiedNotif?.body ||
+      (generatedPin
+        ? `Order #${newOrder.id} placed successfully with ${newOrder.storeName} for ₹${newOrder.total}. Estimated Delivery: ~${fallbackEstMins} mins. Seller Mobile: ${fallbackSellerPhone}. Your Delivery PIN is ${generatedPin}. SAFETY: Share your delivery PIN only after you have received your order. Never share it in advance. Your delivery PIN confirms delivery; it does not confirm payment.`
+        : `Order #${newOrder.id} placed with ${newOrder.storeName}. Estimated Delivery: ~${fallbackEstMins} mins. Seller Mobile: ${fallbackSellerPhone}.`);
+
+    void triggerUnifiedBuyerOrderBrowserNotification({
+      orderId: newOrder.id,
+      title: unifiedTitle,
+      body: unifiedBody,
+      pinVersion: sanitizedOrder.deliveryPinInfo?.pinVersion || 1,
+    });
+
+    showToast(`🔔 ${unifiedBody}`);
   };
 
   const handleSetOrderStep = async (
@@ -1344,6 +1568,13 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
               ? 'OUT_FOR_DELIVERY'
               : 'DELIVERED');
 
+    if (resolvedStatus === 'DELIVERED') {
+      showToast(
+        'Please enter the buyer’s 6-digit Delivery PIN to verify and mark this order as Delivered.'
+      );
+      return;
+    }
+
     try {
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
@@ -1354,7 +1585,11 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
         }),
       });
       const data = await res.json();
-      if (res.ok && data.order) {
+      if (!res.ok) {
+        showToast(data.error || 'Could not update order status');
+        return;
+      }
+      if (data.order) {
         const updatedOrder: OrderRecord = data.order;
         setOrders((prev) => {
           const next = prev.map((o) => (o.id === orderId ? updatedOrder : o));
@@ -1366,7 +1601,7 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
         return;
       }
     } catch {
-      // Fallback local update
+      // Fallback local update for non-DELIVERED transitions
     }
 
     setOrders((prev) => {
@@ -1393,6 +1628,243 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
       return next;
     });
     showToast(`Order #${orderId} status updated`);
+  };
+
+  const handleVerifyOrderDeliveryPin = async (
+    orderId: string,
+    pin: string,
+    actorSellerId?: string
+  ): Promise<{
+    ok: boolean;
+    success: boolean;
+    error?: string;
+    remainingAttempts?: number;
+    order?: OrderRecord;
+    message?: string;
+  }> => {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pin: pin.trim(),
+          actorSellerId: actorSellerId || authenticatedUser?.sellerId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        if (data.deliveryPinInfo) {
+          setOrders((prev) => {
+            const next = prev.map((o) =>
+              o.id === orderId
+                ? { ...o, deliveryPinInfo: data.deliveryPinInfo }
+                : o
+            );
+            persistOrdersToStorage(next);
+            return next;
+          });
+        }
+        const errMsg = data.error || 'Delivery PIN verification failed.';
+        return {
+          ok: false,
+          success: false,
+          error: errMsg,
+          message: errMsg,
+          remainingAttempts: data.remainingAttempts,
+        };
+      }
+
+      const verifiedOrder = data.order as OrderRecord;
+      setOrders((prev) => {
+        const next = prev.map((o) => (o.id === orderId ? verifiedOrder : o));
+        persistOrdersToStorage(next);
+        return next;
+      });
+      void syncOrderToFirestore(verifiedOrder);
+      showToast(
+        `Order #${orderId} delivery verified via 6-digit PIN! Marked as Delivered.`
+      );
+      return {
+        ok: true,
+        success: true,
+        order: verifiedOrder,
+        message: data.message,
+      };
+    } catch {
+      const errMsg = 'Network error while verifying Delivery PIN. Please try again.';
+      return {
+        ok: false,
+        success: false,
+        error: errMsg,
+        message: errMsg,
+      };
+    }
+  };
+
+  const handleUpdateOrderPaymentStatus = async (
+    orderId: string,
+    paymentStatus: 'PENDING' | 'PAID' | 'DISPUTED',
+    paymentReferenceNoteOrOptions?:
+      | string
+      | {
+          actorSellerId?: string;
+          collectionMethod?: PaymentMethod;
+          referenceNote?: string;
+        },
+    actorSellerId?: string
+  ): Promise<{
+    ok: boolean;
+    success: boolean;
+    error?: string;
+    order?: OrderRecord;
+    message?: string;
+  }> => {
+    const resolvedRefNote =
+      typeof paymentReferenceNoteOrOptions === 'string'
+        ? paymentReferenceNoteOrOptions
+        : paymentReferenceNoteOrOptions?.referenceNote;
+    const resolvedCollectionMethod =
+      typeof paymentReferenceNoteOrOptions === 'object'
+        ? paymentReferenceNoteOrOptions?.collectionMethod
+        : undefined;
+    const resolvedSellerId =
+      (typeof paymentReferenceNoteOrOptions === 'object'
+        ? paymentReferenceNoteOrOptions?.actorSellerId
+        : undefined) ||
+      actorSellerId ||
+      authenticatedUser?.sellerId;
+
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentStatus,
+          collectionMethod: resolvedCollectionMethod,
+          referenceNote: resolvedRefNote,
+          paymentReferenceNote: resolvedRefNote,
+          actorSellerId: resolvedSellerId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        const errMsg = data.error || 'Could not update payment status.';
+        return {
+          ok: false,
+          success: false,
+          error: errMsg,
+          message: errMsg,
+        };
+      }
+
+      const updatedOrder = data.order as OrderRecord;
+      setOrders((prev) => {
+        const next = prev.map((o) => (o.id === orderId ? updatedOrder : o));
+        persistOrdersToStorage(next);
+        return next;
+      });
+      void syncOrderToFirestore(updatedOrder);
+      showToast(data.message || `Order #${orderId} payment status updated to ${paymentStatus}`);
+      return {
+        ok: true,
+        success: true,
+        order: updatedOrder,
+        message: data.message,
+      };
+    } catch {
+      const errMsg = 'Network error while updating payment status.';
+      return {
+        ok: false,
+        success: false,
+        error: errMsg,
+        message: errMsg,
+      };
+    }
+  };
+
+  const handleRegenerateBuyerDeliveryPin = async (
+    orderId: string
+  ): Promise<{
+    ok: boolean;
+    success: boolean;
+    pin?: string;
+    error?: string;
+    message?: string;
+  }> => {
+    const vaultEntry = buyerPinVault[orderId];
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(vaultEntry?.buyerAccessToken
+            ? { 'x-buyer-order-token': vaultEntry.buyerAccessToken }
+            : {}),
+        },
+        body: JSON.stringify({
+          buyerAccessToken: vaultEntry?.buyerAccessToken,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        const errMsg = data.error || 'Could not regenerate Delivery PIN.';
+        return {
+          ok: false,
+          success: false,
+          error: errMsg,
+          message: errMsg,
+        };
+      }
+
+      saveBuyerPinVaultEntry({
+        orderId,
+        pin: data.deliveryPin,
+        buyerAccessToken:
+          data.buyerOrderAccessToken || vaultEntry?.buyerAccessToken,
+        unifiedNotification:
+          data.unifiedBuyerNotification || vaultEntry?.unifiedNotification,
+        updatedAt: new Date().toISOString(),
+      });
+
+      if (data.deliveryPinInfo) {
+        setOrders((prev) => {
+          const next = prev.map((o) =>
+            o.id === orderId
+              ? { ...o, deliveryPinInfo: data.deliveryPinInfo }
+              : o
+          );
+          persistOrdersToStorage(next);
+          return next;
+        });
+      }
+
+      if (data.unifiedBuyerNotification) {
+        void triggerUnifiedBuyerOrderBrowserNotification({
+          orderId,
+          title: data.unifiedBuyerNotification.title,
+          body: data.unifiedBuyerNotification.body,
+          pinVersion: data.deliveryPinInfo?.pinVersion || 2,
+        });
+      }
+
+      showToast(
+        data.message || `New 6-digit Delivery PIN generated for Order #${orderId}`
+      );
+      return {
+        ok: true,
+        success: true,
+        pin: data.deliveryPin,
+        message: data.message,
+      };
+    } catch {
+      const errMsg = 'Network error while regenerating Delivery PIN.';
+      return {
+        ok: false,
+        success: false,
+        error: errMsg,
+        message: errMsg,
+      };
+    }
   };
 
   const handleCancelOrder = async (orderId: string, reason?: string): Promise<boolean> => {
@@ -1497,6 +1969,10 @@ export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
     handlePlaceOrder,
     handleSetOrderStep,
     handleCancelOrder,
+    handleVerifyOrderDeliveryPin,
+    handleUpdateOrderPaymentStatus,
+    handleRegenerateBuyerDeliveryPin,
+    getBuyerPinVaultEntry,
     toastNotice,
     showToast,
   };
@@ -1576,6 +2052,10 @@ const DEFAULT_FALLBACK_CONTEXT: UrbanDirectContextValue = {
   handlePlaceOrder: () => {},
   handleSetOrderStep: () => {},
   handleCancelOrder: async () => false,
+  handleVerifyOrderDeliveryPin: async () => ({ ok: false }),
+  handleUpdateOrderPaymentStatus: async () => ({ ok: false }),
+  handleRegenerateBuyerDeliveryPin: async () => ({ ok: false }),
+  getBuyerPinVaultEntry: () => null,
   toastNotice: null,
   showToast: () => {},
 };

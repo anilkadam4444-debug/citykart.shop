@@ -3,6 +3,11 @@ import { collection, doc, getDoc, getDocs, query, where, writeBatch } from 'fire
 import { db } from '@/lib/firebase';
 import { INITIAL_PRODUCTS, INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
 import { isStoreDeletedServer, recordStoreDeletedServer, serverDeletedStoresRegistry } from '@/lib/stores-registry';
+import {
+  normalizePhoneE164,
+  verifyAdminRequest,
+  verifyAuthenticatedCaller,
+} from '@/lib/super-admin-auth';
 
 interface DeleteStoreRequestBody {
   requesterUid?: string;
@@ -75,14 +80,24 @@ export async function DELETE(
       );
     }
 
-    const {
-      requesterUid,
-      requesterPhone,
-      sellerId,
-      storeNameConfirmation,
-      reason,
-      isAdmin,
-    } = body;
+    const { storeNameConfirmation, reason } = body;
+
+    // 0. Cryptographic Caller & Admin Verification (Never trust body.isAdmin or raw body IDs)
+    const [caller, adminCheck] = await Promise.all([
+      verifyAuthenticatedCaller(req),
+      verifyAdminRequest(req),
+    ]);
+
+    if (!caller.authenticated && !adminCheck.authorized) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Authentication required: Please sign in as the verified store owner or Platform Super Admin to delete this store.',
+        },
+        { status: 401 }
+      );
+    }
 
     // 1. Fetch store from Firestore or fallback to static catalog
     let storeRecord: LocalStore | null = null;
@@ -112,20 +127,38 @@ export async function DELETE(
       );
     }
 
-    // 2. Authorization Verification
+    // 2. Authoritative Ownership & Role Verification
     // A store can only be permanently deleted by:
-    // a) An authenticated seller whose uid matches store.ownerUid
-    // b) A seller whose sellerId matches store.sellerId
-    // c) A super admin
-    const isOwnerByUid = Boolean(requesterUid && storeRecord.ownerUid && requesterUid === storeRecord.ownerUid);
-    const isOwnerBySellerId = Boolean(sellerId && storeRecord.sellerId && sellerId === storeRecord.sellerId);
-    const isAuthorized = isOwnerByUid || isOwnerBySellerId || isAdmin;
+    // a) The verified store owner (matching verified UID, verified session sellerId, or verified store phone)
+    // b) The verified Super Admin (adminCheck.isSuperAdmin)
+    const isOwnerByUid = Boolean(
+      caller.uid && storeRecord.ownerUid && caller.uid === storeRecord.ownerUid
+    );
+    const isOwnerBySellerId = Boolean(
+      caller.sellerId &&
+        storeRecord.sellerId &&
+        caller.sellerId === storeRecord.sellerId
+    );
+    const isOwnerByPhone = Boolean(
+      caller.phoneE164 &&
+        storeRecord.phone &&
+        caller.phoneE164 === normalizePhoneE164(storeRecord.phone)
+    );
+    const isVerifiedSuperAdmin = Boolean(
+      adminCheck.authorized && adminCheck.isSuperAdmin
+    );
+
+    const isAuthorized =
+      isOwnerByUid ||
+      isOwnerBySellerId ||
+      isOwnerByPhone ||
+      isVerifiedSuperAdmin;
 
     if (!isAuthorized) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Unauthorized: You do not have permission to delete this store. Only the verified store owner can perform this action.',
+          error: 'Unauthorized: You do not have permission to delete this store. Only the verified store owner or Platform Super Admin can perform this action.',
         },
         { status: 403 }
       );
@@ -186,8 +219,8 @@ export async function DELETE(
     // 6. Record tombstone in server memory registry and Firestore
     await recordStoreDeletedServer(storeId, {
       storeName: storeRecord.name,
-      deletedByUid: requesterUid,
-      deletedByPhone: requesterPhone,
+      deletedByUid: caller.uid || adminCheck.firebaseUid,
+      deletedByPhone: caller.phoneE164 || adminCheck.phoneE164,
       reason: reason || 'Verified seller permanent deletion from seller dashboard',
     });
 

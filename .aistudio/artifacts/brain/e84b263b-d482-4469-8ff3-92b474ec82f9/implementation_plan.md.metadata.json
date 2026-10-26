@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for integrating Razorpay Standard Checkout for seller subscriptions on Citykart.shop. Includes server-side order creation, signature verification, webhook handling, and Firestore state persistence.",
-  "updatedAt":  "2026-10-25T08:04:03.335748894Z",
+  "summary":  "Implementation plan for Citykart platform fee system:\n1. Define Firestore ledger schema.\n2. Implement backend fee accrual on delivery confirmation.\n3. Update billing API to include fees in subscription renewal.\n4. Implement atomic ledger settlement on payment success.\n5. Create UI components for seller/admin billing dashboard.\n6. Enforce security and idempotency.",
+  "updatedAt":  "2026-10-25T22:14:53.579534937Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

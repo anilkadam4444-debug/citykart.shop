@@ -175,7 +175,31 @@ export interface BillingTransaction {
 
 // Advertising & Placements
 export type CampaignPlacementType = 'FEATURED_STORE' | 'SPONSORED_PRODUCT';
-export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'SCHEDULED' | 'PAUSED' | 'COMPLETED' | 'REJECTED';
+export type SponsoredPlacementTier =
+  | 'CATEGORY_SPONSORED'
+  | 'LOCAL_FEATURED'
+  | 'HOMEPAGE_SPONSORED';
+
+export type CampaignStatus =
+  | 'DRAFT'
+  | 'PENDING_PAYMENT'
+  | 'PENDING_APPROVAL'
+  | 'ACTIVE'
+  | 'SCHEDULED'
+  | 'PAUSED'
+  | 'COMPLETED'
+  | 'EXPIRED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'REFUNDED';
+
+export type CampaignPaymentStatus =
+  | 'PAID'
+  | 'PENDING'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'SANDBOX_TEST';
+export type CampaignApprovalStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
 
 export interface CampaignDurationOption {
   days: number;
@@ -184,6 +208,83 @@ export interface CampaignDurationOption {
   label: string;
 }
 
+export interface SponsoredPlacementConfig {
+  id: SponsoredPlacementTier;
+  name: string;
+  description: string;
+  badgeLabel: string;
+  isEnabled: boolean;
+  livePaymentsApproved?: boolean;
+  includesSearch: boolean;
+  includesCategory: boolean;
+  includesCityDiscovery: boolean;
+  includesHomepageSpotlight: boolean;
+  packages: CampaignDurationOption[];
+}
+
+/**
+ * Proposed Initial Launch Pricing Configuration (Centralized & Server/Admin-Controllable)
+ * - Category Sponsored Listing: 7 days ₹99 | 30 days ₹299
+ * - Local Featured Product: 7 days ₹149 | 30 days ₹399
+ * - Homepage Sponsored Product: 7 days ₹499 | 30 days ₹1,499
+ *
+ * NOTE: These prices are proposed launch values. Live charges remain gated behind
+ * Razorpay verification and Super Admin approval (`livePaymentsApproved`).
+ */
+export const DEFAULT_SPONSORED_PLACEMENT_CONFIGS: Record<
+  SponsoredPlacementTier,
+  SponsoredPlacementConfig
+> = {
+  CATEGORY_SPONSORED: {
+    id: 'CATEGORY_SPONSORED',
+    name: 'Category Sponsored Listing',
+    description:
+      'Display your product prominently within its matching category page and relevant search results in your city.',
+    badgeLabel: 'Sponsored',
+    isEnabled: true,
+    includesSearch: true,
+    includesCategory: true,
+    includesCityDiscovery: false,
+    includesHomepageSpotlight: false,
+    packages: [
+      { days: 7, priceInr: 99, priceUsd: 1.49, label: '7 Days Category Boost' },
+      { days: 30, priceInr: 299, priceUsd: 3.99, label: '30 Days Category Boost (Save 24%)' },
+    ],
+  },
+  LOCAL_FEATURED: {
+    id: 'LOCAL_FEATURED',
+    name: 'Local Featured Product',
+    description:
+      'Feature your product across city discovery feeds, local neighborhood filters, category pages, and search results.',
+    badgeLabel: 'Featured Local',
+    isEnabled: true,
+    includesSearch: true,
+    includesCategory: true,
+    includesCityDiscovery: true,
+    includesHomepageSpotlight: false,
+    packages: [
+      { days: 7, priceInr: 149, priceUsd: 1.99, label: '7 Days Local Featured' },
+      { days: 30, priceInr: 399, priceUsd: 4.99, label: '30 Days Local Featured (Save 33%)' },
+    ],
+  },
+  HOMEPAGE_SPONSORED: {
+    id: 'HOMEPAGE_SPONSORED',
+    name: 'Homepage Sponsored Product',
+    description:
+      'Maximum visibility: dedicated Homepage Sponsored Spotlight + top priority in search and category discovery for your city.',
+    badgeLabel: 'Sponsored Spotlight',
+    isEnabled: true,
+    includesSearch: true,
+    includesCategory: true,
+    includesCityDiscovery: true,
+    includesHomepageSpotlight: true,
+    packages: [
+      { days: 7, priceInr: 499, priceUsd: 5.99, label: '7 Days Homepage Spotlight' },
+      { days: 30, priceInr: 1499, priceUsd: 17.99, label: '30 Days Homepage Spotlight (Save 25%)' },
+    ],
+  },
+};
+
 export const FEATURED_STORE_PACKAGES: CampaignDurationOption[] = [
   { days: 7, priceInr: 299, priceUsd: 4.99, label: '7 Days Boost' },
   { days: 14, priceInr: 549, priceUsd: 8.99, label: '14 Days Boost (Save 8%)' },
@@ -191,29 +292,49 @@ export const FEATURED_STORE_PACKAGES: CampaignDurationOption[] = [
 ];
 
 export const SPONSORED_PRODUCT_PACKAGES: CampaignDurationOption[] = [
-  { days: 7, priceInr: 199, priceUsd: 2.99, label: '7 Days Product Push' },
-  { days: 14, priceInr: 369, priceUsd: 5.49, label: '14 Days (Save 7%)' },
-  { days: 30, priceInr: 699, priceUsd: 9.99, label: '30 Days (Save 12%)' },
+  { days: 7, priceInr: 99, priceUsd: 1.49, label: '7 Days Category Boost' },
+  { days: 30, priceInr: 299, priceUsd: 3.99, label: '30 Days Category Boost' },
 ];
 
 export interface FeaturedCampaign {
   id: string;
   sellerId: string;
+  ownerUid?: string;
   storeId: string;
   storeName: string;
   type: CampaignPlacementType;
+  placementTier?: SponsoredPlacementTier;
+  placementLabel?: string;
   targetProductId?: string;
   targetProductName?: string;
+  targetProductPrice?: number;
+  targetProductImageUrl?: string;
   cityId: string;
   cityName: string;
+  city?: string;
   categoryId?: string;
+  categoryName?: string;
+  category?: string;
   status: CampaignStatus;
+  approvalStatus?: CampaignApprovalStatus;
+  paymentStatus?: CampaignPaymentStatus;
+  paymentReferenceId?: string;
+  razorpayOrderId?: string;
+  invoiceNumber?: string;
   startDate: string; // ISO
   endDate: string; // ISO
   durationDays: number;
+  currency?: 'INR' | 'USD';
+  basePriceInr?: number;
+  taxAmountInr?: number;
   budgetInr: number;
+  pricePaid?: number;
+  isSandboxProposal?: boolean;
   impressions: number;
   clicks: number;
+  attributedOrders?: number;
+  adminNotes?: string;
+  updatedAt?: string;
   createdAt: string;
 }
 
@@ -349,6 +470,25 @@ import { LocalStore, UserAccount, Product, OrderRecord, SellerProfile } from './
  * Calculates platform-wide or city-filtered revenue and marketplace metrics.
  * Centralized logic to be shared between Admin dashboards.
  */
+export type FeeStatus = 'pending_eligibility' | 'outstanding' | 'paid' | 'reversed';
+
+export interface PlatformFeeLedgerEntry {
+  id: string;
+  sellerId: string;
+  orderId: string;
+  orderItemId: string;
+  productId: string;
+  unitPrice: number;
+  quantity: number;
+  feeRate: number;
+  feePerUnit: number;
+  totalFee: number;
+  currency: string;
+  status: FeeStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function calculatePlatformRevenueMetrics(
   stores: LocalStore[],
   subscriptions: Record<string, MerchantSubscription>,

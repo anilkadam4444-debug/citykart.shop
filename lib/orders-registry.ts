@@ -4,9 +4,17 @@ export interface SellerNotification {
   id: string;
   sellerId: string;
   sellerUid?: string;
+  storeId?: string;
   orderId: string;
   title: string;
   message: string;
+  smsText?: string;
+  buyerFullName?: string;
+  buyerPhone?: string;
+  buyerFullAddress?: string;
+  deliveryNotes?: string;
+  pushStatus?: string;
+  smsStatus?: string;
   type: 'NEW_ORDER' | 'ORDER_CANCELLED' | 'ORDER_STATUS_CHANGED';
   isRead: boolean;
   createdAt: string;

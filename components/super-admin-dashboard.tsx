@@ -76,9 +76,11 @@ import {
 import {
   BillingTransaction,
   calculatePlatformRevenueMetrics,
+  DEFAULT_SPONSORED_PLACEMENT_CONFIGS,
   FeaturedCampaign,
   MerchantServiceOrder,
   MerchantSubscription,
+  SponsoredPlacementConfig,
   SubscriptionPlan as SubscriptionPlanDefinition,
   SubscriptionTierId as SubscriptionPlanId,
 } from '@/lib/revenue-model';
@@ -334,10 +336,22 @@ export function SuperAdminDashboard() {
   // Subscription Plan Editor State
   const [editingPlan, setEditingPlan] =
     useState<SubscriptionPlanDefinition | null>(null);
+  const [planNameInput, setPlanNameInput] = useState<string>('');
+  const [planTaglineInput, setPlanTaglineInput] = useState<string>('');
   const [planMonthlyPrice, setPlanMonthlyPrice] = useState<string>('0');
   const [planAnnualPrice, setPlanAnnualPrice] = useState<string>('0');
   const [planProductLimit, setPlanProductLimit] = useState<string>('25');
   const [planBadgeText, setPlanBadgeText] = useState<string>('');
+
+  // Sponsored Product Placements & Campaigns State
+  const [placementConfigs, setPlacementConfigs] = useState<
+    SponsoredPlacementConfig[]
+  >(() => Object.values(DEFAULT_SPONSORED_PLACEMENT_CONFIGS));
+  const [adminCampaigns, setAdminCampaigns] = useState<FeaturedCampaign[]>([]);
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<
+    'ALL' | 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'REJECTED'
+  >('ALL');
+  const [isSavingPlacements, setIsSavingPlacements] = useState<boolean>(false);
 
   // Platform Settings Form State
   const [settingsDraft, setSettingsDraft] =
@@ -417,6 +431,29 @@ export function SuperAdminDashboard() {
       );
       setIsServerAuthorized(true);
       setRequiresBootstrap(false);
+
+      // Fetch Sponsored Product Campaigns & Placement Pricing
+      fetch('/api/billing/campaigns?includeAll=true', {
+        headers,
+        cache: 'no-store',
+      })
+        .then((r) => r.json())
+        .then((campData) => {
+          if (campData?.ok) {
+            if (Array.isArray(campData.campaigns)) {
+              setAdminCampaigns(campData.campaigns);
+            }
+            if (Array.isArray(campData.placementConfigsList)) {
+              setPlacementConfigs(campData.placementConfigsList);
+            } else if (
+              campData.placementConfigs &&
+              typeof campData.placementConfigs === 'object'
+            ) {
+              setPlacementConfigs(Object.values(campData.placementConfigs));
+            }
+          }
+        })
+        .catch(() => {});
     } catch {
       setDashboardError(
         'Network error while communicating with Super Admin backend.'
@@ -4002,6 +4039,8 @@ export function SuperAdminDashboard() {
                       type="button"
                       onClick={() => {
                         setEditingPlan(plan);
+                        setPlanNameInput(plan.name);
+                        setPlanTaglineInput(plan.tagline || '');
                         setPlanMonthlyPrice(String(plan.monthlyPriceInr));
                         setPlanAnnualPrice(String(plan.annualPriceInr));
                         setPlanProductLimit(
@@ -4035,7 +4074,41 @@ export function SuperAdminDashboard() {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Plan Display Name
+                      </label>
+                      <input
+                        type="text"
+                        value={planNameInput}
+                        onChange={(e) => setPlanNameInput(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Plan Tagline / Subtitle
+                      </label>
+                      <input
+                        type="text"
+                        value={planTaglineInput}
+                        onChange={(e) => setPlanTaglineInput(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Highlight Badge
+                      </label>
+                      <input
+                        type="text"
+                        value={planBadgeText}
+                        onChange={(e) => setPlanBadgeText(e.target.value)}
+                        placeholder="e.g. Most Popular"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                      />
+                    </div>
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">
                         Monthly Price (INR)
@@ -4072,17 +4145,6 @@ export function SuperAdminDashboard() {
                         className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono"
                       />
                     </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">
-                        Highlight Badge
-                      </label>
-                      <input
-                        type="text"
-                        value={planBadgeText}
-                        onChange={(e) => setPlanBadgeText(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-xl"
-                      />
-                    </div>
                   </div>
                   <div className="flex justify-end gap-2">
                     <button
@@ -4096,23 +4158,31 @@ export function SuperAdminDashboard() {
                       type="button"
                       onClick={async () => {
                         const limitNum = Number(planProductLimit);
+                        const targetLimit = limitNum >= 100000 ? 999999 : limitNum;
                         const ok = await executeAdminAction(
                           {
                             action: 'UPDATE_SUBSCRIPTION_PLAN',
                             planId: editingPlan.id,
+                            name: planNameInput.trim() || editingPlan.name,
+                            tagline: planTaglineInput.trim() || editingPlan.tagline,
                             monthlyPriceInr: Number(planMonthlyPrice),
                             annualPriceInr: Number(planAnnualPrice),
+                            maxActiveProducts: targetLimit,
+                            productLimit: targetLimit,
                             entitlements: {
                               ...editingPlan.entitlements,
-                              maxActiveProducts: limitNum >= 100000 ? -1 : limitNum,
+                              maxActiveProducts: targetLimit,
                             },
                             badge: planBadgeText.trim(),
                           },
-                          `Updated ${editingPlan.name} subscription plan.`
+                          `Updated ${planNameInput.trim() || editingPlan.name} subscription plan.`
                         );
-                        if (ok) setEditingPlan(null);
+                        if (ok) {
+                          setEditingPlan(null);
+                          await fetchDashboardData();
+                        }
                       }}
-                      className="px-4 py-2 rounded-xl bg-[#003B8E] text-white text-xs font-bold cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold cursor-pointer"
                     >
                       Save Plan Configuration
                     </button>
@@ -4180,6 +4250,402 @@ export function SuperAdminDashboard() {
                           </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Sponsored Product Placement Pricing & Availability Editor */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-mono uppercase font-bold text-[#F96302]">
+                      Ad Revenue Configuration
+                    </div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Sponsored Product Placement Pricing &amp; Availability
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Centralized server-controlled pricing (excl. 18% GST) for seller product promotions across Category, Local Featured, and Homepage placements.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSavingPlacements}
+                    onClick={async () => {
+                      setIsSavingPlacements(true);
+                      try {
+                        const headers = await getAuthHeaders();
+                        const configMap = Object.fromEntries(
+                          placementConfigs.map((c) => [c.id, c])
+                        );
+                        const res = await fetch('/api/billing/campaigns', {
+                          method: 'POST',
+                          headers,
+                          body: JSON.stringify({
+                            action: 'ADMIN_UPDATE',
+                            subAction: 'UPDATE_PRICING',
+                            placementConfigs: configMap,
+                            actorUid: authenticatedUser?.id || 'super-admin',
+                            actorPhone:
+                              authenticatedUser?.phoneE164 ||
+                              DESIGNATED_OWNER_PHONE,
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                          if (Array.isArray(data.placementConfigsList)) {
+                            setPlacementConfigs(data.placementConfigsList);
+                          }
+                          setActionBanner({
+                            type: 'success',
+                            message:
+                              'Saved Sponsored Product Placement pricing and availability.',
+                          });
+                        } else {
+                          setActionBanner({
+                            type: 'error',
+                            message:
+                              data.error ||
+                              'Could not save sponsored placement pricing.',
+                          });
+                        }
+                      } catch {
+                        setActionBanner({
+                          type: 'error',
+                          message:
+                            'Network error while saving sponsored placement pricing.',
+                        });
+                      } finally {
+                        setIsSavingPlacements(false);
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingPlacements
+                      ? 'Saving Pricing...'
+                      : 'Save Placement Pricing'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {placementConfigs.map((cfg, idx) => {
+                    const pkg7 = cfg.packages.find((p) => p.days === 7) || cfg.packages[0];
+                    const pkg30 = cfg.packages.find((p) => p.days === 30) || cfg.packages[1] || cfg.packages[0];
+                    return (
+                      <div
+                        key={cfg.id}
+                        className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900">
+                            {cfg.name}
+                          </span>
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={cfg.isEnabled}
+                              onChange={(e) => {
+                                const next = [...placementConfigs];
+                                next[idx] = {
+                                  ...cfg,
+                                  isEnabled: e.target.checked,
+                                };
+                                setPlacementConfigs(next);
+                              }}
+                            />
+                            <span>{cfg.isEnabled ? 'Enabled' : 'Disabled'}</span>
+                          </label>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {cfg.description}
+                        </p>
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold ${
+                              cfg.livePaymentsApproved
+                                ? 'bg-emerald-100 text-emerald-900'
+                                : 'bg-amber-100 text-amber-900'
+                            }`}
+                          >
+                            {cfg.livePaymentsApproved
+                              ? 'Live Razorpay Approved'
+                              : 'Proposed Pricing (Sandbox Mode)'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5 pt-1">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                              7 Days Fee (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={pkg7?.priceInr ?? 99}
+                              onChange={(e) => {
+                                const val = Math.max(
+                                  1,
+                                  Number(e.target.value) || 1
+                                );
+                                const next = [...placementConfigs];
+                                next[idx] = {
+                                  ...cfg,
+                                  packages: cfg.packages.map((p) =>
+                                    p.days === 7
+                                      ? { ...p, priceInr: val }
+                                      : p
+                                  ),
+                                };
+                                setPlacementConfigs(next);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                              30 Days Fee (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={pkg30?.priceInr ?? 299}
+                              onChange={(e) => {
+                                const val = Math.max(
+                                  1,
+                                  Number(e.target.value) || 1
+                                );
+                                const next = [...placementConfigs];
+                                next[idx] = {
+                                  ...cfg,
+                                  packages: cfg.packages.map((p) =>
+                                    p.days === 30
+                                      ? { ...p, priceInr: val }
+                                      : p
+                                  ),
+                                };
+                                setPlacementConfigs(next);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Sponsored Product Campaigns & Moderation Ledger */}
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900">
+                      Sponsored Product Campaigns &amp; Moderation (
+                      {adminCampaigns.length})
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Monitor active seller product promotions, impressions, clicks, CTR, and approve/pause/reject campaigns.
+                    </p>
+                  </div>
+                  <select
+                    value={campaignStatusFilter}
+                    onChange={(e) =>
+                      setCampaignStatusFilter(
+                        e.target.value as
+                          | 'ALL'
+                          | 'ACTIVE'
+                          | 'PAUSED'
+                          | 'EXPIRED'
+                          | 'REJECTED'
+                      )
+                    }
+                    className="px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-50 text-xs font-semibold"
+                  >
+                    <option value="ALL">All Campaign Statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="PAUSED">Paused</option>
+                    <option value="EXPIRED">Expired</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                        <th className="py-3 px-4 font-bold">
+                          Product &amp; Store
+                        </th>
+                        <th className="py-3 px-4 font-bold">
+                          Placement &amp; City
+                        </th>
+                        <th className="py-3 px-4 font-bold">Duration</th>
+                        <th className="py-3 px-4 font-bold text-right">
+                          Fee Paid
+                        </th>
+                        <th className="py-3 px-4 font-bold text-right">
+                          Impressions / Clicks
+                        </th>
+                        <th className="py-3 px-4 font-bold">Status</th>
+                        <th className="py-3 px-4 font-bold text-right">
+                          Moderation
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {adminCampaigns
+                        .filter((c) => {
+                          if (campaignStatusFilter === 'ALL') return true;
+                          return c.status === campaignStatusFilter;
+                        })
+                        .map((c) => {
+                          const ctr =
+                            c.impressions > 0
+                              ? ((c.clicks / c.impressions) * 100).toFixed(1)
+                              : '0.0';
+                          const displayCity = c.city || c.cityName;
+                          const displayCategory = c.category || c.categoryName;
+                          const displayFee = c.pricePaid ?? c.budgetInr;
+                          return (
+                            <tr key={c.id}>
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-slate-900">
+                                  {c.targetProductName || c.storeName}
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  Store: {c.storeName} · ID: {c.id}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="font-semibold text-[#003B8E]">
+                                  {c.placementLabel || c.type}
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  {displayCity}
+                                  {displayCategory ? ` · ${displayCategory}` : ''}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
+                                {c.durationDays}d (
+                                {new Date(c.startDate).toLocaleDateString()} →{' '}
+                                {new Date(c.endDate).toLocaleDateString()})
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                {formatCurrency(displayFee, c.currency)}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono">
+                                {c.impressions.toLocaleString()} imp ·{' '}
+                                {c.clicks.toLocaleString()} clk ({ctr}%)
+                              </td>
+                              <td className="py-3 px-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                                    c.status === 'ACTIVE'
+                                      ? 'bg-emerald-100 text-emerald-900'
+                                      : c.status === 'PAUSED'
+                                        ? 'bg-amber-100 text-amber-900'
+                                        : c.status === 'REJECTED'
+                                          ? 'bg-rose-100 text-rose-900'
+                                          : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  {c.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="inline-flex items-center gap-1.5">
+                                  {c.status !== 'ACTIVE' &&
+                                    c.status !== 'EXPIRED' && (
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const headers = await getAuthHeaders();
+                                          await fetch(
+                                            '/api/billing/campaigns',
+                                            {
+                                              method: 'POST',
+                                              headers,
+                                              body: JSON.stringify({
+                                                action: 'ADMIN_UPDATE',
+                                                campaignId: c.id,
+                                                status: 'ACTIVE',
+                                                approvalStatus: 'APPROVED',
+                                                actorUid:
+                                                  authenticatedUser?.id ||
+                                                  'super-admin',
+                                                actorPhone:
+                                                  authenticatedUser?.phoneE164 ||
+                                                  DESIGNATED_OWNER_PHONE,
+                                              }),
+                                            }
+                                          );
+                                          await fetchDashboardData();
+                                        }}
+                                        className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold cursor-pointer"
+                                      >
+                                        Approve / Resume
+                                      </button>
+                                    )}
+                                  {c.status === 'ACTIVE' && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const headers = await getAuthHeaders();
+                                        await fetch('/api/billing/campaigns', {
+                                          method: 'POST',
+                                          headers,
+                                          body: JSON.stringify({
+                                            action: 'ADMIN_UPDATE',
+                                            campaignId: c.id,
+                                            status: 'PAUSED',
+                                            actorUid:
+                                              authenticatedUser?.id ||
+                                              'super-admin',
+                                            actorPhone:
+                                              authenticatedUser?.phoneE164 ||
+                                              DESIGNATED_OWNER_PHONE,
+                                          }),
+                                        });
+                                        await fetchDashboardData();
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 font-semibold cursor-pointer"
+                                    >
+                                      Pause
+                                    </button>
+                                  )}
+                                  {c.status !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const headers = await getAuthHeaders();
+                                        await fetch('/api/billing/campaigns', {
+                                          method: 'POST',
+                                          headers,
+                                          body: JSON.stringify({
+                                            action: 'ADMIN_UPDATE',
+                                            campaignId: c.id,
+                                            status: 'REJECTED',
+                                            approvalStatus: 'REJECTED',
+                                            actorUid:
+                                              authenticatedUser?.id ||
+                                              'super-admin',
+                                            actorPhone:
+                                              authenticatedUser?.phoneE164 ||
+                                              DESIGNATED_OWNER_PHONE,
+                                          }),
+                                        });
+                                        await fetchDashboardData();
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 font-semibold cursor-pointer"
+                                    >
+                                      Reject
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

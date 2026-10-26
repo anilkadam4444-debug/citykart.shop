@@ -358,6 +358,34 @@ export async function POST(req: NextRequest) {
             {status: 401}
           );
         }
+      } else {
+        // When no Firebase ID token is attached, require that VALIDATE_PHONE was recently completed
+        // for this phone number within the active rate-limit window, and block if strict token enforcement is set.
+        const recentValidation = requestRateLimits.get(phoneE164);
+        const hasRecentValidation =
+          Boolean(recentValidation) &&
+          Date.now() - (recentValidation?.lastRequestedAtMs || 0) <=
+            RATE_WINDOW_MS;
+
+        if (
+          process.env.ENFORCE_FIREBASE_ID_TOKEN === 'true' ||
+          !hasRecentValidation
+        ) {
+          logSystemHealthEvent({
+            category: 'AUTH_ERROR',
+            severity: 'WARNING',
+            title: 'Unverified OTP Resolution Blocked',
+            message: `Blocked RESOLVE_FIREBASE_USER for ${phoneE164} without a verified Firebase ID token or active OTP challenge.`,
+          });
+          return NextResponse.json(
+            {
+              error:
+                'Phone verification requires an active OTP session or verified Firebase ID token. Please request a new verification code.',
+              errorCode: 'auth/missing-id-token',
+            },
+            {status: 401}
+          );
+        }
       }
 
       const countryRecord = getCountryRecordByCodeOrName(countryCode);
@@ -688,7 +716,7 @@ export async function POST(req: NextRequest) {
 
     // 4. UPGRADE EXISTING ACCOUNT TO SELLER
     if (action === 'UPGRADE_TO_SELLER') {
-      const phoneE164 = String(body.phoneE164 || '').trim();
+      const phoneE164 = normalizePhoneE164(String(body.phoneE164 || '').trim());
       const sellerId = String(body.sellerId || '').trim();
       const storeId = String(body.storeId || '').trim();
       const fullName = String(body.fullName || '').trim();
@@ -704,6 +732,40 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Verify caller identity via signed session cookie or Bearer/body Firebase ID token
+      const cookieToken = req.cookies.get('urbandirect_session')?.value;
+      const sessionPayload = verifySignedSessionToken(cookieToken);
+      const authHeader = req.headers.get('authorization') || '';
+      const bearerToken = authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7).trim()
+        : typeof body.idToken === 'string'
+          ? body.idToken.trim()
+          : '';
+
+      let verifiedPhone = normalizePhoneE164(sessionPayload?.phoneE164);
+      let verifiedUid = sessionPayload?.firebaseUid || sessionPayload?.userId || '';
+
+      if (bearerToken) {
+        const verifiedToken = await verifyFirebaseIdTokenCryptographically(bearerToken);
+        if (verifiedToken) {
+          verifiedUid = verifiedToken.uid;
+          if (verifiedToken.phoneE164) {
+            verifiedPhone = verifiedToken.phoneE164;
+          }
+        }
+      }
+
+      if (!verifiedPhone || verifiedPhone !== phoneE164) {
+        return NextResponse.json(
+          {
+            error:
+              'Unauthorized: You must be signed in with the verified mobile number to upgrade your account to a seller profile.',
+          },
+          {status: 401}
+        );
+      }
+
+      const effectiveUid = verifiedUid || firebaseUid;
       const countryRecord = getCountryRecordByCodeOrName(countryCode);
       const existing =
         (await findUserAccountByPhoneInFirestore(phoneE164)) ||
@@ -712,7 +774,7 @@ export async function POST(req: NextRequest) {
       const updated: UserAccount = existing
         ? {
             ...existing,
-            uid: firebaseUid || existing.uid || existing.id,
+            uid: effectiveUid || existing.uid || existing.id,
             fullName: fullName || existing.fullName,
             roles: Array.from(
               new Set([

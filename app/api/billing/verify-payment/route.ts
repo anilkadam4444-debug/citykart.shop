@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import {
   BillingTransaction,
   MerchantSubscription,
@@ -10,6 +10,7 @@ import {
   SubscriptionTierId,
   BillingCycle,
 } from '@/lib/revenue-model';
+import { getAuthoritativeSubscriptionPlansAsync } from '@/lib/super-admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,9 +28,6 @@ export async function POST(req: NextRequest) {
       gatewayOrderId,
       gatewaySignature,
       invoiceNumber,
-      totalAmount,
-      taxAmount,
-      basePrice,
     } = body;
 
     if (!sellerId || !storeId || !planId || !gatewaySignature || !gatewayOrderId || !gatewayPaymentId) {
@@ -50,8 +48,49 @@ export async function POST(req: NextRequest) {
       .update(`${gatewayOrderId}|${gatewayPaymentId}`)
       .digest('hex');
 
-    if (generatedSignature !== gatewaySignature) {
+    const genBuf = Buffer.from(generatedSignature, 'utf8');
+    const recBuf = Buffer.from(String(gatewaySignature), 'utf8');
+    if (genBuf.length !== recBuf.length || !crypto.timingSafeEqual(genBuf, recBuf)) {
       return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
+    }
+
+    const plans = await getAuthoritativeSubscriptionPlansAsync();
+    const plan = plans[planId as SubscriptionTierId] || SUBSCRIPTION_PLANS[planId as SubscriptionTierId];
+    if (!plan) {
+      return NextResponse.json({ error: 'Invalid subscription tier selected' }, { status: 400 });
+    }
+
+    // Compute authoritative server-side pricing (never trust client-sent totalAmount)
+    const isAnnual = billingCycle === 'ANNUAL';
+    const basePrice =
+      currency === 'USD'
+        ? isAnnual
+          ? plan.annualPriceUsd
+          : plan.monthlyPriceUsd
+        : isAnnual
+          ? plan.annualPriceInr
+          : plan.monthlyPriceInr;
+    const taxRate = currency === 'INR' ? 0.18 : 0.0;
+    const taxAmount = Math.round(basePrice * taxRate * 100) / 100;
+    const totalAmount = Math.round((basePrice + taxAmount) * 100) / 100;
+
+    const txId = `tx_${gatewayPaymentId}`; // Use gateway ID for idempotency
+
+    // Idempotency check: if transaction already verified, return existing record
+    try {
+      const existingTxSnap = await getDoc(doc(db, 'billingTransactions', txId));
+      if (existingTxSnap.exists()) {
+        const existingSubSnap = await getDoc(doc(db, 'merchantSubscriptions', `sub_${storeId}`));
+        return NextResponse.json({
+          success: true,
+          idempotentReplay: true,
+          transaction: existingTxSnap.data(),
+          subscription: existingSubSnap.exists() ? existingSubSnap.data() : undefined,
+          message: `Subscription payment already verified (${plan.name}).`,
+        });
+      }
+    } catch {
+      // Proceed if check fails
     }
 
     const now = new Date();
@@ -62,18 +101,15 @@ export async function POST(req: NextRequest) {
       periodEnd.setMonth(now.getMonth() + 1);
     }
 
-    const txId = `tx_${gatewayPaymentId}`; // Use gateway ID for idempotency
-    const plan = SUBSCRIPTION_PLANS[planId as SubscriptionTierId] || SUBSCRIPTION_PLANS.FREE;
-
     const transaction: BillingTransaction = {
       id: txId,
       sellerId,
       storeId,
       type: 'SUBSCRIPTION',
       description: `Citykart ${plan.name} (${billingCycle}) Plan Subscription`,
-      amount: basePrice || 0,
-      taxAmount: taxAmount || 0,
-      totalAmount: totalAmount || 0,
+      amount: basePrice,
+      taxAmount,
+      totalAmount,
       currency: currency as 'INR' | 'USD',
       status: 'SUCCESS',
       paymentGateway: paymentGateway as 'RAZORPAY' | 'STRIPE',
@@ -81,6 +117,12 @@ export async function POST(req: NextRequest) {
       invoiceNumber: invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
       createdAt: now.toISOString(),
     };
+
+    // Find and reserve entries
+    const ledgerEntriesSnap = await adminDb.collection('platformFeeLedger')
+        .where('invoiceNumber', '==', invoiceNumber)
+        .where('status', '==', 'reserved_for_invoice')
+        .get();
 
     const subscription: MerchantSubscription = {
       id: `sub_${storeId}`, // One subscription record per store
@@ -114,6 +156,11 @@ export async function POST(req: NextRequest) {
         subscriptionStatus: 'ACTIVE',
         subscriptionExpiry: subscription.currentPeriodEnd 
       }, { merge: true });
+
+      // Update fees
+      ledgerEntriesSnap.forEach(docSnap => {
+        batch.update(docSnap.ref, { status: 'paid', updatedAt: now.toISOString() });
+      });
 
       await batch.commit();
     } catch (adminErr) {

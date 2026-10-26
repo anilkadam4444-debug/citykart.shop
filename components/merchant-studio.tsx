@@ -30,7 +30,10 @@ import {
   Trash2,
   AlertTriangle,
   ShieldCheck,
+  FileSpreadsheet,
+  Sparkles,
 } from 'lucide-react';
+import { SellerBulkUploadModal } from './seller-bulk-upload-modal';
 import { useUrbanDirect } from '@/components/urbandirect-provider';
 import {
   ArtworkPreset,
@@ -123,6 +126,7 @@ interface DraftProductState {
   categoryId: StoreCategoryId;
   category: StoreCategoryName;
   price: string;
+  deliveryCharge: string;
   storeId: string;
   deliveryMins: string;
   stock: string;
@@ -143,6 +147,7 @@ const DEFAULT_DRAFT: DraftProductState = {
   categoryId: 'cat-18-home-kitchen-appliances',
   category: 'Home & Kitchen Appliances',
   price: '175',
+  deliveryCharge: '0',
   storeId: 'store-1',
   deliveryMins: '25',
   stock: '12',
@@ -224,6 +229,8 @@ export function MerchantStudio({
     handleMarkNotificationRead,
     handleClearNotifications,
     handleDeleteStore: providerHandleDeleteStore,
+    handleVerifyOrderDeliveryPin,
+    handleUpdateOrderPaymentStatus,
     userOwnedStores = [],
   } = useUrbanDirect();
 
@@ -260,6 +267,16 @@ export function MerchantStudio({
   const [sellerOrderFilter, setSellerOrderFilter] = useState<'ALL' | 'NEW' | 'PREPARING' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED'>('ALL');
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
+  const [pinInputByOrder, setPinInputByOrder] = useState<Record<string, string>>({});
+  const [verifyingPinOrderId, setVerifyingPinOrderId] = useState<string | null>(null);
+  const [pinFeedbackByOrder, setPinFeedbackByOrder] = useState<
+    Record<string, { type: 'success' | 'error'; message: string }>
+  >({});
+  const [updatingPaymentOrderId, setUpdatingPaymentOrderId] = useState<string | null>(null);
+  const [paymentRefInputByOrder, setPaymentRefInputByOrder] = useState<Record<string, string>>({});
+  const [paymentFeedbackByOrder, setPaymentFeedbackByOrder] = useState<
+    Record<string, { type: 'success' | 'error'; message: string }>
+  >({});
 
   const [showAdvancedProductFields, setShowAdvancedProductFields] =
     useState<boolean>(false);
@@ -299,6 +316,8 @@ export function MerchantStudio({
   const [productFormError, setProductFormError] = useState<string | null>(null);
   const [isPublishingProduct, setIsPublishingProduct] = useState<boolean>(false);
   const [isSubmittingOnboarding, setIsSubmittingOnboarding] = useState<boolean>(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState<boolean>(false);
+  const [promoteProductId, setPromoteProductId] = useState<string | null>(null);
 
   const handleSeedNandedDemo = async () => {
     setIsSyncingDemo(true);
@@ -866,6 +885,12 @@ export function MerchantStudio({
       return;
     }
 
+    const numDeliveryCharge = Number(draft.deliveryCharge || '0');
+    if (isNaN(numDeliveryCharge) || numDeliveryCharge < 0) {
+      setProductFormError('Delivery charge must be a valid non-negative amount (₹).');
+      return;
+    }
+
     const numStock = Number(draft.stock);
     if (isNaN(numStock) || numStock < 0) {
       setProductFormError('Available stock quantity cannot be negative.');
@@ -875,6 +900,7 @@ export function MerchantStudio({
     setIsPublishingProduct(true);
     try {
       const parsedPrice = Math.max(1, numPrice);
+      const parsedDeliveryCharge = Math.max(0, numDeliveryCharge);
       const parsedStock = Math.max(0, numStock);
       const parsedDelivery = Math.max(10, Number(draft.deliveryMins) || 30);
       const variantsList = draft.variantsRaw
@@ -895,6 +921,7 @@ export function MerchantStudio({
         categoryId: catDef.id,
         category: catDef.name,
         price: parsedPrice,
+        deliveryCharge: parsedDeliveryCharge,
         city: selectedStore.city,
         neighborhood: selectedStore.neighborhood,
         distanceKm: 1.5,
@@ -1424,6 +1451,15 @@ export function MerchantStudio({
                 <Plus className="w-4 h-4" />
                 <span>Add product</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setIsBulkUploadModalOpen(true)}
+                className="w-full py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-[#003B8E] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Bulk Upload (CSV / Excel)</span>
+              </button>
             </div>
           </aside>
         )}
@@ -1719,8 +1755,18 @@ export function MerchantStudio({
                   <div className="space-y-4">
                     {filtered.map((ord) => {
                       const status = ord.orderStatus || 'NEW';
+                      const paymentStatus = ord.paymentStatus || 'PENDING';
                       const isNewOrder = status === 'NEW';
                       const isCancelled = status === 'CANCELLED' || status === 'REJECTED';
+                      const isDelivered = status === 'DELIVERED';
+                      const pinStatus = ord.deliveryPinInfo?.status || (isDelivered ? 'VERIFIED' : isCancelled ? 'INVALIDATED' : 'ACTIVE');
+                      const remainingAttempts =
+                        typeof ord.deliveryPinInfo?.remainingAttempts === 'number'
+                          ? ord.deliveryPinInfo.remainingAttempts
+                          : 5;
+                      const currentPinInput = pinInputByOrder[ord.id] || '';
+                      const pinFeedback = pinFeedbackByOrder[ord.id];
+                      const paymentFeedback = paymentFeedbackByOrder[ord.id];
 
                       return (
                         <div
@@ -1755,6 +1801,22 @@ export function MerchantStudio({
                                 }`}>
                                   {status}
                                 </span>
+                                <span
+                                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                                    paymentStatus === 'PAID'
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : paymentStatus === 'DISPUTED'
+                                      ? 'bg-red-50 text-red-800 border-red-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  Payment: {paymentStatus}
+                                </span>
+                                {ord.deliveryPinVerified && (
+                                  <span className="text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                    <ShieldCheck className="w-3 h-3" /> PIN Verified
+                                  </span>
+                                )}
                                 {ord.isDemo && (
                                   <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
                                     Demo Order
@@ -1777,7 +1839,7 @@ export function MerchantStudio({
                               </div>
                             </div>
 
-                            {/* Status Controller / Accept-Reject Controls */}
+                            {/* Status Controller / Accept-Reject Controls (Direct DELIVERED transition disabled; requires 6-digit PIN) */}
                             <div className="flex items-center gap-2 flex-wrap">
                               {isNewOrder ? (
                                 <>
@@ -1798,6 +1860,10 @@ export function MerchantStudio({
                                     Reject
                                   </button>
                                 </>
+                              ) : isDelivered ? (
+                                <span className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-bold inline-flex items-center gap-1.5">
+                                  <Check className="w-3.5 h-3.5" /> Delivered via Buyer PIN
+                                </span>
                               ) : (
                                 <select
                                   id={`status-${ord.id}`}
@@ -1805,6 +1871,7 @@ export function MerchantStudio({
                                   disabled={isCancelled}
                                   onChange={(e) => {
                                     const val = e.target.value as OrderRecord['orderStatus'];
+                                    if (val === 'DELIVERED') return;
                                     const mappedStep =
                                       val === 'NEW' || val === 'CONFIRMED'
                                         ? 0
@@ -1823,7 +1890,6 @@ export function MerchantStudio({
                                   <option value="OUT_FOR_DELIVERY">
                                     Out for delivery
                                   </option>
-                                  <option value="DELIVERED">Delivered</option>
                                   <option value="CANCELLED">Cancelled</option>
                                   <option value="REJECTED">Rejected</option>
                                 </select>
@@ -1904,7 +1970,284 @@ export function MerchantStudio({
                             </div>
                           )}
 
-                          {/* Quick Workflow Action Button */}
+                          {/* Delivery PIN Verification & Separate COD/UPI Payment Collection Grid */}
+                          {!isCancelled && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-stone-200">
+                              {/* 1. Delivery PIN Verification Box */}
+                              <div className="p-3.5 rounded-xl bg-white border border-stone-200 space-y-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                                    <span>Delivery PIN Verification</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                      isDelivered || pinStatus === 'VERIFIED'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : pinStatus === 'LOCKED'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-stone-100 text-stone-700'
+                                    }`}
+                                  >
+                                    {isDelivered || pinStatus === 'VERIFIED'
+                                      ? 'Verified & Delivered'
+                                      : pinStatus === 'LOCKED'
+                                      ? 'Locked (Max Attempts)'
+                                      : `${remainingAttempts} attempts left`}
+                                  </span>
+                                </div>
+
+                                {isDelivered || pinStatus === 'VERIFIED' ? (
+                                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
+                                    <div className="font-semibold">
+                                      Delivery confirmed with buyer&apos;s 6-digit PIN.
+                                    </div>
+                                    {ord.deliveredAt && (
+                                      <div className="text-[11px] text-emerald-700">
+                                        Verified at: {new Date(ord.deliveredAt).toLocaleString()}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : pinStatus === 'LOCKED' ? (
+                                  <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
+                                    PIN verification is locked after 5 failed attempts. Ask the customer to open their Orders page and click <strong>Resend / Regenerate PIN</strong> to issue a fresh 6-digit PIN.
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className="text-[11px] text-stone-600 leading-relaxed">
+                                      Hand over the items first, then enter the 6-digit numeric Delivery PIN shared by the customer to mark this order as <strong>Delivered</strong>.
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]{6}"
+                                        maxLength={6}
+                                        value={currentPinInput}
+                                        onChange={(e) => {
+                                          const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                          setPinInputByOrder((prev) => ({
+                                            ...prev,
+                                            [ord.id]: digitsOnly,
+                                          }));
+                                        }}
+                                        placeholder="Enter 6-digit PIN"
+                                        className="w-40 px-3 py-2 rounded-lg border border-stone-300 font-mono text-sm tracking-widest font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          verifyingPinOrderId === ord.id ||
+                                          currentPinInput.length !== 6
+                                        }
+                                        onClick={async () => {
+                                          if (!handleVerifyOrderDeliveryPin) return;
+                                          setVerifyingPinOrderId(ord.id);
+                                          setPinFeedbackByOrder((prev) => {
+                                            const next = { ...prev };
+                                            delete next[ord.id];
+                                            return next;
+                                          });
+                                          try {
+                                            const res = await handleVerifyOrderDeliveryPin(
+                                              ord.id,
+                                              currentPinInput,
+                                              activeSellerId
+                                            );
+                                            if (res.success) {
+                                              setPinInputByOrder((prev) => ({
+                                                ...prev,
+                                                [ord.id]: '',
+                                              }));
+                                              setPinFeedbackByOrder((prev) => ({
+                                                ...prev,
+                                                [ord.id]: {
+                                                  type: 'success',
+                                                  message:
+                                                    res.message ||
+                                                    'Delivery PIN verified! Order marked as Delivered.',
+                                                },
+                                              }));
+                                            } else {
+                                              setPinFeedbackByOrder((prev) => ({
+                                                ...prev,
+                                                [ord.id]: {
+                                                  type: 'error',
+                                                  message:
+                                                    res.message ||
+                                                    'Invalid Delivery PIN. Please check with the buyer.',
+                                                },
+                                              }));
+                                            }
+                                          } finally {
+                                            setVerifyingPinOrderId(null);
+                                          }
+                                        }}
+                                        className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-300 text-white text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                      >
+                                        {verifyingPinOrderId === ord.id
+                                          ? 'Verifying...'
+                                          : 'Verify Delivery'}
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+
+                                {pinFeedback && (
+                                  <div
+                                    className={`p-2 rounded-lg text-xs font-medium border ${
+                                      pinFeedback.type === 'success'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-red-50 text-red-800 border-red-200'
+                                    }`}
+                                  >
+                                    {pinFeedback.message}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 2. Separate COD / UPI Payment Collection Box */}
+                              <div className="p-3.5 rounded-xl bg-white border border-stone-200 space-y-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                                    <CreditCard className="w-4 h-4 text-stone-700" />
+                                    <span>Payment Collection (Separate from PIN)</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                      paymentStatus === 'PAID'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : paymentStatus === 'DISPUTED'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }`}
+                                  >
+                                    {paymentStatus}
+                                  </span>
+                                </div>
+
+                                <p className="text-[11px] text-stone-600 leading-relaxed">
+                                  Delivery PIN verification confirms product handover only. Record{' '}
+                                  <strong>
+                                    {ord.paymentMethod === 'UPI_ON_DELIVERY'
+                                      ? 'UPI on Delivery'
+                                      : 'Cash on Delivery'}
+                                  </strong>{' '}
+                                  collection separately below.
+                                </p>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={paymentRefInputByOrder[ord.id] ?? (ord.paymentReferenceNote || '')}
+                                    onChange={(e) =>
+                                      setPaymentRefInputByOrder((prev) => ({
+                                        ...prev,
+                                        [ord.id]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder={
+                                      ord.paymentMethod === 'UPI_ON_DELIVERY'
+                                        ? 'Optional UPI UTR / ref note'
+                                        : 'Optional cash receipt note'
+                                    }
+                                    className="flex-1 min-w-[150px] px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs text-stone-800"
+                                  />
+                                  {paymentStatus !== 'PAID' ? (
+                                    <button
+                                      type="button"
+                                      disabled={updatingPaymentOrderId === ord.id}
+                                      onClick={async () => {
+                                        if (!handleUpdateOrderPaymentStatus) return;
+                                        setUpdatingPaymentOrderId(ord.id);
+                                        try {
+                                          const res = await handleUpdateOrderPaymentStatus(
+                                            ord.id,
+                                            'PAID',
+                                            {
+                                              actorSellerId: activeSellerId,
+                                              collectionMethod:
+                                                ord.paymentMethod === 'UPI_ON_DELIVERY'
+                                                  ? 'UPI_ON_DELIVERY'
+                                                  : 'CASH_ON_DELIVERY',
+                                              referenceNote: paymentRefInputByOrder[ord.id],
+                                            }
+                                          );
+                                          setPaymentFeedbackByOrder((prev) => ({
+                                            ...prev,
+                                            [ord.id]: {
+                                              type: res.success ? 'success' : 'error',
+                                              message:
+                                                res.message ||
+                                                (res.success
+                                                  ? 'Payment marked as PAID.'
+                                                  : 'Could not update payment status.'),
+                                            },
+                                          }));
+                                        } finally {
+                                          setUpdatingPaymentOrderId(null);
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                                    >
+                                      {updatingPaymentOrderId === ord.id
+                                        ? 'Saving...'
+                                        : ord.paymentMethod === 'UPI_ON_DELIVERY'
+                                        ? 'Confirm UPI Received'
+                                        : 'Confirm Cash Collected'}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={updatingPaymentOrderId === ord.id}
+                                      onClick={async () => {
+                                        if (!handleUpdateOrderPaymentStatus) return;
+                                        setUpdatingPaymentOrderId(ord.id);
+                                        try {
+                                          const res = await handleUpdateOrderPaymentStatus(
+                                            ord.id,
+                                            'PENDING',
+                                            {
+                                              actorSellerId: activeSellerId,
+                                              referenceNote: paymentRefInputByOrder[ord.id],
+                                            }
+                                          );
+                                          setPaymentFeedbackByOrder((prev) => ({
+                                            ...prev,
+                                            [ord.id]: {
+                                              type: res.success ? 'success' : 'error',
+                                              message:
+                                                res.message ||
+                                                'Payment reverted to PENDING.',
+                                            },
+                                          }));
+                                        } finally {
+                                          setUpdatingPaymentOrderId(null);
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-xs font-semibold cursor-pointer"
+                                    >
+                                      Mark Pending
+                                    </button>
+                                  )}
+                                </div>
+
+                                {paymentFeedback && (
+                                  <div
+                                    className={`p-2 rounded-lg text-xs font-medium border ${
+                                      paymentFeedback.type === 'success'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-red-50 text-red-800 border-red-200'
+                                    }`}
+                                  >
+                                    {paymentFeedback.message}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Quick Workflow Action Button (Prep & Dispatch only — Delivery completion requires PIN above) */}
                           {!isCancelled && status !== 'DELIVERED' && (
                             <div className="pt-2 border-t border-stone-200 flex items-center justify-end gap-2">
                               {status === 'CONFIRMED' && (
@@ -1927,17 +2270,6 @@ export function MerchantStudio({
                                   className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
                                 >
                                   Dispatch Out for Delivery
-                                </button>
-                              )}
-                              {status === 'OUT_FOR_DELIVERY' && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    onUpdateOrderStep(ord.id, 3, 'DELIVERED')
-                                  }
-                                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                                >
-                                  Mark Order Delivered & Paid
                                 </button>
                               )}
                             </div>
@@ -2040,56 +2372,136 @@ export function MerchantStudio({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {sellerNotifications.map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                        !notif.isRead
-                          ? 'bg-amber-50/60 border-amber-300 shadow-xs'
-                          : 'bg-[#FAF9F6] border-stone-200 opacity-90'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          {!notif.isRead && (
-                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                          )}
-                          <span className="text-xs font-bold text-stone-900">
-                            {notif.title}
-                          </span>
-                          <span className="text-[10px] text-stone-400 font-mono">
-                            {new Date(notif.createdAt).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                        <p className="text-xs text-stone-700">{notif.message}</p>
-                      </div>
+                  {sellerNotifications.map((notif) => {
+                    const matchedOrder = orders.find(
+                      (o) => o.id === notif.orderId
+                    );
+                    const buyerPhone =
+                      notif.buyerPhone ||
+                      matchedOrder?.sellerUnifiedNotification?.buyerPhone ||
+                      matchedOrder?.customer.phone;
+                    const buyerFullAddress =
+                      notif.buyerFullAddress ||
+                      matchedOrder?.sellerUnifiedNotification?.buyerFullAddress ||
+                      (matchedOrder
+                        ? [
+                            matchedOrder.customer.address,
+                            matchedOrder.customer.locality,
+                            matchedOrder.customer.city,
+                            matchedOrder.customer.stateRegion,
+                            matchedOrder.customer.country,
+                          ]
+                            .filter(Boolean)
+                            .join(', ') +
+                          (matchedOrder.customer.postalCode
+                            ? ` - ${matchedOrder.customer.postalCode}`
+                            : '')
+                        : undefined);
+                    const deliveryNotes =
+                      notif.deliveryNotes ||
+                      matchedOrder?.sellerUnifiedNotification?.deliveryNotes ||
+                      matchedOrder?.customer.notes?.trim() ||
+                      undefined;
+                    const smsText =
+                      notif.smsText ||
+                      matchedOrder?.sellerUnifiedNotification?.smsText;
 
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                        {!notif.isRead && (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkNotificationRead(notif.id)}
-                            className="px-2.5 py-1 text-xs text-stone-600 hover:text-stone-900 border border-stone-200 rounded-md bg-white cursor-pointer"
-                          >
-                            Mark read
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleMarkNotificationRead(notif.id);
-                            setActiveSection('orders');
-                          }}
-                          className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                        >
-                          View Order
-                        </button>
+                    return (
+                      <div
+                        key={notif.id}
+                        className={`p-4 rounded-xl border flex flex-col justify-between gap-3 transition-all ${
+                          !notif.isRead
+                            ? 'bg-amber-50/60 border-amber-300 shadow-xs'
+                            : 'bg-[#FAF9F6] border-stone-200 opacity-90'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="space-y-1.5 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {!notif.isRead && (
+                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                              )}
+                              <span className="text-xs font-bold text-stone-900">
+                                {notif.title}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Single Unified Push + SMS Alert
+                              </span>
+                              <span className="text-[10px] text-stone-400 font-mono">
+                                {new Date(notif.createdAt).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-xs text-stone-700 leading-relaxed">
+                              {notif.message}
+                            </p>
+
+                            {(buyerPhone || buyerFullAddress || deliveryNotes) && (
+                              <div className="mt-2 p-2.5 rounded-lg bg-white border border-stone-200 space-y-1 text-xs text-stone-700">
+                                {buyerPhone && (
+                                  <div className="flex items-center gap-1.5">
+                                    <Phone className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
+                                    <span className="font-semibold text-stone-900">
+                                      Buyer Mobile:
+                                    </span>
+                                    <span className="font-mono font-bold text-[#003B8E]">
+                                      {buyerPhone}
+                                    </span>
+                                  </div>
+                                )}
+                                {buyerFullAddress && (
+                                  <div className="flex items-start gap-1.5">
+                                    <MapPin className="w-3.5 h-3.5 text-[#003B8E] shrink-0 mt-0.5" />
+                                    <div>
+                                      <span className="font-semibold text-stone-900">
+                                        Full Buyer Address:{' '}
+                                      </span>
+                                      <span>{buyerFullAddress}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {deliveryNotes && (
+                                  <div className="text-[11px] text-amber-900 bg-amber-50 px-2 py-1 rounded border border-amber-200 font-medium">
+                                    <strong>Delivery Note:</strong> {deliveryNotes}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {smsText && (
+                              <div className="mt-1.5 p-2 rounded-lg bg-stone-900 text-stone-100 font-mono text-[11px] leading-relaxed">
+                                {smsText}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-start">
+                            {!notif.isRead && (
+                              <button
+                                type="button"
+                                onClick={() => handleMarkNotificationRead(notif.id)}
+                                className="px-2.5 py-1 text-xs text-stone-600 hover:text-stone-900 border border-stone-200 rounded-md bg-white cursor-pointer"
+                              >
+                                Mark read
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleMarkNotificationRead(notif.id);
+                                setActiveSection('orders');
+                              }}
+                              className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                            >
+                              View Order
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2109,14 +2521,37 @@ export function MerchantStudio({
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveSection('add-product')}
-                  className="px-4 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition-colors inline-flex items-center gap-1.5 self-start cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add product</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2.5 self-start">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPromoteProductId(authorizedProducts[0]?.id || null);
+                      setActiveSection('billing');
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#F96302]" />
+                    <span>Sponsored Campaigns</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkUploadModalOpen(true)}
+                    className="px-4 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Bulk Upload Products</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('add-product')}
+                    className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add product</span>
+                  </button>
+                </div>
               </div>
 
               {authorizedProducts.length === 0 ? (
@@ -2128,13 +2563,23 @@ export function MerchantStudio({
                     Add your first product so nearby customers can start
                     ordering from your store.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveSection('add-product')}
-                    className="mt-4 px-4 py-2 rounded-lg bg-stone-900 text-white text-xs font-medium cursor-pointer"
-                  >
-                    + Add your first product
-                  </button>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection('add-product')}
+                      className="px-4 py-2 rounded-lg bg-stone-900 text-white text-xs font-medium cursor-pointer"
+                    >
+                      + Add single product
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkUploadModalOpen(true)}
+                      className="px-4 py-2 rounded-lg bg-[#003B8E] text-white text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Bulk Upload (CSV / Excel)</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -2205,6 +2650,29 @@ export function MerchantStudio({
                           </div>
 
                           <div>
+                            <label
+                              htmlFor={`delivery-charge-${prod.id}`}
+                              className="block text-[11px] text-stone-500 mb-0.5"
+                            >
+                              Delivery Charge (₹)
+                            </label>
+                            <input
+                              id={`delivery-charge-${prod.id}`}
+                              type="number"
+                              min="0"
+                              value={prod.deliveryCharge ?? 0}
+                              onChange={(e) => {
+                                const nextCharge = Math.max(
+                                  0,
+                                  Number(e.target.value) || 0
+                                );
+                                onUpdateProduct({...prod, deliveryCharge: nextCharge});
+                              }}
+                              className="w-24 px-2.5 py-1.5 text-xs bg-white border border-stone-300 rounded-lg font-mono tabular-nums"
+                            />
+                          </div>
+
+                          <div>
                             <span className="block text-[11px] text-stone-500 mb-0.5">
                               Available stock
                             </span>
@@ -2242,6 +2710,19 @@ export function MerchantStudio({
                               </button>
                             </div>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPromoteProductId(prod.id);
+                              setActiveSection('billing');
+                            }}
+                            title="Promote this product in local buyer discovery"
+                            className="px-3 py-1.5 text-xs font-semibold border border-amber-300 text-amber-950 rounded-lg bg-amber-50 hover:bg-amber-100 cursor-pointer mt-4 sm:mt-0 inline-flex items-center gap-1.5"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-[#F96302]" />
+                            <span>Promote Product</span>
+                          </button>
 
                           <button
                             type="button"
@@ -2351,7 +2832,7 @@ export function MerchantStudio({
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-stone-900 mb-1">
                         Price (INR ₹) *
@@ -2367,6 +2848,26 @@ export function MerchantStudio({
                         value={draft.price}
                         onChange={(e) =>
                           updateDraftField('price', e.target.value)
+                        }
+                        className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg font-mono tabular-nums focus:outline-none focus:border-stone-900 focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-900 mb-1">
+                        Delivery Charge (₹) *
+                      </label>
+                      <p className="text-[11px] text-stone-500 mb-1.5">
+                        Applied per unit. Enter 0 for Free Delivery.
+                      </p>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        placeholder="e.g. 0 or 40"
+                        value={draft.deliveryCharge}
+                        onChange={(e) =>
+                          updateDraftField('deliveryCharge', e.target.value)
                         }
                         className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg font-mono tabular-nums focus:outline-none focus:border-stone-900 focus:bg-white"
                       />
@@ -3611,9 +4112,12 @@ export function MerchantStudio({
           {/* SECTION 8: PLANS & BILLING */}
           {activeSection === 'billing' && activeSeller && primarySellerStore && (
             <SellerPlansBilling
+              key={promoteProductId || 'default-billing'}
               seller={activeSeller}
               store={primarySellerStore}
               products={authorizedProducts}
+              initialTab={promoteProductId ? 'advertising' : 'plan'}
+              initialPromoteProductId={promoteProductId}
             />
           )}
 
@@ -3747,6 +4251,27 @@ export function MerchantStudio({
             </div>
           </div>
         </div>
+      )}
+
+      {/* BULK PRODUCT UPLOAD MODAL */}
+      {primarySellerStore && (
+        <SellerBulkUploadModal
+          key={`${isBulkUploadModalOpen}-${primarySellerStore.id}`}
+          isOpen={isBulkUploadModalOpen}
+          activeStore={primarySellerStore}
+          activeSellerId={activeSellerId}
+          ownerUid={authenticatedUser?.uid}
+          existingProducts={products}
+          onClose={() => setIsBulkUploadModalOpen(false)}
+          onImportComplete={(newCommittedProducts) => {
+            for (const p of newCommittedProducts) {
+              onAddProduct(p);
+            }
+            setPublishBanner(
+              `Bulk product upload complete: ${newCommittedProducts.length} items synced to ${primarySellerStore.name}.`
+            );
+          }}
+        />
       )}
     </div>
   );

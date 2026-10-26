@@ -1,71 +1,38 @@
-# Implementation Plan — Razorpay Seller Subscriptions
+# Implementation Plan — Platform Fee System
 
-Integrate Razorpay Standard Checkout into Citykart.shop to enable sellers to pay for subscription plans (`FREE`, `GROWTH`, `BUSINESS_PRO`).
+Implement a 2% (capped at ₹70/unit) platform fee system accrued per order and collected during subscription renewal.
 
-## User Review & Critical Decisions
+## 1. Data Schema Extensions
+- `platform_fee_ledger` (Firestore Collection):
+  - `id`: string
+  - `sellerId`: string
+  - `orderId`: string
+  - `amount`: number
+  - `currency`: string
+  - `status`: 'pending_eligibility' | 'outstanding' | 'paid' | 'reversed'
+  - `createdAt`: ISO string
 
-> [!IMPORTANT]
-> - **Integration Mode**: We are using **Razorpay Orders** (Standard Checkout). Sellers will pay for a specific duration (Monthly/Annual).
-> - **Currency**: Payments will be processed in **INR** with **18% GST** automatically applied for Indian merchants.
-> - **Secrets**: Keys will be managed via environment variables. You must set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` in your deployment environment.
+## 2. Backend Logic (Server-Side Authority)
+- **Fee Accrual**: Triggered on `orderStatus: 'DELIVERED'` in `orders-registry`. Updates `platform_fee_ledger` entries to `outstanding`.
+- **Renewal Billing (`/app/api/billing/create-checkout`)**:
+  - Fetch `outstanding` fees for the `sellerId`.
+  - Calculate total renewal: `planPrice + tax + outstandingFees`.
+  - Pass breakdown in Razorpay Order notes.
+- **Payment Settlement (`/app/api/billing/verify-payment` & webhook)**:
+  - Validate Razorpay signature.
+  - On `SUCCESS`, atomically update `platform_fee_ledger` entries to `paid`.
 
-- **Confirmed Decision 1**: Standard Checkout (Non-recurring period payments) chosen over recurring subscriptions.
-- **Confirmed Decision 2**: Webhook handler will be implemented to ensure subscription activation even if the browser session is interrupted.
+## 3. Security & Validation
+- Enforce backend-authoritative calculation in all billing routes.
+- Use idempotency keys for all ledger state transitions.
+- Audit Firestore rules to prevent seller-initiated fee updates.
 
-## 1. Overview & Core Concept
+## 4. Dashboard UI
+- Seller: "Billing" tab showing outstanding, paid, and itemized fees.
+- Admin: Reconciliation view of collected vs outstanding fees by seller.
 
-Authenticated sellers can select a subscription tier from the Merchant Studio. The system creates a Razorpay Order server-side, opens the Razorpay Checkout modal in the browser, and verifies the payment signature server-side before updating the seller's entitlements in Firestore.
-
-## 2. User Experience & Visual Design
-
-### Key User Flows
-1. **Plan Selection**: Seller navigates to "Plans & Billing" in Merchant Studio.
-2. **Checkout Initiation**: Seller clicks "Switch to [Plan]" or "Upgrade".
-3. **Payment Modal**: Razorpay Checkout modal appears over the UI.
-4. **Processing**: After payment, the modal closes, and a "Verifying..." state appears.
-5. **Success**: Subscription is activated, and a success toast/banner appears.
-
-### Interactive Feedback
-- **Loading States**: Buttons will show "Activating..." while communicating with Razorpay.
-- **Error Handling**: Clear messages if payment is cancelled or verification fails.
-
-## 3. Key Product Decisions & Trade-Offs
-
-- **Decision 1: Period-Based Payments (Orders API)**
-    - *Chosen Approach*: Use Razorpay Orders API.
-    - *Why*: Simpler for users who don't want recurring mandates. Allows for clean "Annual" vs "Monthly" switches without complex mandate migrations.
-- **Decision 2: Server-Side Verification**
-    - *Chosen Approach*: All payments verified via Razorpay HMAC signature on the backend.
-    - *Why*: Prevents "Client-Side Trust" vulnerabilities where a user could spoof a success message.
-
-## 4. Technical Architecture & Data Strategy
-
-```text
-┌────────────────┐      ┌──────────────────┐      ┌────────────────┐
-│ Seller Browser │─────▶│ Next.js API      │─────▶│ Razorpay API   │
-│ (Checkout UI)  │◀─────│ (Order Creator)  │◀─────│ (Order Record) │
-└───────┬────────┘      └────────┬─────────┘      └────────────────┘
-        │                        │
-        │ Payment Success        │
-        ▼                        ▼
-┌────────────────┐      ┌──────────────────┐      ┌────────────────┐
-│ Seller Browser │─────▶│ Next.js API      │─────▶│ Firestore DB   │
-│ (Sig + IDs)    │      │ (Verifier)       │      │ (Update Sub)   │
-└────────────────┘      └────────┬─────────┘      └────────────────┘
-                                 │
-                                 ▼
-                        ┌──────────────────┐
-                        │ Webhook Handler  │
-                        │ (Async Backup)   │
-                        └──────────────────┘
-```
-
-### Data Model & State Updates
-- **`MerchantSubscription`**: `status` updated to `ACTIVE`. `currentPeriodEnd` extended based on cycle.
-- **`BillingTransaction`**: New record created with `status: SUCCESS` and `gatewayTransactionId`.
-
-### Key Sequences
-1. `POST /api/billing/create-checkout`: Calls Razorpay `orders.create`.
-2. Frontend: Calls `window.Razorpay(options).open()`.
-3. `POST /api/billing/verify-payment`: Validates `razorpay_signature`.
-4. `POST /api/billing/webhook`: Validates webhook signature and updates Firestore if not already processed.
+## 5. Next Steps
+1. Define Firestore rules for ledger.
+2. Implement fee accrual Cloud Function/API call on delivery confirmation.
+3. Modify `/app/api/billing/create-checkout/route.ts` to fetch and add outstanding fees.
+4. Modify payment verification to settle ledger entries.

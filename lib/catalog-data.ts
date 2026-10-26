@@ -390,7 +390,7 @@ export interface UserAccount {
   countryCode: string;
   fullName: string;
   roles: ('BUYER' | 'SELLER' | 'ADMIN')[];
-  role?: 'super_admin' | 'buyer' | 'seller';
+  role?: 'super_admin' | 'admin' | 'buyer' | 'seller';
   sellerId?: string;
   storeIds: string[];
   createdAt: string;
@@ -471,6 +471,7 @@ export interface Product {
   categoryId: StoreCategoryId;
   category: StoreCategoryName;
   price: number;
+  deliveryCharge?: number;
   currency?: string;
   unit?: string;
   city: string;
@@ -884,6 +885,7 @@ export interface CartItem {
   product: Product;
   variant: string;
   quantity: number;
+  platformFee: number;
 }
 
 export type PaymentMethod =
@@ -907,6 +909,66 @@ export interface OrderStatusHistoryEvent {
   actor: 'BUYER' | 'SELLER' | 'SYSTEM';
 }
 
+export type PaymentStatus = 'PENDING' | 'PAID' | 'DISPUTED';
+
+export type DeliveryPinLifecycleStatus =
+  | 'ACTIVE'
+  | 'VERIFIED'
+  | 'EXPIRED'
+  | 'LOCKED'
+  | 'INVALIDATED';
+
+export type PinNotificationChannelStatus =
+  | 'DELIVERED_IN_APP_AND_FCM'
+  | 'DELIVERED_IN_APP_ONLY'
+  | 'SMS_SENT'
+  | 'SMS_PROVIDER_NOT_CONFIGURED'
+  | 'FAILED';
+
+export interface DeliveryPinPublicInfo {
+  status: DeliveryPinLifecycleStatus;
+  pinVersion: number;
+  createdAt: string;
+  expiresAt: string;
+  verifiedAt?: string;
+  verifiedByActor?: string;
+  verifiedByRole?: 'SELLER' | 'DELIVERY_AGENT' | 'ADMIN';
+  attemptsUsed: number;
+  maxAttempts: number;
+  remainingAttempts?: number;
+  lastResentAt?: string;
+  resendCount: number;
+  notificationStatus: PinNotificationChannelStatus;
+  notificationDetail?: string;
+  unifiedNotificationDispatched?: boolean;
+}
+
+export interface BuyerUnifiedOrderNotification {
+  title: string;
+  body: string;
+  smsText: string;
+  safetyInstructions: string;
+  sellerPhone: string;
+  estimatedDeliveryMins: number;
+  pushStatus: string;
+  smsStatus: PinNotificationChannelStatus;
+  dispatchedAt: string;
+}
+
+export interface SellerUnifiedOrderNotification {
+  title: string;
+  body: string;
+  smsText: string;
+  sellerPhone: string;
+  buyerFullName: string;
+  buyerPhone: string;
+  buyerFullAddress: string;
+  deliveryNotes?: string;
+  pushStatus: string;
+  smsStatus: PinNotificationChannelStatus;
+  dispatchedAt: string;
+}
+
 export interface OrderRecord {
   id: string;
   createdAt: string;
@@ -914,6 +976,7 @@ export interface OrderRecord {
   storeId: string;
   storeName: string;
   sellerId: string;
+  sellerPhone?: string;
   buyerUid?: string;
   sellerUid?: string;
   idempotencyKey?: string;
@@ -921,9 +984,15 @@ export interface OrderRecord {
   subtotal: number;
   deliveryFee: number;
   discount: number;
+  totalPlatformFee: number;
   total: number;
   paymentMethod: PaymentMethod;
   upiId?: string;
+  paymentStatus?: PaymentStatus;
+  paymentCollectedAt?: string;
+  paymentCollectedBy?: string;
+  paymentCollectionMethod?: PaymentMethod;
+  paymentReferenceNote?: string;
   customer: {
     fullName: string;
     phone: string;
@@ -944,6 +1013,18 @@ export interface OrderRecord {
     | 'DELIVERED'
     | 'CANCELLED'
     | 'REJECTED';
+  deliveredAt?: string;
+  deliveredByActor?: string;
+  deliveryPinVerified?: boolean;
+  deliveryPinInfo?: DeliveryPinPublicInfo;
+  sellerUnifiedNotification?: SellerUnifiedOrderNotification;
+  /**
+   * Transient buyer-only fields attached ONLY to immediate buyer order creation
+   * or authenticated buyer-only PIN responses. Always stripped from seller/public queries.
+   */
+  buyerDeliveryPin?: string;
+  buyerOrderAccessToken?: string;
+  buyerUnifiedNotification?: BuyerUnifiedOrderNotification;
   statusHistory?: OrderStatusHistoryEvent[];
   cancellationReason?: string;
   rejectionReason?: string;

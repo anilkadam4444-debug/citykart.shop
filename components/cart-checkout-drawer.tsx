@@ -18,6 +18,11 @@ import {
   Store as StoreIcon,
   Loader2,
   MapPin,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   CartItem,
@@ -97,6 +102,9 @@ export function CartCheckoutDrawer({
   const [confirmedOrder, setConfirmedOrder] = useState<OrderRecord | null>(
     null
   );
+  const [confirmedPin, setConfirmedPin] = useState<string | null>(null);
+  const [showConfirmedPin, setShowConfirmedPin] = useState<boolean>(true);
+  const [copiedPin, setCopiedPin] = useState<boolean>(false);
 
   // Group items by store for strict multi-merchant separation
   const itemsByStore = useMemo(() => {
@@ -137,24 +145,16 @@ export function CartCheckoutDrawer({
     0
   );
 
-  const freeThreshold =
-    activeStore?.serviceArea?.freeDeliveryAbove &&
-    activeStore.serviceArea.freeDeliveryAbove > 0
-      ? activeStore.serviceArea.freeDeliveryAbove
-      : FREE_DELIVERY_THRESHOLD;
-
-  const standardDeliveryFee =
-    activeStore?.serviceArea?.sellerDeliveryFee &&
-    activeStore.serviceArea.sellerDeliveryFee > 0
-      ? activeStore.serviceArea.sellerDeliveryFee
-      : 25;
-
-  const deliveryFee =
-    subtotal === 0 ? 0 : subtotal >= freeThreshold ? 0 : standardDeliveryFee;
+  const deliveryFee = checkoutItems.reduce(
+    (sum, item) => sum + (item.product.deliveryCharge ?? 0) * item.quantity,
+    0
+  );
 
   const discount =
     appliedPromo === 'URBAN10' ? Math.round(subtotal * 0.1) : 0;
   const total = Math.max(0, subtotal + deliveryFee - discount);
+
+  const freeThreshold = activeStore?.serviceArea?.freeDeliveryAbove || FREE_DELIVERY_THRESHOLD;
   const remainingForFreeDelivery = Math.max(0, freeThreshold - subtotal);
 
   const enteredLocationCheck: CustomerShoppingLocation = {
@@ -315,6 +315,10 @@ export function CartCheckoutDrawer({
 
       const verifiedOrder = data.order as OrderRecord;
       setConfirmedOrder(verifiedOrder);
+      setConfirmedPin(
+        data.deliveryPin || verifiedOrder.buyerDeliveryPin || null
+      );
+      setShowConfirmedPin(true);
       onPlaceOrder(verifiedOrder);
 
       // Remove the ordered items from the multi-merchant cart
@@ -329,6 +333,8 @@ export function CartCheckoutDrawer({
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -436,17 +442,135 @@ export function CartCheckoutDrawer({
                   </strong>
                   .
                 </p>
-                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500">
                   <span>Ordered at {confirmedOrder.createdAt}</span>
                   <span>·</span>
                   <span className="font-medium text-slate-700">
-                    Payment:{' '}
+                    Method:{' '}
                     {confirmedOrder.paymentMethod === 'UPI_ON_DELIVERY'
                       ? `UPI on delivery (${confirmedOrder.upiId || 'Scan QR at door'})`
                       : confirmedOrder.paymentMethod === 'CASH_ON_DELIVERY'
                         ? 'Cash on delivery'
                         : 'Card tap on delivery'}
                   </span>
+                  <span>·</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px]">
+                    Payment Status: {confirmedOrder.paymentStatus || 'PENDING'} (Pay on Delivery)
+                  </span>
+                </div>
+              </div>
+
+              {/* Immediate Buyer 6-Digit Delivery PIN Card */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#003B8E] to-[#00265E] text-white shadow-md space-y-3.5 border border-blue-800">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                      <KeyRound className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-blue-100 block">
+                        Your 6-Digit Delivery PIN
+                      </span>
+                      <span className="text-[11px] text-blue-200">
+                        Generated immediately for Order #{confirmedOrder.id}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
+                    Active · Single-Use
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/35 border border-white/15 flex items-center justify-between gap-3">
+                  <div className="font-mono text-2xl sm:text-3xl font-extrabold tracking-[0.28em] text-amber-300 tabular-nums select-all">
+                    {confirmedPin
+                      ? showConfirmedPin
+                        ? confirmedPin
+                        : '••••••'
+                      : '••••••'}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmedPin((prev) => !prev)}
+                      className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {showConfirmedPin ? (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>Hide</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Show</span>
+                        </>
+                      )}
+                    </button>
+                    {confirmedPin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(confirmedPin);
+                          setCopiedPin(true);
+                          setTimeout(() => setCopiedPin(false), 2000);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        {copiedPin ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-300" />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mandatory Security Warning */}
+                <div className="p-3 rounded-xl bg-amber-400/15 border border-amber-300/40 text-xs text-amber-100 leading-relaxed flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                  <p className="font-medium">
+                    Share your delivery PIN only after you have received your order. Never share it in advance. Your delivery PIN confirms delivery; it does not confirm payment.
+                  </p>
+                </div>
+
+                {/* Single Unified Push & SMS Notification Preview */}
+                <div className="p-3 rounded-xl bg-white/10 border border-white/15 space-y-2 text-[11px] text-blue-100">
+                  <div className="flex items-center justify-between gap-2 font-bold text-white">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Unified Push &amp; SMS Notification Dispatched</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
+                      1 Combined Alert
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className="px-2 py-0.5 rounded-md bg-white/15 border border-white/20 text-white font-semibold">
+                      Est. Delivery: ~{confirmedOrder.buyerUnifiedNotification?.estimatedDeliveryMins || confirmedOrder.estimatedMins || 25} mins
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-white/15 border border-white/20 text-white font-mono font-semibold">
+                      Seller Mobile: {confirmedOrder.buyerUnifiedNotification?.sellerPhone || confirmedOrder.sellerPhone || stores.find((s) => s.id === confirmedOrder.storeId)?.phone || '+919820000000'}
+                    </span>
+                  </div>
+                  <p className="font-mono text-[11px] text-blue-100/95 leading-relaxed bg-slate-950/30 p-2.5 rounded-lg border border-white/10">
+                    {confirmedOrder.buyerUnifiedNotification?.smsText ||
+                      `Citykart: Order #${confirmedOrder.id} placed successfully with ${confirmedOrder.storeName} for Rs.${confirmedOrder.total}. Est. Delivery: ~${confirmedOrder.estimatedMins || 25} mins. Seller Mobile: ${confirmedOrder.sellerPhone || stores.find((s) => s.id === confirmedOrder.storeId)?.phone || '+919820000000'}. Your Delivery PIN is ${
+                        showConfirmedPin && confirmedPin ? confirmedPin : '••••••'
+                      }. SAFETY: Share this PIN with the delivery partner ONLY after receiving your order. Never share in advance. PIN confirms delivery only, not payment.`}
+                  </p>
+                  {confirmedOrder.deliveryPinInfo?.notificationDetail && (
+                    <p className="text-[10px] text-blue-200/85 leading-snug">
+                      {confirmedOrder.deliveryPinInfo.notificationDetail}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -570,13 +694,13 @@ export function CartCheckoutDrawer({
                 );
                 const storeFreeThresh =
                   storeInfo?.serviceArea?.freeDeliveryAbove || FREE_DELIVERY_THRESHOLD;
-                const storeDelivFee =
-                  storeSubtotal >= storeFreeThresh
-                    ? 0
-                    : storeInfo?.serviceArea?.sellerDeliveryFee || 25;
-                const storeEligibility = storeInfo
-                  ? evaluateStoreDeliveryEligibility(storeInfo, customerLocation)
-                  : {isDeliverable: true, statusLabel: ''};
+                        const storeDeliveryTotal = storeItems.reduce(
+                          (sum, i) => sum + (i.product.deliveryCharge ?? 0) * i.quantity,
+                          0
+                        );
+                        const storeEligibility = storeInfo
+                          ? evaluateStoreDeliveryEligibility(storeInfo, customerLocation)
+                          : {isDeliverable: true, statusLabel: ''};
 
                 return (
                   <div
@@ -723,8 +847,8 @@ export function CartCheckoutDrawer({
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
                       <div className="text-[11px] font-medium text-slate-600">
                         Delivery:{' '}
-                        <span className={storeDelivFee === 0 ? 'text-emerald-700 font-semibold' : 'font-mono tabular-nums'}>
-                          {storeDelivFee === 0 ? 'Free' : formatCurrency(storeDelivFee)}
+                        <span className={storeDeliveryTotal === 0 ? 'text-emerald-700 font-semibold' : 'font-mono tabular-nums'}>
+                          {storeDeliveryTotal === 0 ? 'Free' : formatCurrency(storeDeliveryTotal)}
                         </span>
                       </div>
                       <button

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, {useState, useMemo} from 'react';
+import React, {useState, useMemo, useEffect, useRef} from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -111,39 +111,72 @@ export default function UrbanDirectPlatform() {
     INITIAL_DEMO_ORDER.id
   );
 
-  // Active Sponsored Products & Featured Stores Advertising Campaigns
-  const activeCampaigns = useMemo<FeaturedCampaign[]>(() => {
-    if (!isMounted || typeof window === 'undefined') return [];
-    try {
-      const raw = window.localStorage.getItem(CAMPAIGNS_STORAGE_KEY);
-      if (raw) {
-        const all = JSON.parse(raw) as FeaturedCampaign[];
-        const now = new Date().toISOString();
-        return all.filter((c) => c.status === 'ACTIVE' && c.endDate >= now);
-      }
-    } catch {}
-    return [];
+  const [remoteCampaigns, setRemoteCampaigns] = useState<FeaturedCampaign[]>([]);
+  const recordedImpressionIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isMounted) return;
+    let cancelled = false;
+    fetch('/api/billing/campaigns')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data?.ok && Array.isArray(data.campaigns)) {
+          setRemoteCampaigns(data.campaigns as FeaturedCampaign[]);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [isMounted]);
 
-  const sponsoredProductIds = useMemo(() => {
-    const set = new Set<string>();
-    activeCampaigns.forEach((c) => {
-      if (c.type === 'SPONSORED_PRODUCT' && c.targetProductId) {
-        set.add(c.targetProductId);
-      }
-    });
-    return set;
-  }, [activeCampaigns]);
+  // Active Sponsored Products & Featured Stores Advertising Campaigns
+  const activeCampaigns = useMemo<FeaturedCampaign[]>(() => {
+    if (!isMounted) return [];
+    const mergedMap = new Map<string, FeaturedCampaign>();
+    for (const rc of remoteCampaigns) {
+      mergedMap.set(rc.id, rc);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(CAMPAIGNS_STORAGE_KEY);
+        if (raw) {
+          const all = JSON.parse(raw) as FeaturedCampaign[];
+          for (const lc of all) {
+            if (!mergedMap.has(lc.id)) {
+              mergedMap.set(lc.id, lc);
+            }
+          }
+        }
+      } catch {}
+    }
+    const now = new Date().toISOString();
+    return Array.from(mergedMap.values()).filter(
+      (c) =>
+        c.status === 'ACTIVE' &&
+        (!c.startDate || c.startDate <= now) &&
+        c.endDate >= now &&
+        c.approvalStatus !== 'REJECTED' &&
+        c.paymentStatus !== 'FAILED' &&
+        c.paymentStatus !== 'REFUNDED'
+    );
+  }, [isMounted, remoteCampaigns]);
 
-  const featuredStoreIds = useMemo(() => {
-    const set = new Set<string>();
-    activeCampaigns.forEach((c) => {
-      if (c.type === 'FEATURED_STORE') {
-        set.add(c.storeId);
-      }
-    });
-    return set;
-  }, [activeCampaigns]);
+  const recordCampaignMetric = (
+    campaignId: string,
+    metric: 'IMPRESSION' | 'CLICK'
+  ) => {
+    fetch('/api/billing/campaigns', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        action: 'RECORD_METRIC',
+        campaignId,
+        metric,
+        metricType: metric,
+      }),
+    }).catch(() => {});
+  };
 
   const shouldShowLocationModal =
     isMounted &&
@@ -207,6 +240,45 @@ export default function UrbanDirectPlatform() {
     return new Set(eligibleStoresInCity.map((s) => s.id));
   }, [eligibleStoresInCity]);
 
+  const sponsoredCampaignByProductId = useMemo(() => {
+    const map = new Map<string, FeaturedCampaign>();
+    const eligibleProductsById = new Map<string, Product>();
+    products.forEach((p) => {
+      if (
+        eligibleStoreIdSet.has(p.storeId) &&
+        p.isAvailable &&
+        !p.adminUnpublished &&
+        p.stock > 0
+      ) {
+        eligibleProductsById.set(p.id, p);
+      }
+    });
+
+    activeCampaigns.forEach((c) => {
+      if (c.type === 'SPONSORED_PRODUCT' && c.targetProductId) {
+        const prod = eligibleProductsById.get(c.targetProductId);
+        if (prod && prod.storeId === c.storeId) {
+          map.set(c.targetProductId, c);
+        }
+      }
+    });
+    return map;
+  }, [activeCampaigns, products, eligibleStoreIdSet]);
+
+  const sponsoredProductIds = useMemo(() => {
+    return new Set<string>(sponsoredCampaignByProductId.keys());
+  }, [sponsoredCampaignByProductId]);
+
+  const featuredStoreIds = useMemo(() => {
+    const set = new Set<string>();
+    activeCampaigns.forEach((c) => {
+      if (c.type === 'FEATURED_STORE' && eligibleStoreIdSet.has(c.storeId)) {
+        set.add(c.storeId);
+      }
+    });
+    return set;
+  }, [activeCampaigns, eligibleStoreIdSet]);
+
   // Rank city-eligible products primarily by genuine order popularity (most ordered first)
   const {
     rankedProducts: popularityRankedProducts,
@@ -235,10 +307,42 @@ export default function UrbanDirectPlatform() {
       list = [...list].sort((a, b) => b.price - a.price);
     } else if (sortBy === 'DELIVERY_FASTEST') {
       list = [...list].sort((a, b) => a.deliveryMins - b.deliveryMins);
+    } else {
+      // 'POPULARITY' and 'RECOMMENDED': Boost relevant sponsored products that already match city/category/search filters
+      const isCategoryOrSearchScoped =
+        selectedCategory !== 'All Categories' || searchQuery.trim() !== '';
+      const getPlacementScore = (camp?: FeaturedCampaign) => {
+        if (!camp) return 0;
+        if (camp.placementTier === 'HOMEPAGE_SPONSORED') return 3;
+        if (camp.placementTier === 'LOCAL_FEATURED') return 2;
+        if (camp.placementTier === 'CATEGORY_SPONSORED') {
+          return isCategoryOrSearchScoped ? 1 : 0;
+        }
+        return 1;
+      };
+      list = [...list].sort((a, b) => {
+        const aSponsoredScore = getPlacementScore(
+          sponsoredCampaignByProductId.get(a.id)
+        );
+        const bSponsoredScore = getPlacementScore(
+          sponsoredCampaignByProductId.get(b.id)
+        );
+        if (bSponsoredScore !== aSponsoredScore) {
+          return bSponsoredScore - aSponsoredScore;
+        }
+        return 0;
+      });
     }
-    // 'POPULARITY' and 'RECOMMENDED' retain popularityRankedProducts order
     return list;
-  }, [popularityRankedProducts, selectedStoreFilterId, inStockOnly, sortBy]);
+  }, [
+    popularityRankedProducts,
+    selectedStoreFilterId,
+    inStockOnly,
+    sortBy,
+    selectedCategory,
+    searchQuery,
+    sponsoredCampaignByProductId,
+  ]);
 
   const selectedStoreFilterName = useMemo(() => {
     if (selectedStoreFilterId === 'ALL') return null;
@@ -370,10 +474,46 @@ export default function UrbanDirectPlatform() {
     !inStockOnly &&
     !onlyDeliverableToMe;
 
-  const heroSpotlightProducts = useMemo(
-    () => filteredProducts.slice(0, 2),
-    [filteredProducts]
-  );
+  const heroSpotlightProducts = useMemo(() => {
+    const homepageSponsored = filteredProducts.filter((p) => {
+      const c = sponsoredCampaignByProductId.get(p.id);
+      return (
+        c &&
+        (c.placementTier === 'HOMEPAGE_SPONSORED' ||
+          c.placementTier === 'LOCAL_FEATURED')
+      );
+    });
+    if (homepageSponsored.length >= 2) {
+      return homepageSponsored.slice(0, 2);
+    }
+    const combined = [
+      ...homepageSponsored,
+      ...filteredProducts.filter(
+        (p) => !homepageSponsored.some((hp) => hp.id === p.id)
+      ),
+    ];
+    return combined.slice(0, 2);
+  }, [filteredProducts, sponsoredCampaignByProductId]);
+
+  // Record impressions once per session for visible sponsored products in the buyer's city
+  useEffect(() => {
+    if (!hasSelectedCity) return;
+    filteredProducts.forEach((p) => {
+      const camp = sponsoredCampaignByProductId.get(p.id);
+      if (camp && !recordedImpressionIdsRef.current.has(camp.id)) {
+        recordedImpressionIdsRef.current.add(camp.id);
+        recordCampaignMetric(camp.id, 'IMPRESSION');
+      }
+    });
+  }, [hasSelectedCity, filteredProducts, sponsoredCampaignByProductId]);
+
+  const handleInspectProduct = (product: Product) => {
+    const camp = sponsoredCampaignByProductId.get(product.id);
+    if (camp) {
+      recordCampaignMetric(camp.id, 'CLICK');
+    }
+    setActivePdpProduct(product);
+  };
 
   const renderProductCard = (product: Product) => {
     const defaultVariant = product.variants[0] || 'Standard';
@@ -393,7 +533,7 @@ export default function UrbanDirectPlatform() {
       >
         <div>
           <div
-            onClick={() => setActivePdpProduct(product)}
+            onClick={() => handleInspectProduct(product)}
             className="relative aspect-[4/3] w-full bg-slate-100 cursor-pointer overflow-hidden border-b border-slate-100/80"
           >
             <ProductStudioArtwork
@@ -443,7 +583,7 @@ export default function UrbanDirectPlatform() {
             </div>
 
             <h3
-              onClick={() => setActivePdpProduct(product)}
+              onClick={() => handleInspectProduct(product)}
               className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#003B8E] cursor-pointer line-clamp-2 leading-snug min-h-[2.5rem] transition-colors"
               title={product.name}
             >
@@ -463,12 +603,22 @@ export default function UrbanDirectPlatform() {
             <div className="text-sm sm:text-base font-bold font-mono tabular-nums text-slate-900 tracking-tight">
               {formatCurrency(product.price, product.currency)}
             </div>
-            <div
-              className={`text-[10px] font-semibold ${
-                inStock ? 'text-emerald-700' : 'text-slate-400'
-              }`}
-            >
-              {inStock ? 'In stock' : 'Out of stock'}
+            <div className="flex items-center gap-1 text-[10px]">
+              <span
+                className={`font-semibold ${
+                  inStock ? 'text-emerald-700' : 'text-slate-400'
+                }`}
+              >
+                {inStock ? 'In stock' : 'Out of stock'}
+              </span>
+              <span className="text-slate-300">•</span>
+              {(!product.deliveryCharge || product.deliveryCharge === 0) ? (
+                <span className="font-bold text-emerald-700">Free delivery</span>
+              ) : (
+                <span className="font-semibold text-slate-600 font-mono">
+                  +₹{product.deliveryCharge} delivery
+                </span>
+              )}
             </div>
           </div>
 
@@ -1389,7 +1539,7 @@ export default function UrbanDirectPlatform() {
                             {heroSpotlightProducts.map((item) => (
                               <div
                                 key={item.id}
-                                onClick={() => setActivePdpProduct(item)}
+                                onClick={() => handleInspectProduct(item)}
                                 className="group bg-white border border-slate-200/90 hover:border-[#003B8E]/50 rounded-xl p-2.5 flex flex-col justify-between cursor-pointer transition-all shadow-2xs"
                               >
                                 <div className="relative aspect-[16/10] w-full rounded-lg overflow-hidden bg-slate-100 mb-2">
@@ -1399,6 +1549,11 @@ export default function UrbanDirectPlatform() {
                                     alt={item.name}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                   />
+                                  {sponsoredProductIds.has(item.id) && (
+                                    <span className="absolute top-2 right-2 text-[9px] font-bold text-amber-950 bg-amber-100/95 border border-amber-300 px-1.5 py-0.5 rounded shadow-2xs">
+                                      Sponsored
+                                    </span>
+                                  )}
                                 </div>
                                 <div>
                                   <div className="text-[10px] font-semibold text-[#003B8E] truncate">

@@ -35,7 +35,9 @@ import {
   getAdminAuditLogs,
   getAuthoritativeAdminAuthorizations,
   getAuthoritativePlatformSettings,
+  getAuthoritativePlatformSettingsAsync,
   getAuthoritativeSubscriptionPlans,
+  getAuthoritativeSubscriptionPlansAsync,
   serverBuyerOverridesRegistry,
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
@@ -275,7 +277,7 @@ export async function GET(req: NextRequest) {
       getDefaultFreeSubscription(st.id, st.sellerId)
   );
 
-  const authoritativePlansMap = getAuthoritativeSubscriptionPlans();
+  const authoritativePlansMap = await getAuthoritativeSubscriptionPlansAsync();
   const subscriptionPlansList = Object.values(authoritativePlansMap).map(
     (plan) => ({
       ...plan,
@@ -288,7 +290,7 @@ export async function GET(req: NextRequest) {
         (plan.isPopular ? 'Most Popular' : ''),
     })
   );
-  const platformSettings = getAuthoritativePlatformSettings();
+  const platformSettings = await getAuthoritativePlatformSettingsAsync();
 
   // Compute Fcm token count & notification count
   let fcmTokensCount = 0;

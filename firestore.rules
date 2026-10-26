@@ -242,7 +242,8 @@ service cloud.firestore {
 
     // ===============================================================
     // Orders Collection (/orders/{orderId})
-    // Validated order creation and lifecycle updates
+    // Validated order creation and lifecycle updates with immutable financial totals.
+    // Transitioning orderStatus to 'DELIVERED' requires deliveryPinVerified == true.
     // ===============================================================
     match /orders/{orderId} {
       allow read: if true;
@@ -250,13 +251,40 @@ service cloud.firestore {
         && isValidString(request.resource.data.storeId, 1, 100)
         && isValidString(request.resource.data.sellerId, 1, 100)
         && request.resource.data.total is number
-        && request.resource.data.total >= 0;
+        && request.resource.data.total >= 0
+        && (!('orderStatus' in request.resource.data) || request.resource.data.orderStatus != 'DELIVERED');
       allow update: if isSuperAdmin()
+        || isAdmin()
         || (isValidString(request.resource.data.id, 1, 80)
           && request.resource.data.id == resource.data.id
           && request.resource.data.storeId == resource.data.storeId
-          && request.resource.data.sellerId == resource.data.sellerId);
+          && request.resource.data.sellerId == resource.data.sellerId
+          && request.resource.data.total == resource.data.total
+          && (!('subtotal' in resource.data) || request.resource.data.subtotal == resource.data.subtotal)
+          && (
+            request.resource.data.orderStatus != 'DELIVERED'
+            || request.resource.data.deliveryPinVerified == true
+          ));
       allow delete: if false;
+    }
+
+    // ===============================================================
+    // Order Delivery PIN Vault (/orderDeliveryPins/{orderId})
+    // Stores only salted scrypt hashes and server-keyed AES-256-GCM ciphers.
+    // Never readable by buyers or sellers directly from client SDKs; managed by backend.
+    // ===============================================================
+    match /orderDeliveryPins/{orderId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    // ===============================================================
+    // Delivery PIN Security Audit Logs (/deliveryPinAuditLogs/{logId})
+    // Immutable audit trail of PIN generation, verification attempts, lockouts, and resends.
+    // ===============================================================
+    match /deliveryPinAuditLogs/{logId} {
+      allow read: if isSuperAdmin() || isAdmin();
+      allow write: if false;
     }
 
     // ===============================================================
@@ -274,31 +302,75 @@ service cloud.firestore {
     }
 
     // ===============================================================
+    // Platform Fee Ledger (/platformFeeLedger/{ledgerId})
+    // Server-authoritative; readable by Super Admin/Admin or the owner of the seller account.
+    // ===============================================================
+    match /platformFeeLedger/{ledgerId} {
+      allow read: if isSuperAdmin() || isAdmin();
+      allow write: if false;
+    }
+
+    // ===============================================================
     // Merchant Subscriptions (/merchantSubscriptions/{subscriptionId})
-    // Accessible by the authenticated seller
+    // Accessible by the authenticated seller or verified admins; never deletable by clients
     // ===============================================================
     match /merchantSubscriptions/{subscriptionId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create: if isSuperAdmin()
+        || isAdmin()
+        || (isAuthenticated()
+          && isValidString(request.resource.data.storeId, 1, 100)
+          && isValidString(request.resource.data.sellerId, 1, 100)
+          && request.resource.data.planId in ['FREE', 'GROWTH', 'BUSINESS_PRO', 'FREE_STARTER', 'GROWTH_PRO', 'CITY_ENTERPRISE']);
+      allow update: if isSuperAdmin()
+        || isAdmin()
+        || (isAuthenticated()
+          && request.resource.data.storeId == resource.data.storeId
+          && request.resource.data.sellerId == resource.data.sellerId);
+      allow delete: if false;
     }
 
     // ===============================================================
     // Billing Transactions (/billingTransactions/{transactionId})
-    // Ledger records readable by the merchant; create on checkout
+    // Ledger records readable by the merchant or admin; append-only with schema validation
     // ===============================================================
     match /billingTransactions/{transactionId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.totalAmount >= 0;
+      allow create: if isAuthenticated()
+        && isValidString(request.resource.data.id, 1, 120)
+        && isValidString(request.resource.data.storeId, 1, 100)
+        && request.resource.data.totalAmount is number
+        && request.resource.data.totalAmount >= 0;
       allow update, delete: if false;
     }
 
     // ===============================================================
     // Featured Campaigns (/featuredCampaigns/{campaignId})
-    // Publicly readable for buyer discovery boost; writable by merchant
+    // Publicly readable for buyer discovery boost; creations and updates
+    // enforce store/seller ownership and prevent self-approving rejected ads
     // ===============================================================
     match /featuredCampaigns/{campaignId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow create: if isSuperAdmin()
+        || isAdmin()
+        || (isAuthenticated()
+          && isValidString(request.resource.data.id, 1, 120)
+          && isValidString(request.resource.data.storeId, 1, 100)
+          && isValidString(request.resource.data.sellerId, 1, 100)
+          && request.resource.data.budgetInr is number
+          && request.resource.data.budgetInr > 0
+          && request.resource.data.durationDays in [7, 14, 30]
+          && request.resource.data.status in ['PENDING_PAYMENT', 'ACTIVE', 'PAUSED']);
+      allow update: if isSuperAdmin()
+        || isAdmin()
+        || (isAuthenticated()
+          && request.resource.data.storeId == resource.data.storeId
+          && request.resource.data.sellerId == resource.data.sellerId
+          && request.resource.data.budgetInr == resource.data.budgetInr
+          && request.resource.data.durationDays == resource.data.durationDays
+          && resource.data.status != 'REJECTED'
+          && request.resource.data.approvalStatus == resource.data.approvalStatus);
+      allow delete: if isSuperAdmin();
     }
 
     // ===============================================================
@@ -312,25 +384,26 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Global Location Collections
+    // Global Location Collections (Managed by Super Admin / Authorized Admins)
     // ===============================================================
     match /locationCountries/{countryId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
     match /locationRegions/{regionId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
     match /locationCities/{cityId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
     match /locationImportRuns/{importId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
     match /locationMissingRequests/{requestId} {
@@ -339,20 +412,21 @@ service cloud.firestore {
         && isValidString(request.resource.data.stateRegion, 1, 100)
         && isValidString(request.resource.data.cityName, 1, 120)
         && isValidString(request.resource.data.canonicalId, 1, 160);
-      allow update, delete: if isAuthenticated();
+      allow update, delete: if isSuperAdmin() || isAdmin();
     }
 
     // ===============================================================
     // Location Requests (/locationRequests/{requestId})
     // Publicly readable so approved locations synchronize for discovery;
-    // open creation with schema validation for missing town requests
+    // open creation with schema validation for missing town requests;
+    // approval/rejection restricted to Admins and Super Admin
     // ===============================================================
     match /locationRequests/{requestId} {
       allow read: if true;
       allow create: if isValidString(request.resource.data.country, 1, 100)
         && isValidString(request.resource.data.stateRegion, 1, 100)
         && isValidString(request.resource.data.cityName, 1, 120);
-      allow update, delete: if isAuthenticated();
+      allow update, delete: if isSuperAdmin() || isAdmin();
     }
 
     // ===============================================================
@@ -361,7 +435,9 @@ service cloud.firestore {
     // ===============================================================
     match /deleted_stores/{storeId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow create, update: if isSuperAdmin()
+        || (isAuthenticated() && isValidString(storeId, 1, 120));
+      allow delete: if isSuperAdmin();
     }
 
     // ===============================================================
@@ -374,6 +450,30 @@ service cloud.firestore {
         && isValidString(request.resource.data.token, 10, 4096)
         && isValidString(request.resource.data.updatedAt, 10, 64);
       allow delete: if true;
+    }
+
+    // ===============================================================
+    // Sponsored Campaign Analytics Events (/campaignAnalyticsEvents/{eventId})
+    // Append-only event tracking with schema validation
+    // ===============================================================
+    match /campaignAnalyticsEvents/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isValidString(request.resource.data.campaignId, 1, 120)
+        && request.resource.data.eventType in ['IMPRESSION', 'CLICK', 'ORDER_CONVERSION'];
+      allow update, delete: if false;
+    }
+
+    // ===============================================================
+    // Server Rate Limits (/requestRateLimits/{limitKey})
+    // Used by server-side OTP challenge and rate-limiting checks
+    // ===============================================================
+    match /requestRateLimits/{limitKey} {
+      allow read: if isSuperAdmin() || isAdmin() || isValidString(limitKey, 3, 180);
+      allow create, update: if isValidString(limitKey, 3, 180)
+        && request.resource.data.count is number
+        && request.resource.data.count >= 0
+        && request.resource.data.windowStartMs is number;
+      allow delete: if isSuperAdmin();
     }
 
     // ===============================================================

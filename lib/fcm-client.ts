@@ -153,6 +153,143 @@ export async function unregisterCurrentDeviceFcmToken(): Promise<void> {
   }
 }
 
+const dispatchedUnifiedBuyerOrderNotificationIds = new Set<string>();
+
+/**
+ * Triggers a single unified Browser Push Notification for the buyer containing:
+ * 1. Successful Order Placement confirmation
+ * 2. The 6-digit Delivery PIN
+ * 3. Clear buyer safety instructions in the same notification.
+ * Deduplicated per orderId + pinVersion so separate or duplicate notifications are never sent.
+ */
+export async function triggerUnifiedBuyerOrderBrowserNotification(params: {
+  orderId: string;
+  title: string;
+  body: string;
+  pinVersion?: number;
+}): Promise<boolean> {
+  const dedupeKey = `${params.orderId}:v${params.pinVersion || 1}`;
+  if (dispatchedUnifiedBuyerOrderNotificationIds.has(dedupeKey)) {
+    return false;
+  }
+  dispatchedUnifiedBuyerOrderNotificationIds.add(dedupeKey);
+
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+
+  try {
+    if (Notification.permission !== 'granted') {
+      return false;
+    }
+
+    const tag = `citykart-order-${params.orderId}-BUYER`;
+    const clickAction = `/orders?orderId=${encodeURIComponent(params.orderId)}`;
+
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      if (reg && typeof reg.showNotification === 'function') {
+        await reg.showNotification(params.title, {
+          body: params.body,
+          icon: '/citykart-icon.png',
+          badge: '/citykart-icon.png',
+          tag,
+          data: {
+            orderId: params.orderId,
+            recipientRole: 'BUYER',
+            clickAction,
+          },
+        });
+        return true;
+      }
+    }
+
+    new Notification(params.title, {
+      body: params.body,
+      icon: '/citykart-icon.png',
+      tag,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function hasDispatchedUnifiedBuyerOrderNotification(
+  orderId: string,
+  pinVersion: number = 1
+): boolean {
+  return dispatchedUnifiedBuyerOrderNotificationIds.has(
+    `${orderId}:v${pinVersion}`
+  );
+}
+
+const dispatchedUnifiedSellerOrderNotificationIds = new Set<string>();
+
+/**
+ * Triggers a single unified Browser Push Notification for the seller when a buyer places an order,
+ * containing the buyer's full delivery address, mobile number, and delivery note (if any).
+ * Deduplicated per orderId so separate or duplicate notifications are never sent.
+ */
+export async function triggerUnifiedSellerOrderBrowserNotification(params: {
+  orderId: string;
+  title: string;
+  body: string;
+}): Promise<boolean> {
+  if (dispatchedUnifiedSellerOrderNotificationIds.has(params.orderId)) {
+    return false;
+  }
+  dispatchedUnifiedSellerOrderNotificationIds.add(params.orderId);
+
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+
+  try {
+    if (Notification.permission !== 'granted') {
+      return false;
+    }
+
+    const tag = `citykart-order-${params.orderId}-SELLER`;
+    const clickAction = `/seller/dashboard?section=orders&orderId=${encodeURIComponent(
+      params.orderId
+    )}`;
+
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      if (reg && typeof reg.showNotification === 'function') {
+        await reg.showNotification(params.title, {
+          body: params.body,
+          icon: '/citykart-icon.png',
+          badge: '/citykart-icon.png',
+          tag,
+          data: {
+            orderId: params.orderId,
+            recipientRole: 'SELLER',
+            clickAction,
+          },
+        });
+        return true;
+      }
+    }
+
+    new Notification(params.title, {
+      body: params.body,
+      icon: '/citykart-icon.png',
+      tag,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function hasDispatchedUnifiedSellerOrderNotification(
+  orderId: string
+): boolean {
+  return dispatchedUnifiedSellerOrderNotificationIds.has(orderId);
+}
+
 export function subscribeToForegroundMessages(
   onNotification: (payload: {
     title: string;
@@ -171,18 +308,34 @@ export function subscribeToForegroundMessages(
         if (!supported || cancelled) return;
         const messaging = getMessaging(app);
         unsubscribeFn = onMessage(messaging, (payload) => {
+          const data = payload.data as Record<string, string> | undefined;
+          if (
+            data?.recipientRole === 'BUYER' &&
+            data?.orderId &&
+            hasDispatchedUnifiedBuyerOrderNotification(data.orderId, 1)
+          ) {
+            // Already dispatched the unified order placement + PIN notification for this order
+            return;
+          }
+          if (
+            data?.recipientRole === 'SELLER' &&
+            data?.orderId &&
+            hasDispatchedUnifiedSellerOrderNotification(data.orderId)
+          ) {
+            return;
+          }
           const title =
             payload.notification?.title ||
-            payload.data?.title ||
+            data?.title ||
             'Citykart Order Update';
           const body =
             payload.notification?.body ||
-            payload.data?.body ||
+            data?.body ||
             'You have a new order update.';
           onNotification({
             title,
             body,
-            data: payload.data as Record<string, string> | undefined,
+            data,
           });
         });
       })

@@ -14,6 +14,7 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_STORES,
 } from '@/lib/initial-data';
+import { calculateItemPlatformFee } from '@/lib/fees';
 
 
 interface CreateOrderRequestBody {
@@ -61,6 +62,14 @@ for (const p of INITIAL_PRODUCTS) {
 import { serverOrdersRegistry, serverNotificationsRegistry, SellerNotification } from '@/lib/orders-registry';
 import { isStoreDeletedServer, serverDeletedStoresRegistry } from '@/lib/stores-registry';
 import { sendNewOrderPushNotifications } from '@/lib/server-fcm';
+import { verifyAdminRequest } from '@/lib/super-admin-auth';
+import {
+  dispatchSellerOrderSmsNotification,
+  issueDeliveryPinForOrder,
+  MANDATORY_BUYER_PIN_WARNING,
+  resolveSellerPhoneForOrder,
+  sanitizeOrderForStorageAndListing,
+} from '@/lib/delivery-pin';
 
 
 // In-memory idempotency cache (cleared after 15 mins)
@@ -180,6 +189,7 @@ export async function POST(req: NextRequest) {
 
     const verifiedItems: CartItem[] = [];
     let serverSubtotal = 0;
+    let serverTotalPlatformFee = 0;
     let maxDeliveryMins = store.avgDispatchMins || 25;
 
     for (const rawItem of items) {
@@ -259,10 +269,13 @@ export async function POST(req: NextRequest) {
       }
 
       serverSubtotal += product.price * qty;
+      const itemPlatformFee = calculateItemPlatformFee(product.price, qty);
+      serverTotalPlatformFee += itemPlatformFee;
       verifiedItems.push({
         product,
         variant: rawItem.variant || product.variants[0] || 'Standard',
         quantity: qty,
+        platformFee: itemPlatformFee,
       });
     }
 
@@ -309,17 +322,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Trusted Server-Side Financials Calculation
-    // Free delivery threshold: check store's configured freeDeliveryAbove, else fallback to ₹199 threshold
-    const freeThreshold =
-      store.serviceArea.freeDeliveryAbove > 0
-        ? store.serviceArea.freeDeliveryAbove
-        : 199;
-    const standardFee =
-      store.serviceArea.sellerDeliveryFee > 0
-        ? store.serviceArea.sellerDeliveryFee
-        : 25;
-
-    const serverDeliveryFee = serverSubtotal >= freeThreshold ? 0 : standardFee;
+    // Sum itemized product-level delivery charges authoritatively across all verified items
+    const serverDeliveryFee = verifiedItems.reduce(
+      (sum, item) => sum + (item.product.deliveryCharge ?? 0) * item.quantity,
+      0
+    );
 
     // Validate discount code
     let serverDiscount = 0;
@@ -366,6 +373,15 @@ export async function POST(req: NextRequest) {
       },
     ];
 
+    const resolvedSellerPhone = resolveSellerPhoneForOrder(
+      {
+        sellerPhone: store.phone,
+        storeId: store.id,
+        sellerId: store.sellerId,
+      },
+      store.phone
+    );
+
     const newOrder: OrderRecord = {
       id: orderId,
       createdAt: nowTimeStr,
@@ -373,6 +389,7 @@ export async function POST(req: NextRequest) {
       storeId: store.id,
       storeName: store.name,
       sellerId: store.sellerId,
+      sellerPhone: resolvedSellerPhone,
       sellerUid: store.ownerUid || `seller-${store.sellerId}`,
       buyerUid: buyerUid || undefined,
       idempotencyKey: idempotencyKey || undefined,
@@ -380,9 +397,11 @@ export async function POST(req: NextRequest) {
       subtotal: serverSubtotal,
       deliveryFee: serverDeliveryFee,
       discount: serverDiscount,
+      totalPlatformFee: serverTotalPlatformFee,
       total: serverTotal,
       paymentMethod,
       upiId: paymentMethod === 'UPI_ON_DELIVERY' ? upiId?.trim() : undefined,
+      paymentStatus: 'PENDING',
       customer: {
         fullName: customer.fullName.trim(),
         phone: customer.phone.trim(),
@@ -396,6 +415,7 @@ export async function POST(req: NextRequest) {
       },
       currentStepIndex: 0,
       orderStatus: 'NEW',
+      deliveryPinVerified: false,
       statusHistory: initialStatusHistory,
       estimatedMins: maxDeliveryMins,
       isDemo: Boolean(store.isDemo),
@@ -407,28 +427,34 @@ export async function POST(req: NextRequest) {
         checkoutAcknowledgementVersion || 'seller-responsibility-v1.2',
     };
 
-    // Save in server registry and persist to Firestore
+    // Save initial order in server registry and persist to Firestore
     serverOrdersRegistry.set(orderId, newOrder);
     await syncOrderToFirestore(newOrder);
 
-    // 9. Generate Seller Notification Record (In-App Order Notification)
-    const newNotification: SellerNotification = {
-      id: `notif-${orderId}`,
-      sellerId: store.sellerId,
-      sellerUid: store.ownerUid || `seller-${store.sellerId}`,
-      orderId,
-      title: `New Order #${orderId}`,
-      message: `Received order #${orderId} for ${verifiedItems.length} item(s) (₹${serverTotal}) from ${customer.fullName.trim()}.`,
-      type: 'NEW_ORDER',
-      isRead: false,
-      createdAt: nowIso,
-    };
-    serverNotificationsRegistry.set(newNotification.id, newNotification);
+    // 8B. Immediately generate cryptographically secure 6-digit Delivery PIN upon order persistence
+    const pinIssueResult = await issueDeliveryPinForOrder({
+      order: newOrder,
+      forceRegenerate: false,
+      actorId: buyerUid || customer.phone.trim(),
+      actorRole: 'BUYER',
+    });
 
-    // 10. Dispatch FCM Push Notifications to Seller and Buyer Devices (Safe & Idempotent)
+    if (pinIssueResult.pinInfo) {
+      newOrder.deliveryPinInfo = pinIssueResult.pinInfo;
+      const sanitizedOrder = sanitizeOrderForStorageAndListing(newOrder);
+      serverOrdersRegistry.set(orderId, sanitizedOrder);
+      await syncOrderToFirestore(sanitizedOrder);
+    }
+
+    // 9. Dispatch Single Unified Seller SMS + Push Notification (Buyer Full Address + Buyer Mobile Number + Delivery Note if any — never includes buyer's PIN)
+    const sellerSmsResult = await dispatchSellerOrderSmsNotification(newOrder);
+
     let notificationDelivery;
     try {
-      notificationDelivery = await sendNewOrderPushNotifications(newOrder);
+      notificationDelivery = await sendNewOrderPushNotifications(
+        newOrder,
+        pinIssueResult.pin
+      );
     } catch (pushErr) {
       console.warn('[Orders API] FCM push notification dispatch warning:', pushErr);
       notificationDelivery = {
@@ -443,10 +469,62 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Save in idempotency cache
+    const unifiedSellerNotification = {
+      ...sellerSmsResult.unifiedNotification,
+      pushStatus:
+        notificationDelivery.sellerSuccessCount > 0
+          ? 'SENT_VIA_FCM_AND_IN_APP'
+          : 'DELIVERED_IN_APP_AND_BROWSER_PUSH',
+    };
+
+    newOrder.sellerUnifiedNotification = unifiedSellerNotification;
+
+    const newNotification: SellerNotification = {
+      id: `notif-${orderId}`,
+      sellerId: store.sellerId,
+      sellerUid: store.ownerUid || `seller-${store.sellerId}`,
+      storeId: store.id,
+      orderId,
+      title: unifiedSellerNotification.title,
+      message: unifiedSellerNotification.body,
+      smsText: unifiedSellerNotification.smsText,
+      buyerFullName: unifiedSellerNotification.buyerFullName,
+      buyerPhone: unifiedSellerNotification.buyerPhone,
+      buyerFullAddress: unifiedSellerNotification.buyerFullAddress,
+      deliveryNotes: unifiedSellerNotification.deliveryNotes,
+      pushStatus: unifiedSellerNotification.pushStatus,
+      smsStatus: unifiedSellerNotification.smsStatus,
+      type: 'NEW_ORDER',
+      isRead: false,
+      createdAt: nowIso,
+    };
+    serverNotificationsRegistry.set(newNotification.id, newNotification);
+
+    const sanitizedOrder = sanitizeOrderForStorageAndListing(newOrder);
+    serverOrdersRegistry.set(orderId, sanitizedOrder);
+    await syncOrderToFirestore(sanitizedOrder);
+
+    const unifiedBuyerNotification = pinIssueResult.unifiedNotification
+      ? {
+          ...pinIssueResult.unifiedNotification,
+          pushStatus:
+            notificationDelivery.buyerSuccessCount > 0
+              ? 'SENT_VIA_FCM_AND_IN_APP'
+              : 'DELIVERED_IN_APP_AND_BROWSER_PUSH',
+        }
+      : undefined;
+
+    const buyerScopedOrderResponse: OrderRecord = {
+      ...sanitizedOrder,
+      buyerDeliveryPin: pinIssueResult.pin,
+      buyerOrderAccessToken: pinIssueResult.buyerAccessToken,
+      buyerUnifiedNotification: unifiedBuyerNotification,
+    };
+
+    // Save in idempotency cache (preserving buyer-scoped PIN response for duplicate retries by the same buyer)
     if (idempotencyKey) {
       idempotencyCache.set(idempotencyKey, {
-        order: newOrder,
+        order: buyerScopedOrderResponse,
         timestampMs: Date.now(),
       });
     }
@@ -465,10 +543,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      order: newOrder,
+      order: buyerScopedOrderResponse,
+      deliveryPin: pinIssueResult.pin,
+      buyerOrderAccessToken: pinIssueResult.buyerAccessToken,
+      deliveryPinWarning: MANDATORY_BUYER_PIN_WARNING,
+      deliveryPinNotification: pinIssueResult.pinInfo,
+      unifiedBuyerNotification,
+      unifiedSellerNotification,
       notification: newNotification,
       notificationDelivery,
-      message: `Order #${orderId} verified and placed successfully with ${store.name}.`,
+      message:
+        unifiedBuyerNotification?.body ||
+        `Order #${orderId} placed successfully with ${store.name}. Delivery PIN: ${pinIssueResult.pin}. ${MANDATORY_BUYER_PIN_WARNING}`,
     });
   } catch (error) {
     console.error('Error creating order:', error);
@@ -495,6 +581,15 @@ export async function GET(req: NextRequest) {
   const fetchType = searchParams.get('type'); // 'notifications' | undefined
 
   if (fetchType === 'notifications') {
+    if (!sellerId) {
+      const adminCheck = await verifyAdminRequest(req);
+      if (!adminCheck.authorized) {
+        return NextResponse.json(
+          {ok: false, error: 'sellerId is required to fetch store notifications.'},
+          {status: 400}
+        );
+      }
+    }
     const notifMap = new Map<string, SellerNotification>();
     for (const n of serverNotificationsRegistry.values()) {
       if (!sellerId || n.sellerId === sellerId) {
@@ -539,7 +634,25 @@ export async function GET(req: NextRequest) {
     if (!ord) {
       return NextResponse.json({ok: false, error: 'Order not found'}, {status: 404});
     }
-    return NextResponse.json({ok: true, order: ord});
+    return NextResponse.json({
+      ok: true,
+      order: sanitizeOrderForStorageAndListing(ord),
+    });
+  }
+
+  // Prevent unscoped order enumeration unless caller is an authorized Admin
+  if (!sellerId && !storeId && !buyerUid && !buyerPhone) {
+    const adminCheck = await verifyAdminRequest(req);
+    if (!adminCheck.authorized) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'A scoping parameter (sellerId, storeId, buyerUid, phone, or orderId) or Administrator authorization is required to list orders.',
+        },
+        {status: 401}
+      );
+    }
   }
 
   const orderMap = new Map<string, OrderRecord>();
@@ -590,5 +703,7 @@ export async function GET(req: NextRequest) {
     return timeB - timeA;
   });
 
-  return NextResponse.json({ok: true, orders: list});
+  const sanitizedList = list.map((o) => sanitizeOrderForStorageAndListing(o));
+
+  return NextResponse.json({ok: true, orders: sanitizedList});
 }

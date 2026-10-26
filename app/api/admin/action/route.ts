@@ -35,6 +35,7 @@ import {
   createAdminAuthorization,
   getAuthoritativeAdminAuthorizations,
   getAuthoritativeSubscriptionPlans,
+  getAuthoritativeSubscriptionPlansAsync,
   reactivateAdminAuthorization,
   recordAdminAuditLog,
   revokeAdminAuthorization,
@@ -251,6 +252,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: isSuspending ? 'SUSPEND_STORE' : 'RESTORE_STORE',
         targetEntityType: 'STORE',
         targetEntityId: storeId,
@@ -315,6 +318,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'VERIFY_STORE_LOCATION',
         targetEntityType: 'STORE',
         targetEntityId: storeId,
@@ -332,6 +337,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (actionType === 'DELETE_STORE') {
+      if (!authCheck.isSuperAdmin) {
+        await recordAdminAuditLog({
+          adminUid,
+          adminPhone,
+          adminRole,
+          actionType: 'UNAUTHORIZED_ADMIN_MANAGEMENT_ATTEMPT',
+          targetEntityType: 'STORE',
+          targetEntityId: String(body.storeId || 'unknown'),
+          status: 'FAILURE',
+          reason: 'Operational admin attempted permanent DELETE_STORE (Super Admin required).',
+        });
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Forbidden: Permanent store deletion is restricted to the Platform Owner Super Admin (+918329306616). Operational administrators may suspend stores instead.',
+          },
+          { status: 403 }
+        );
+      }
       const storeId = String(body.storeId || '').trim();
       const storeNameConfirmation = String(
         body.storeNameConfirmation || ''
@@ -489,6 +514,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: isSuspending ? 'SUSPEND_BUYER' : 'RESTORE_BUYER',
         targetEntityType: 'BUYER',
         targetEntityId: userId || phoneE164,
@@ -568,6 +595,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: isUnpublishing ? 'UNPUBLISH_PRODUCT' : 'RESTORE_PRODUCT',
         targetEntityType: 'PRODUCT',
         targetEntityId: productId,
@@ -608,6 +637,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'TOGGLE_CATEGORY',
         targetEntityType: 'CATEGORY',
         targetEntityId: cat.id,
@@ -679,6 +710,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'ADD_ORDER_ADMIN_NOTE',
         targetEntityType: 'ORDER',
         targetEntityId: orderId,
@@ -699,8 +732,18 @@ export async function POST(req: NextRequest) {
     // 5. SUBSCRIPTION PLAN CONFIGURATION UPDATE
     // =========================================================================
     if (actionType === 'UPDATE_SUBSCRIPTION_PLAN') {
+      if (!authCheck.authorized) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Forbidden: Administrator authorization is required to modify subscription plan pricing and entitlements.',
+          },
+          { status: 403 }
+        );
+      }
       const planId = String(body.planId || '').trim() as SubscriptionTierId;
-      const plans = getAuthoritativeSubscriptionPlans();
+      const plans = await getAuthoritativeSubscriptionPlansAsync();
       const currentPlan = plans[planId];
 
       if (!currentPlan) {
@@ -712,12 +755,16 @@ export async function POST(req: NextRequest) {
 
       const monthlyPriceInr = Number(body.monthlyPriceInr);
       const annualPriceInr = Number(body.annualPriceInr);
+
       const rawLimit =
         body.maxActiveProducts !== undefined
           ? body.maxActiveProducts
-          : body.productLimit;
+          : body.entitlements?.maxActiveProducts !== undefined
+            ? body.entitlements.maxActiveProducts
+            : body.productLimit;
+
       const maxActiveProducts =
-        rawLimit === 'UNLIMITED'
+        rawLimit === 'UNLIMITED' || rawLimit === -1 || Number(rawLimit) >= 100000
           ? 999999
           : Number(rawLimit ?? currentPlan.entitlements.maxActiveProducts);
 
@@ -743,27 +790,21 @@ export async function POST(req: NextRequest) {
         ...currentPlan,
         name: String(body.name || currentPlan.name).trim(),
         tagline: String(body.tagline || currentPlan.tagline).trim(),
+        badge:
+          body.badge !== undefined
+            ? String(body.badge).trim()
+            : currentPlan.badge,
         monthlyPriceInr: Math.round(monthlyPriceInr),
         annualPriceInr: Math.round(annualPriceInr),
         entitlements: {
           ...currentPlan.entitlements,
+          ...(body.entitlements || {}),
           maxActiveProducts: Math.round(maxActiveProducts),
-          hasVerifiedBadge:
-            typeof body.hasVerifiedBadge === 'boolean'
-              ? body.hasVerifiedBadge
-              : currentPlan.entitlements.hasVerifiedBadge,
-          hasPriorityCityListing:
-            typeof body.hasPriorityCityListing === 'boolean'
-              ? body.hasPriorityCityListing
-              : currentPlan.entitlements.hasPriorityCityListing,
-          hasAdvancedAnalytics:
-            typeof body.hasAdvancedAnalytics === 'boolean'
-              ? body.hasAdvancedAnalytics
-              : currentPlan.entitlements.hasAdvancedAnalytics,
         },
       };
 
-      setAuthoritativeSubscriptionPlan(planId, updatedPlan);
+      await setAuthoritativeSubscriptionPlan(planId, updatedPlan);
+      const allPlansMap = await getAuthoritativeSubscriptionPlansAsync();
 
       const audit = await recordAdminAuditLog({
         adminUid,
@@ -783,6 +824,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         plan: updatedPlan,
+        plans: Object.values(allPlansMap),
+        subscriptionPlans: Object.values(allPlansMap),
         audit,
         message: `Subscription plan "${updatedPlan.name}" updated for new enrollments (existing active seller subscriptions remain protected until renewal).`,
       });
@@ -792,6 +835,16 @@ export async function POST(req: NextRequest) {
     // 6. PLATFORM SETTINGS UPDATE
     // =========================================================================
     if (actionType === 'UPDATE_PLATFORM_SETTINGS') {
+      if (!authCheck.authorized) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Forbidden: Administrator authorization is required to modify global platform settings.',
+          },
+          { status: 403 }
+        );
+      }
       const settingsInput =
         body.settings && typeof body.settings === 'object'
           ? (body.settings as Record<string, unknown>)
@@ -886,6 +939,8 @@ export async function POST(req: NextRequest) {
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'UPDATE_PLATFORM_SETTINGS',
         targetEntityType: 'PLATFORM_SETTINGS',
         targetEntityId: 'global',
@@ -910,9 +965,21 @@ export async function POST(req: NextRequest) {
     // 7. DEMO CATALOG SEED / REMOVAL
     // =========================================================================
     if (actionType === 'SEED_DEMO_DATA') {
+      if (!authCheck.authorized) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Forbidden: Administrator authorization is required to seed or remove demo datasets.',
+          },
+          { status: 403 }
+        );
+      }
       const result = await seedNandedDemoCatalogToFirestore();
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'SEED_DEMO_DATA',
         targetEntityType: 'SYSTEM',
         targetEntityId: result.batchId,
@@ -932,9 +999,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (actionType === 'REMOVE_DEMO_DATA') {
+      if (!authCheck.authorized) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Forbidden: Administrator authorization is required to seed or remove demo datasets.',
+          },
+          { status: 403 }
+        );
+      }
       const result = await removeNandedDemoCatalogFromFirestore();
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'REMOVE_DEMO_DATA',
         targetEntityType: 'SYSTEM',
         targetEntityId: 'nanded-25-cat-demo-v1',

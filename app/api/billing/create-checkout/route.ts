@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { SUBSCRIPTION_PLANS, SubscriptionTierId } from '@/lib/revenue-model';
+import { SubscriptionTierId } from '@/lib/revenue-model';
+import { getAuthoritativeSubscriptionPlansAsync } from '@/lib/super-admin-auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { PlatformFeeLedgerEntry } from '@/lib/revenue-model';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +29,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const plan = SUBSCRIPTION_PLANS[planId as SubscriptionTierId];
+    const authoritativePlans = await getAuthoritativeSubscriptionPlansAsync();
+    const plan = authoritativePlans[planId as SubscriptionTierId];
     if (!plan) {
       return NextResponse.json({ error: 'Invalid subscription tier selected' }, { status: 400 });
     }
@@ -35,20 +40,63 @@ export async function POST(req: NextRequest) {
       ? (isAnnual ? plan.annualPriceUsd : plan.monthlyPriceUsd)
       : (isAnnual ? plan.annualPriceInr : plan.monthlyPriceInr);
 
+    // Calculate outstanding platform fees
+    let outstandingFees = 0;
+    const ledgerCol = collection(db, 'platformFeeLedger');
+    const q = query(
+      ledgerCol,
+      where('sellerId', '==', sellerId),
+      where('status', '==', 'outstanding')
+    );
+    const snap = await getDocs(q);
+    const feeEntries: PlatformFeeLedgerEntry[] = [];
+    snap.forEach((docSnap) => {
+      const entry = docSnap.data() as PlatformFeeLedgerEntry;
+      if (entry.currency === currency) {
+        outstandingFees += entry.totalFee;
+        feeEntries.push(entry);
+      }
+    });
+
     const taxRate = currency === 'INR' ? 0.18 : 0.0;
-    const taxAmount = Math.round(basePrice * taxRate * 100) / 100;
-    const totalAmount = Math.round((basePrice + taxAmount) * 100) / 100;
+    const taxAmount = Math.round((basePrice + outstandingFees) * taxRate * 100) / 100;
+    const totalAmount = Math.round((basePrice + outstandingFees + taxAmount) * 100) / 100;
 
     const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // If credentials are missing, return a special 'needsConfig' response
-    if (!keyId || !keySecret) {
+    // Reserve fees for this invoice
+    const nowIso = new Date().toISOString();
+    const reservePromises = feeEntries.map((entry) => 
+      setDoc(doc(db, 'platformFeeLedger', entry.id), {
+        ...entry,
+        status: 'reserved_for_invoice',
+        invoiceNumber,
+        updatedAt: nowIso
+      })
+    );
+    await Promise.all(reservePromises);
+
+    const isPlaceholderCreds =
+      !keyId ||
+      !keySecret ||
+      keyId.includes('placeholder') ||
+      keySecret.includes('placeholder') ||
+      keyId.includes('your_');
+
+    // If credentials are missing or placeholders, return a special 'needsConfig' response
+    if (isPlaceholderCreds) {
       return NextResponse.json({
         success: true,
         needsConfig: true,
         message: 'Razorpay credentials are not yet configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.',
         checkoutSession: {
           invoiceNumber,
+          sellerId,
+          storeId,
+          planId,
+          planName: plan.name,
+          billingCycle,
+          currency,
           totalAmount,
           taxAmount,
           basePrice,
@@ -57,18 +105,44 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Razorpay Order
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100), // in paise
-      currency: currency as string,
-      receipt: invoiceNumber,
-      notes: {
-        storeId,
-        sellerId,
-        planId,
-        billingCycle,
-        type: 'SUBSCRIPTION',
-      },
-    });
+    let razorpayOrder: { id: string; amount: number | string; currency: string; notes?: unknown };
+    try {
+      razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(totalAmount * 100), // in paise
+        currency: currency as string,
+        receipt: invoiceNumber,
+        notes: {
+          storeId,
+          sellerId,
+          planId,
+          billingCycle,
+          type: 'SUBSCRIPTION',
+        },
+      });
+    } catch (rzpErr: unknown) {
+      const statusCode = (rzpErr as { statusCode?: number })?.statusCode;
+      if (statusCode === 401) {
+        return NextResponse.json({
+          success: true,
+          needsConfig: true,
+          message:
+            'Razorpay API credentials could not be authenticated (HTTP 401). Please verify RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment configuration.',
+          checkoutSession: {
+            invoiceNumber,
+            sellerId,
+            storeId,
+            planId,
+            planName: plan.name,
+            billingCycle,
+            currency,
+            totalAmount,
+            taxAmount,
+            basePrice,
+          },
+        });
+      }
+      throw rzpErr;
+    }
 
     return NextResponse.json({
       success: true,

@@ -446,6 +446,8 @@ export function MobileOtpAuthModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div
       role="dialog"

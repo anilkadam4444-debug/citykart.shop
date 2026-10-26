@@ -275,11 +275,14 @@ export async function syncOrderToFirestore(order: OrderRecord): Promise<void> {
   if (!order.id) return;
   const path = `orders/${order.id}`;
   const buyerUid = auth.currentUser?.uid || order.buyerUid || '';
+  const sanitizedOrder: OrderRecord = { ...order };
+  delete sanitizedOrder.buyerDeliveryPin;
+  delete sanitizedOrder.buyerOrderAccessToken;
   try {
     await setDoc(
       doc(db, 'orders', order.id),
       removeUndefined({
-        ...order,
+        ...sanitizedOrder,
         buyerUid,
       }),
       {merge: true}

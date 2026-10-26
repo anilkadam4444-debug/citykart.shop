@@ -18,6 +18,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { adminDb } from './firebase-admin';
 import firebaseConfig from '../firebase-applet-config.json';
 import {
   SUBSCRIPTION_PLANS,
@@ -95,7 +96,9 @@ export type AdminActionType =
   | 'APPROVE_LOCATION_REQUEST'
   | 'REJECT_LOCATION_REQUEST'
   | 'SEED_DEMO_DATA'
-  | 'REMOVE_DEMO_DATA';
+  | 'REMOVE_DEMO_DATA'
+  | 'UPDATE_SPONSORED_PRICING'
+  | 'MODERATE_SPONSORED_CAMPAIGN';
 
 export interface AdminAuditLogRecord {
   id: string;
@@ -118,6 +121,7 @@ export interface AdminAuditLogRecord {
     | 'LOCATION'
     | 'LOCATION_REQUEST'
     | 'ADMIN_USER'
+    | 'SPONSORED_CAMPAIGN'
     | 'SYSTEM';
   targetId: string;
   targetLabel?: string;
@@ -141,6 +145,7 @@ export interface AdminAuditLogRecord {
     | 'LOCATION'
     | 'LOCATION_REQUEST'
     | 'ADMIN_USER'
+    | 'SPONSORED_CAMPAIGN'
     | 'SYSTEM';
   targetEntityId: string;
   targetEntityName?: string;
@@ -346,20 +351,123 @@ export function getAuthoritativeSubscriptionPlans(): Record<
   return globalThis.__serverSubscriptionPlansOverride || SUBSCRIPTION_PLANS;
 }
 
-export function setAuthoritativeSubscriptionPlan(
+export async function getAuthoritativeSubscriptionPlansAsync(): Promise<
+  Record<SubscriptionTierId, SubscriptionPlan>
+> {
+  try {
+    const snap = await adminDb.doc('platformSettings/subscriptionPlans').get();
+    if (snap.exists) {
+      const data = snap.data() as Record<SubscriptionTierId, SubscriptionPlan>;
+      if (data && data.FREE && data.GROWTH && data.BUSINESS_PRO) {
+        globalThis.__serverSubscriptionPlansOverride = data;
+        return data;
+      }
+    }
+  } catch {
+    try {
+      const snap = await getDoc(
+        doc(db, 'platformSettings', 'subscriptionPlans')
+      );
+      if (snap.exists()) {
+        const data = snap.data() as Record<SubscriptionTierId, SubscriptionPlan>;
+        if (data && data.FREE && data.GROWTH && data.BUSINESS_PRO) {
+          globalThis.__serverSubscriptionPlansOverride = data;
+          return data;
+        }
+      }
+    } catch {
+      // Memory fallback
+    }
+  }
+
+  if (!globalThis.__serverSubscriptionPlansOverride) {
+    globalThis.__serverSubscriptionPlansOverride = JSON.parse(
+      JSON.stringify(SUBSCRIPTION_PLANS)
+    );
+  }
+  return globalThis.__serverSubscriptionPlansOverride!;
+}
+
+export async function setAuthoritativeSubscriptionPlan(
   planId: SubscriptionTierId,
   updatedPlan: SubscriptionPlan
-): void {
+): Promise<void> {
   if (!globalThis.__serverSubscriptionPlansOverride) {
     globalThis.__serverSubscriptionPlansOverride = JSON.parse(
       JSON.stringify(SUBSCRIPTION_PLANS)
     );
   }
   globalThis.__serverSubscriptionPlansOverride![planId] = updatedPlan;
+
+  try {
+    await adminDb
+      .doc('platformSettings/subscriptionPlans')
+      .set(globalThis.__serverSubscriptionPlansOverride, { merge: true });
+  } catch {
+    try {
+      await setDoc(
+        doc(db, 'platformSettings', 'subscriptionPlans'),
+        globalThis.__serverSubscriptionPlansOverride,
+        { merge: true }
+      );
+    } catch {
+      // Memory fallback
+    }
+  }
 }
 
 export function getAuthoritativePlatformSettings(): PlatformSettingsConfig {
-  return globalThis.__serverPlatformSettings!;
+  return (
+    globalThis.__serverPlatformSettings || {
+      platformName: 'Citykart',
+      publicWebsiteUrl: 'https://citykart.shop',
+      domain: 'citykart.shop',
+      supportPhone: '+918329306616',
+      supportEmail: 'support@citykart.shop',
+      merchantSupportEmail: 'merchants@citykart.shop',
+      defaultCurrency: 'INR',
+      marketplaceAvailable: true,
+      allowNewSellerRegistrations: true,
+      requireLocationVerificationForNewStores: false,
+      excludeDemoFromProductionMetricsByDefault: true,
+      excludeDemoRecordsFromProductionMetrics: true,
+      maintenanceBannerEnabled: false,
+      maintenanceBannerText: '',
+      maintenanceBannerMessage: '',
+      defaultFreeDeliveryThresholdInr: 199,
+      defaultStandardDeliveryFeeInr: 25,
+      maxProductImageSizeMb: 5,
+      fcmPushNotificationsEnabled: true,
+      updatedAt: new Date().toISOString(),
+      updatedByUid: 'system-default',
+      updatedBy: DESIGNATED_SUPER_ADMIN_PHONE,
+    }
+  );
+}
+
+export async function getAuthoritativePlatformSettingsAsync(): Promise<PlatformSettingsConfig> {
+  try {
+    const snap = await adminDb.doc('platformSettings/global').get();
+    if (snap.exists) {
+      globalThis.__serverPlatformSettings = {
+        ...getAuthoritativePlatformSettings(),
+        ...(snap.data() as PlatformSettingsConfig),
+      };
+    }
+  } catch {
+    try {
+      const snap = await getDoc(doc(db, 'platformSettings', 'global'));
+      if (snap.exists()) {
+        globalThis.__serverPlatformSettings = {
+          ...getAuthoritativePlatformSettings(),
+          ...(snap.data() as PlatformSettingsConfig),
+        };
+      }
+    } catch {
+      // Memory fallback
+    }
+  }
+  return getAuthoritativePlatformSettings();
 }
 
 export function updateAuthoritativePlatformSettings(
@@ -408,6 +516,15 @@ export function updateAuthoritativePlatformSettings(
     updatedBy: DESIGNATED_SUPER_ADMIN_PHONE,
   };
   globalThis.__serverPlatformSettings = updated;
+  try {
+    void adminDb.doc('platformSettings/global').set(updated, { merge: true });
+  } catch {
+    try {
+      void setDoc(doc(db, 'platformSettings', 'global'), updated, { merge: true });
+    } catch {
+      // Memory fallback
+    }
+  }
   return updated;
 }
 
@@ -1193,9 +1310,13 @@ export async function recordAdminAuditLog(params: {
   serverAuditLogsRegistry.set(id, record);
 
   try {
-    await setDoc(doc(db, 'auditLogs', id), record);
+    await adminDb.doc(`auditLogs/${id}`).set(record);
   } catch {
-    // Fallback to server memory registry if Firestore write requires client auth context
+    try {
+      await setDoc(doc(db, 'auditLogs', id), record);
+    } catch {
+      // Fallback to server memory registry if Firestore write requires client auth context
+    }
   }
 
   return record;
@@ -1970,3 +2091,54 @@ export async function verifyAdminRequest(
     firebaseUid: verifiedUid,
   };
 }
+
+export interface VerifiedCallerIdentity {
+  authenticated: boolean;
+  uid: string;
+  phoneE164: string;
+  sellerId?: string;
+  roles: string[];
+}
+
+/**
+ * Verifies an authenticated user (Seller, Buyer, or Admin) from either the
+ * cryptographically signed `urbandirect_session` cookie or a Firebase Bearer ID token.
+ */
+export async function verifyAuthenticatedCaller(
+  req: NextRequest
+): Promise<VerifiedCallerIdentity> {
+  const cookieToken = req.cookies.get('urbandirect_session')?.value;
+  const sessionPayload = verifySignedSessionToken(cookieToken);
+
+  const authHeader = req.headers.get('authorization') || '';
+  const bearerToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+
+  let uid = sessionPayload?.firebaseUid || sessionPayload?.userId || '';
+  let phoneE164 = normalizePhoneE164(sessionPayload?.phoneE164);
+  const sellerId = sessionPayload?.sellerId;
+  let roles = Array.isArray(sessionPayload?.roles) ? sessionPayload.roles : [];
+
+  if (bearerToken) {
+    const verifiedToken = await verifyFirebaseIdTokenCryptographically(bearerToken);
+    if (verifiedToken) {
+      uid = verifiedToken.uid;
+      if (verifiedToken.phoneE164) {
+        phoneE164 = verifiedToken.phoneE164;
+      }
+      if (Array.isArray(verifiedToken.roles)) {
+        roles = verifiedToken.roles;
+      }
+    }
+  }
+
+  return {
+    authenticated: Boolean(uid && phoneE164),
+    uid,
+    phoneE164,
+    sellerId,
+    roles,
+  };
+}
+

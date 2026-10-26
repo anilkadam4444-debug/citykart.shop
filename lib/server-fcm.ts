@@ -12,6 +12,13 @@ import {
 } from './fcm-registry';
 import {db} from './firebase';
 import {doc, setDoc} from 'firebase/firestore';
+import {
+  buildUnifiedBuyerOrderAndPinNotification,
+  buildUnifiedSellerOrderNotification,
+  MANDATORY_BUYER_PIN_WARNING,
+  resolveEstimatedDeliveryMinsForOrder,
+  resolveSellerPhoneForOrder,
+} from './delivery-pin';
 
 let adminInitialized = false;
 let hasExplicitServiceAccount = false;
@@ -68,13 +75,19 @@ export interface NewOrderNotificationResult {
   inAppSellerNotificationPersisted: boolean;
   sellerTokensFound: number;
   sellerSuccessCount: number;
+  sellerUnifiedTitle?: string;
+  sellerUnifiedBody?: string;
+  sellerUnifiedSmsText?: string;
   buyerTokensFound: number;
   buyerSuccessCount: number;
+  buyerUnifiedTitle?: string;
+  buyerUnifiedBody?: string;
   errors: string[];
 }
 
 export async function sendNewOrderPushNotifications(
-  order: OrderRecord
+  order: OrderRecord,
+  deliveryPin?: string
 ): Promise<NewOrderNotificationResult> {
   if (dispatchedNewOrderIds.has(order.id)) {
     return {
@@ -93,6 +106,8 @@ export async function sendNewOrderPushNotifications(
   const errors: string[] = [];
   let inAppPersisted = false;
 
+  const unifiedSellerNotif = buildUnifiedSellerOrderNotification({ order });
+
   try {
     const notifId = `notif-${order.id}`;
     await setDoc(
@@ -103,14 +118,15 @@ export async function sendNewOrderPushNotifications(
         sellerUid: order.sellerUid || order.sellerId,
         storeId: order.storeId,
         orderId: order.id,
-        title: `New Order #${order.id} Received!`,
-        message: `${order.customer.fullName} ordered ${order.items.reduce(
-          (sum, i) => sum + i.quantity,
-          0
-        )} item(s) worth ₹${order.total} (${order.paymentMethod.replace(
-          /_/g,
-          ' '
-        )}).`,
+        title: unifiedSellerNotif.title,
+        message: unifiedSellerNotif.body,
+        smsText: unifiedSellerNotif.smsText,
+        buyerFullName: unifiedSellerNotif.buyerFullName,
+        buyerPhone: unifiedSellerNotif.buyerPhone,
+        buyerFullAddress: unifiedSellerNotif.buyerFullAddress,
+        ...(unifiedSellerNotif.deliveryNotes
+          ? { deliveryNotes: unifiedSellerNotif.deliveryNotes }
+          : {}),
         createdAt: order.createdAtIso || new Date().toISOString(),
         isRead: false,
         type: 'NEW_ORDER',
@@ -171,10 +187,10 @@ export async function sendNewOrderPushNotifications(
   )}`;
   const buyerClickAction = `/orders?orderId=${encodeURIComponent(order.id)}`;
 
-  if (sellerTokens.length > 0) {
-    const sellerTitle = `New Order #${order.id} — ₹${order.total}`;
-    const sellerBody = `${order.customer.fullName} ordered ${itemCount} item(s) from ${order.storeName}.`;
+  const sellerTitle = unifiedSellerNotif.title;
+  const sellerBody = unifiedSellerNotif.body;
 
+  if (sellerTokens.length > 0) {
     try {
       const sellerResponse = await getMessaging().sendEachForMulticast({
         tokens: sellerTokens,
@@ -187,6 +203,10 @@ export async function sendNewOrderPushNotifications(
           storeId: String(order.storeId),
           storeName: String(order.storeName),
           sellerId: String(order.sellerId),
+          buyerFullName: String(unifiedSellerNotif.buyerFullName),
+          buyerPhone: String(unifiedSellerNotif.buyerPhone),
+          buyerFullAddress: String(unifiedSellerNotif.buyerFullAddress),
+          deliveryNotes: String(unifiedSellerNotif.deliveryNotes || ''),
           totalAmount: String(order.total),
           currency: 'INR',
           status: String(order.orderStatus || 'NEW'),
@@ -232,10 +252,27 @@ export async function sendNewOrderPushNotifications(
     }
   }
 
-  if (buyerTokens.length > 0) {
-    const buyerTitle = `Order Confirmed #${order.id}`;
-    const buyerBody = `${order.storeName} received your order of ₹${order.total} (${itemCount} item(s)).`;
+  const unifiedBuyerNotif = deliveryPin
+    ? buildUnifiedBuyerOrderAndPinNotification({
+        order,
+        pin: deliveryPin,
+      })
+    : null;
 
+  const resolvedSellerPhone =
+    unifiedBuyerNotif?.sellerPhone || resolveSellerPhoneForOrder(order);
+  const resolvedEstMins =
+    unifiedBuyerNotif?.estimatedDeliveryMins ||
+    resolveEstimatedDeliveryMinsForOrder(order);
+
+  const buyerTitle = unifiedBuyerNotif
+    ? unifiedBuyerNotif.title
+    : `Order Confirmed #${order.id}`;
+  const buyerBody = unifiedBuyerNotif
+    ? unifiedBuyerNotif.body
+    : `${order.storeName} received your order of ₹${order.total} (${itemCount} item(s)). Estimated Delivery: ~${resolvedEstMins} mins. Seller Mobile: ${resolvedSellerPhone}.`;
+
+  if (buyerTokens.length > 0) {
     try {
       const buyerResponse = await getMessaging().sendEachForMulticast({
         tokens: buyerTokens,
@@ -248,11 +285,15 @@ export async function sendNewOrderPushNotifications(
           storeId: String(order.storeId),
           storeName: String(order.storeName),
           sellerId: String(order.sellerId),
+          sellerPhone: String(resolvedSellerPhone),
+          estimatedDeliveryMins: String(resolvedEstMins),
           totalAmount: String(order.total),
           currency: 'INR',
           status: String(order.orderStatus || 'NEW'),
-          eventType: 'ORDER_PLACED_CONFIRMATION',
+          eventType: 'ORDER_PLACED_WITH_DELIVERY_PIN',
           recipientRole: 'BUYER',
+          deliveryPin: String(deliveryPin || ''),
+          safetyInstructions: MANDATORY_BUYER_PIN_WARNING,
           title: buyerTitle,
           body: buyerBody,
           clickAction: buyerClickAction,
@@ -316,8 +357,13 @@ export async function sendNewOrderPushNotifications(
     inAppSellerNotificationPersisted: inAppPersisted,
     sellerTokensFound: sellerTokens.length,
     sellerSuccessCount,
+    sellerUnifiedTitle: sellerTitle,
+    sellerUnifiedBody: sellerBody,
+    sellerUnifiedSmsText: unifiedSellerNotif.smsText,
     buyerTokensFound: buyerTokens.length,
     buyerSuccessCount,
+    buyerUnifiedTitle: buyerTitle,
+    buyerUnifiedBody: buyerBody,
     errors,
   };
 }

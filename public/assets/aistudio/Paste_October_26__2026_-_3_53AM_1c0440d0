@@ -1,0 +1,862 @@
+CITYKART.SHOP — EXHAUSTIVE FULL-APPLICATION, FIREBASE BACKEND AND PRODUCTION-READINESS AUDIT
+
+ROLE AND OBJECTIVE
+
+Act as a senior software architect, Firebase security specialist, full-stack engineer, application security auditor, QA automation engineer and production-readiness reviewer.
+
+Conduct a comprehensive, evidence-based audit of the entire existing Citykart.shop web application and its Firebase backend. Inspect the actual codebase and configuration, verify the integration between the frontend and backend, identify defects and security vulnerabilities, execute available tests, and safely fix verified issues.
+
+The objective is to establish whether the existing application is genuinely ready for production use, with particular emphasis on Firebase configuration, data integrity, authentication, authorization, order processing, financial calculations, subscription billing and Razorpay integration.
+
+Do not merely review the homepage or perform a superficial code scan. Audit the complete application, including all routes, features, backend services, database collections, security rules, cloud functions, integrations and deployment configuration that can be discovered in the project.
+
+This is an existing application. Preserve its architecture, business rules, branding, production data and working functionality wherever possible.
+
+---
+
+PHASE 1 — DISCOVER THE COMPLETE APPLICATION
+
+1.1 Inspect the repository
+
+Before modifying anything, inspect the complete project structure.
+
+Identify and document:
+
+- Frontend framework, version and build system.
+- Application entry points and route definitions.
+- All public pages and authenticated pages.
+- Buyer, seller, administrator and super-administrator interfaces.
+- Shared components, forms, state management and data-access layers.
+- Authentication providers and session handling.
+- Firebase initialization and environment configuration.
+- Firestore collections, document models and query patterns.
+- Firebase Storage usage and upload workflows.
+- Cloud Functions, scheduled jobs and event-driven functions.
+- Firebase Hosting configuration and hosting targets.
+- Firebase App Check configuration, if present.
+- Razorpay payment and subscription integration.
+- External APIs, notification services and other third-party integrations.
+- GitHub Actions or other CI/CD workflows.
+- Environment variables, secrets references and configuration files.
+- Existing tests, lint rules, type checking and build scripts.
+
+Inspect the actual files rather than assuming that a documented feature is implemented.
+
+Create a complete feature inventory and map each feature to its frontend components, backend operations, database dependencies and authorization requirements.
+
+1.2 Establish a baseline
+
+Before making changes:
+
+1. Inspect the current Git working tree and existing user changes.
+2. Record the current branch and recent relevant changes where available.
+3. Run the available production build.
+4. Run available lint, type-check and automated test commands.
+5. Record existing errors, warnings and failures.
+6. Identify whether failures existed before the audit.
+7. Check for incomplete features, TODO markers, mock implementations, hardcoded data and placeholder integrations.
+
+Do not overwrite uncommitted changes or revert unrelated work. Never expose secret values in logs or the audit report.
+
+---
+
+PHASE 2 — EXHAUSTIVE FIREBASE PROJECT AND CONFIGURATION AUDIT
+
+2.1 Verify Firebase project identity
+
+Inspect the actual Firebase configuration files, SDK initialization and deployment settings.
+
+Verify:
+
+- Firebase project ID.
+- Firebase app initialization.
+- Web app configuration.
+- Environment-specific configuration.
+- Firebase Authentication configuration.
+- Firestore database configuration.
+- Storage bucket configuration.
+- Cloud Functions region and deployment configuration.
+- Hosting site IDs and target mappings.
+- Emulator configuration, if present.
+- Project aliases in ".firebaserc".
+- "firebase.json" configuration.
+- CI/CD project selection and deployment targets.
+
+Confirm that all components reference the intended existing Firebase project and that development, test and production environments are not accidentally mixed.
+
+Do not create a new Firebase project.
+
+Do not assume that a project ID, storage bucket name, region or Hosting target is correct merely because it appears in a configuration file. Cross-check the codebase and available project metadata.
+
+If the environment does not provide authorized access to Firebase Console or Google Cloud APIs, distinguish what can be verified from code from what requires live project access.
+
+2.2 Firebase service inventory
+
+For every Firebase service used by the application, determine:
+
+- Whether it is initialized correctly.
+- Which frontend or backend components depend on it.
+- Whether required permissions and configuration are present.
+- Whether error handling is implemented.
+- Whether the service is actually used or is obsolete.
+- Whether its configuration matches the intended environment.
+
+Audit, where applicable:
+
+- Firebase Authentication.
+- Cloud Firestore.
+- Firebase Storage.
+- Cloud Functions for Firebase.
+- Firebase Hosting.
+- Firebase Cloud Messaging.
+- Firebase App Check.
+- Firebase Performance Monitoring.
+- Firebase Crashlytics, if applicable to the architecture.
+- Firebase Remote Config, if used.
+- Firebase Analytics, if used.
+
+Do not add unused Firebase services merely to make the configuration appear comprehensive.
+
+2.3 Runtime configuration
+
+Verify:
+
+- Correct initialization order.
+- Prevention of duplicate Firebase app initialization.
+- Correct handling of missing configuration.
+- No accidental fallback to an unintended project.
+- No sensitive configuration committed to the repository.
+- Correct use of environment variables and build-time configuration.
+- Appropriate error messages without revealing sensitive information.
+- No accidental use of emulator endpoints in production.
+- No accidental use of production endpoints in tests.
+- Correct handling of configuration changes between environments.
+
+Firebase web API keys must be treated according to Firebase's security model: they identify the project but do not replace Authentication, Security Rules, App Check or backend authorization. Never expose service-account private keys, Razorpay secrets or other server credentials.
+
+---
+
+PHASE 3 — FIREBASE AUTHENTICATION AND IDENTITY SECURITY
+
+Audit all authentication and identity workflows.
+
+3.1 Authentication
+
+Verify the providers actually used, such as email/password, phone authentication or Google sign-in.
+
+Test or inspect:
+
+- Registration.
+- Login.
+- Logout.
+- Password reset.
+- Email verification where applicable.
+- Phone verification where applicable.
+- Session persistence.
+- Session expiry and token refresh.
+- Expired or invalid token handling.
+- Disabled and deleted accounts.
+- Unauthorized access to protected routes.
+- Account deletion and associated data handling.
+- Multiple browser tabs and session changes.
+- Authentication failures and network interruptions.
+
+Do not introduce new authentication providers without a requirement.
+
+3.2 Role-based access control
+
+Identify every role implemented in the application, including any applicable:
+
+- Buyer.
+- Seller.
+- Store owner.
+- Staff member.
+- Administrator.
+- Super administrator.
+
+Inspect the actual role model and determine how roles are assigned, stored, validated and revoked.
+
+Verify that:
+
+- Users cannot assign themselves elevated roles.
+- Users cannot modify their own authorization records.
+- Protected frontend routes are not the only access-control mechanism.
+- Backend operations independently enforce permissions.
+- Administrator access is not granted solely because a phone number or email string matches.
+- Role changes take effect securely.
+- Deleted, disabled or demoted users cannot continue privileged operations using stale authorization state.
+- Seller ownership is checked on every sensitive operation.
+
+Where applicable, use trusted Firebase Authentication claims or server-controlled authorization records. Preserve the current authorization architecture unless a verified security defect requires a change.
+
+---
+
+PHASE 4 — FIRESTORE DATABASE AND SECURITY RULES
+
+4.1 Inspect all database collections
+
+Enumerate all collections and subcollections discoverable from the source code, security rules, functions and existing schema documentation.
+
+For each collection, document:
+
+- Purpose.
+- Document ID strategy.
+- Owner and access roles.
+- Fields and expected data types.
+- Read and write paths.
+- Trusted backend operations.
+- Data validation requirements.
+- Index dependencies.
+- Retention and deletion behavior.
+- Relationships with other collections.
+
+Include, where present, users, sellers, stores, products, product categories, orders, order items, subscriptions, platform-fee ledgers, invoices, payments, delivery records, notifications and administrative settings.
+
+Do not invent collections that do not exist. Identify missing collections only when a verified implemented feature requires them.
+
+4.2 Security Rules audit
+
+Read the complete deployed-intent Firestore Security Rules and compare them with actual application access patterns.
+
+Inspect for:
+
+- Public reads of private information.
+- Unauthorized document creation, updates and deletion.
+- Missing authentication checks.
+- Missing ownership checks.
+- Missing role checks.
+- Client-controlled role escalation.
+- Client-controlled prices or order totals.
+- Client-controlled payment statuses.
+- Client-controlled platform-fee balances.
+- Unauthorized changes to subscriptions or invoices.
+- Missing field-level validation.
+- Unsafe wildcard rules.
+- Rules that permit arbitrary field changes.
+- Insecure subcollection inheritance assumptions.
+- Rules that fail to protect nested data.
+- Privileged records writable by sellers or buyers.
+- Rules that deny legitimate operations unexpectedly.
+
+Test both allowed and denied operations.
+
+Create a permission matrix covering every relevant role and major collection.
+
+For each critical write operation, confirm that validation is enforced in Security Rules, trusted backend code, or both as appropriate.
+
+Never assume that hiding a button or protecting a route makes a database operation secure.
+
+4.3 Query and index verification
+
+Inspect Firestore queries and expected indexes.
+
+Verify:
+
+- Composite indexes required by the application.
+- Query filters consistent with access-control assumptions.
+- Pagination and limits.
+- Sorting behavior.
+- Missing-index failure handling.
+- Avoidance of unbounded collection reads.
+- Efficient seller-specific and order-specific queries.
+- No exposure of other sellers' private documents through broad queries.
+
+Do not create unnecessary indexes without a verified query requirement.
+
+4.4 Firestore consistency and concurrency
+
+Audit operations that modify related documents, balances or order statuses.
+
+Verify that transactions, batched writes or idempotent backend operations are used when required.
+
+Inspect for:
+
+- Lost updates.
+- Duplicate order creation.
+- Double-counted fees.
+- Concurrent renewal jobs.
+- Inconsistent payment and order status.
+- Partial updates that leave invalid financial records.
+- Non-idempotent event-triggered functions.
+- Incorrect retry handling.
+
+Identify any business workflow that cannot be completed atomically and implement an explicit, recoverable state-transition design.
+
+---
+
+PHASE 5 — FIREBASE STORAGE SECURITY
+
+If Firebase Storage is used, audit:
+
+- Storage bucket configuration.
+- Storage Security Rules.
+- Authentication and ownership requirements.
+- Seller product image uploads.
+- Bulk-import files.
+- Profile images and documents.
+- File size limits.
+- MIME type validation.
+- File extension validation.
+- Unsafe or executable uploads.
+- Public download URL exposure.
+- Unauthorized overwrite and deletion.
+- Orphaned files.
+- Upload failures and retry behavior.
+- Metadata and file ownership.
+
+Verify that sellers cannot overwrite or delete another seller's files.
+
+Do not rely solely on frontend file validation. Enforce the required checks through Storage Rules and trusted backend processing as appropriate.
+
+If a feature does not use Storage, report it as not applicable.
+
+---
+
+PHASE 6 — CLOUD FUNCTIONS AND TRUSTED BACKEND
+
+Inspect every existing Cloud Function and server-side endpoint.
+
+Document each function's trigger, authorization requirements, data dependencies, external calls, side effects, retry behavior and failure modes.
+
+Verify:
+
+- Authentication and authorization.
+- Input validation.
+- Secret handling.
+- Correct runtime and region.
+- Appropriate timeout and memory settings.
+- Error handling.
+- Structured logging without sensitive data.
+- Idempotency.
+- Retry safety.
+- Event ordering assumptions.
+- Scheduled job duplication.
+- Transaction boundaries.
+- Rate limiting or abuse protection where needed.
+- Appropriate least-privilege service permissions.
+- Separation between client-trusted and server-trusted data.
+- Handling of external service outages.
+
+Inspect function configuration for dependencies, supported runtime versions and deprecated APIs.
+
+Check whether the deployed functions and local source appear consistent, but do not claim that deployed code matches the repository unless actual deployment metadata or an authorized comparison confirms it.
+
+Do not expose environment secrets or print secret values during verification.
+
+---
+
+PHASE 7 — PRODUCT CATALOG AND SELLER WORKFLOWS
+
+Test all existing product and seller management features.
+
+Where implemented, verify:
+
+- Seller onboarding.
+- Store creation and editing.
+- Product creation.
+- Product editing and deletion.
+- Product visibility and availability.
+- Product price validation.
+- Stock and inventory behavior.
+- Categories and search.
+- Product images.
+- Product-level delivery charges.
+- CSV/XLSX bulk upload.
+- Bulk upload validation and error reporting.
+- Seller ownership checks.
+- Duplicate product handling.
+- Pagination and large catalogs.
+- Store status and subscription restrictions.
+
+For bulk upload, test valid files, invalid formats, malformed values, duplicate rows, partial failures and large input files.
+
+Verify that invalid input cannot overwrite unrelated products or modify another seller's catalog.
+
+Preserve the existing product delivery-charge rules: delivery charges default to zero for new products where that rule is implemented, and existing products retain their saved delivery charges when an update omits the delivery-charge field.
+
+Do not modify product pricing or delivery-charge business rules unnecessarily.
+
+---
+
+PHASE 8 — ORDER MANAGEMENT AND DELIVERY WORKFLOWS
+
+Audit the complete order lifecycle from checkout to completion.
+
+Verify:
+
+- Cart and checkout calculations.
+- Product availability.
+- Price and quantity validation.
+- Delivery charge calculation.
+- Order creation.
+- Duplicate order prevention.
+- Order-item snapshots.
+- Seller order visibility.
+- Order status transitions.
+- Cancellation.
+- Refund or return workflows, where implemented.
+- Notifications.
+- Buyer order history.
+- Seller order management.
+- Admin order management.
+- Delivery PIN generation, delivery confirmation and expiry, if implemented.
+
+Verify that only authorized users can access an order and that a seller can only manage orders assigned to their store.
+
+Test unauthorized status transitions, duplicate requests and concurrent updates.
+
+Ensure that a delivery PIN confirms delivery only and cannot independently prove that COD or UPI payment has been collected.
+
+Do not break existing COD and UPI-on-delivery workflows.
+
+---
+
+PHASE 9 — PLATFORM FEE LEDGER AND SUBSCRIPTION BILLING
+
+Audit the implemented platform-fee and subscription-renewal features.
+
+9.1 Platform-fee calculation
+
+Verify that the configured policy is implemented consistently:
+
+"Platform fee per unit = min(product selling price × 0.02, ₹70)"
+
+Check:
+
+- Fee per product unit.
+- Quantity multiplication.
+- Decimal-safe rounding.
+- Correct price base.
+- Currency restrictions.
+- Fee snapshot at order time.
+- Consistent totals across checkout, order records, invoices and dashboards.
+
+Do not apply the ₹70 INR cap to other currencies without an explicit currency-specific policy.
+
+9.2 Seller fee ledger
+
+Verify:
+
+- Fee eligibility rule.
+- Fee accrual timing.
+- Duplicate event prevention.
+- Seller ownership.
+- Ledger status transitions.
+- Cancellation and refund adjustments.
+- Auditability.
+- Historical order integrity.
+- Correct separation between outstanding, reserved, paid and reversed fees.
+
+9.3 Subscription renewal
+
+Verify that eligible outstanding platform fees are added to the appropriate seller subscription renewal invoice.
+
+Check:
+
+- Base subscription amount.
+- Outstanding eligible fee balance.
+- Applicable existing taxes and charges.
+- Combined invoice total.
+- Invoice-to-ledger linkage.
+- Reservation of fees for a specific invoice.
+- Failed renewal handling.
+- Duplicate renewal prevention.
+- Successful payment reconciliation.
+- Historical invoices.
+- Seller dashboard transparency.
+- Subscription access behavior after failed renewal.
+
+Confirm that fees already paid, reversed or reserved in another active invoice are not charged again.
+
+Do not assume that the existing Razorpay recurring-subscription configuration supports a variable renewal amount. Verify the actual integration and document any limitations.
+
+---
+
+PHASE 10 — RAZORPAY PAYMENT AND WEBHOOK SECURITY
+
+Inspect every Razorpay integration path that exists in the application.
+
+Verify:
+
+- Correct test/production environment separation.
+- Secret keys kept exclusively on trusted backend systems.
+- Server-side payment order creation.
+- Payment signature verification.
+- Webhook signature verification using the correct raw request body where required by the SDK.
+- Duplicate webhook handling.
+- Out-of-order events.
+- Amount and currency matching.
+- Correct order-to-payment linkage.
+- Payment success and failure transitions.
+- Refund processing.
+- Subscription payment handling.
+- Renewal invoice reconciliation.
+- Idempotency and retry behavior.
+- Failure handling when Razorpay is unavailable.
+- No reliance on client-provided payment success flags.
+
+Ensure that payment success is not inferred from a redirect page, client callback or screenshot.
+
+Never trigger real charges during the audit.
+
+Use Razorpay test mode or mocks where available. Do not alter production webhook configuration, credentials, subscription prices or payment collection behavior.
+
+---
+
+PHASE 11 — OTHER INTEGRATIONS AND NOTIFICATIONS
+
+Inventory and audit all other integrations actually used by the codebase.
+
+For each integration, verify:
+
+- Configuration completeness.
+- Authentication and secret handling.
+- Request validation.
+- Response validation.
+- Error and timeout handling.
+- Rate limits.
+- Retry behavior.
+- Logging and monitoring.
+- Fallback behavior.
+- Data privacy.
+
+If SMS, email, push notifications, Google Maps or another external service is implemented, verify its actual integration and configuration without assuming that credentials or delivery capabilities exist.
+
+Distinguish an implemented integration from a placeholder, mock or unconfigured feature.
+
+Do not send real SMS messages, marketing messages or customer notifications during testing unless explicitly authorized.
+
+---
+
+PHASE 12 — FRONTEND, ROUTING AND FUNCTIONAL QA
+
+Audit all discovered routes and major user workflows.
+
+Verify:
+
+- Route completeness.
+- Protected route behavior.
+- Loading states.
+- Empty states.
+- Error states.
+- Network interruption handling.
+- Form validation.
+- Accessibility basics.
+- Mobile responsiveness.
+- Desktop layout.
+- Navigation.
+- Search and filtering.
+- Pagination.
+- Browser refresh on nested routes.
+- Authentication redirects.
+- No broken links.
+- No blank screens.
+- No unhandled exceptions.
+- No console errors introduced by the application.
+- No hardcoded demo data presented as live production data.
+
+Use browser automation or available testing tools if present. If graphical testing is unavailable, run the best available automated tests and identify the remaining manual verification.
+
+Do not claim that every screen has been tested if it has only been inspected statically.
+
+---
+
+PHASE 13 — PERFORMANCE, SCALABILITY AND COST
+
+Inspect the application for:
+
+- Unnecessary Firestore reads and writes.
+- Repeated subscriptions and listeners.
+- Missing listener cleanup.
+- Excessive rerenders.
+- Unbounded data fetching.
+- Inefficient queries.
+- Large bundles.
+- Unoptimized images.
+- Slow route loading.
+- Duplicate backend calls.
+- Excessive Cloud Function invocations.
+- Costly scheduled jobs.
+- Large file uploads.
+- Unnecessary polling.
+- Missing pagination.
+- Potential abuse and cost-exhaustion paths.
+
+Verify that common workflows have appropriate loading indicators, caching where suitable and pagination for large datasets.
+
+Review Firebase and Google Cloud billing dependencies. Identify which features may require the Blaze plan, paid APIs or other charges.
+
+Do not enable billing, change quotas or incur paid usage as part of this audit.
+
+Provide evidence for performance claims. Do not invent load-test results or guarantee unlimited scalability.
+
+---
+
+PHASE 14 — PRIVACY, SECRETS AND APPLICATION SECURITY
+
+Perform a security-focused review of the entire codebase.
+
+Search for:
+
+- Private keys and credentials.
+- Razorpay secrets.
+- Service-account files.
+- Committed environment files containing secrets.
+- Hardcoded passwords.
+- Insecure debug endpoints.
+- Sensitive information in logs.
+- Unsafe HTML rendering.
+- Injection risks.
+- Open redirects.
+- Insecure file upload handling.
+- Cross-site scripting risks.
+- Missing CSRF protections where applicable.
+- Insecure CORS policies.
+- Unrestricted API endpoints.
+- Excessive personal-data exposure.
+- Weak authorization checks.
+- Dependency vulnerabilities.
+- Outdated or deprecated dependencies.
+- Unsafe error messages.
+- Abuse-prone endpoints.
+
+Differentiate public Firebase web configuration from actual secret credentials.
+
+Do not print secrets into the final report. If a genuine credential exposure is found, identify the file and credential type without reproducing the secret, then recommend secure rotation and removal.
+
+Do not rotate production credentials or revoke active credentials without approval.
+
+Review privacy and data-retention behavior where implemented. Do not invent legal compliance certifications.
+
+---
+
+PHASE 15 — HOSTING AND CI/CD VERIFICATION
+
+Audit Firebase Hosting and deployment workflows.
+
+Verify:
+
+- Hosting site and target mapping.
+- Production build command.
+- Build output directory.
+- SPA rewrite rules, where applicable.
+- Static asset paths.
+- Cache headers.
+- Security headers.
+- HTTPS behavior.
+- Custom domain configuration where access is available.
+- Preview environments.
+- Production versus staging configuration.
+- GitHub Actions permissions.
+- Secret references.
+- Branch and deployment triggers.
+- Correct Firebase project selection.
+- Risk of accidental deployment to another site.
+- Rollback and release practices.
+
+Check that a deployment cannot accidentally publish the wrong tenant, environment or site.
+
+Do not deploy, publish a preview that changes external state, modify DNS, change custom domains or alter production hosting configuration without explicit approval.
+
+---
+
+PHASE 16 — AUTOMATED TESTING AND REGRESSION
+
+Create or improve tests for the most critical business and security paths.
+
+Use the testing framework already present where possible.
+
+Include:
+
+- Unit tests for monetary calculations.
+- Order calculation tests.
+- Authentication and authorization tests.
+- Firestore Security Rules tests.
+- Storage Security Rules tests, if applicable.
+- Cloud Function tests.
+- Ledger idempotency tests.
+- Subscription renewal calculation tests.
+- Razorpay webhook verification tests using test events or mocks.
+- Failed payment and retry tests.
+- Duplicate request tests.
+- Role-based access tests.
+- Bulk-upload validation tests.
+- Critical frontend workflow tests.
+- Build and type-check validation.
+
+Use Firebase Emulator Suite where feasible and configured.
+
+Never run tests that modify production data or make real payment collections.
+
+For every critical workflow, include both successful and unauthorized or failure scenarios.
+
+Report the actual commands executed and their results. Clearly label unavailable test infrastructure and unexecuted tests as NOT VERIFIED.
+
+---
+
+PHASE 17 — SAFE DEFECT REMEDIATION
+
+After the initial audit, classify findings by severity:
+
+- P0 — Critical: confirmed vulnerability or defect that creates immediate risk of account compromise, unauthorized financial operations or severe data exposure.
+- P1 — High: major security weakness, financial inconsistency or core workflow failure.
+- P2 — Medium: significant functional, reliability or performance issue.
+- P3 — Low: minor defect, maintainability concern or cosmetic issue.
+
+For every finding, record:
+
+- Unique finding ID.
+- Severity.
+- Affected file, function, route, collection or configuration.
+- Evidence.
+- Reproduction steps, where possible.
+- Actual impact.
+- Recommended remediation.
+- Whether the issue is confirmed or only suspected.
+- Test required to validate the fix.
+
+Safely fix verified defects that can be corrected without risking production data, breaking unrelated functionality or changing unapproved business rules.
+
+Prefer small, reviewable changes.
+
+Do not:
+
+- Rewrite the whole application unnecessarily.
+- Remove working functionality to make tests pass.
+- Disable security rules to resolve permission errors.
+- Add broad public access as a workaround.
+- Delete data or collections.
+- Invent missing credentials.
+- Replace production payment integrations with mocks in production code.
+- Change pricing or fee policies.
+- Make destructive migrations.
+- Hide or suppress errors instead of fixing their causes.
+
+If a fix requires production access, irreversible data changes, a business decision or external account configuration, document the exact issue and required action rather than proceeding without approval.
+
+After every material change, rerun the relevant tests and the production build.
+
+---
+
+PHASE 18 — FINAL PRODUCTION-READINESS GATE
+
+Do not declare the application production-ready merely because the build succeeds.
+
+Evaluate these independent areas:
+
+1. Application build and type safety.
+2. Authentication and authorization.
+3. Firestore Security Rules.
+4. Storage Security Rules.
+5. Cloud Functions and backend integrity.
+6. Order lifecycle.
+7. Platform-fee calculations and ledger integrity.
+8. Subscription renewal and payment reconciliation.
+9. Razorpay security.
+10. Seller and buyer workflows.
+11. Hosting and deployment configuration.
+12. Performance and cost risks.
+13. Privacy and secrets management.
+14. Automated test coverage.
+15. Production configuration and operational readiness.
+
+For each area, assign one evidence-based status:
+
+- PASS — verified with sufficient evidence.
+- FAIL — a confirmed defect remains.
+- PARTIAL — some checks passed, but significant checks remain.
+- NOT VERIFIED — required evidence or access is unavailable.
+- NOT APPLICABLE — the feature is not used by this application.
+
+A successful local build does not prove that Firebase production configuration, deployed rules, live integrations or payment webhooks are correct.
+
+If actual Firebase Console access, deployed rule inspection, live configuration metadata or production monitoring is unavailable, explicitly state that limitation. Never claim to have verified deployed resources when only local files were inspected.
+
+Only recommend production release when all critical and high-severity findings are resolved or explicitly accepted, the critical workflows have adequate test evidence, and all remaining unverified production-dependent checks are clearly disclosed.
+
+---
+
+REQUIRED FINAL REPORT
+
+Provide a comprehensive but clearly structured audit report containing:
+
+A. Executive summary
+
+- Overall readiness status.
+- Major risks.
+- Most important verified findings.
+- Whether production release is recommended, blocked or conditionally recommended.
+
+B. Application inventory
+
+- Framework and architecture.
+- Routes and major features.
+- Firebase services used.
+- External integrations.
+- CI/CD and Hosting configuration.
+
+C. Firebase configuration matrix
+
+For every relevant Firebase service, show:
+
+- Expected configuration.
+- Evidence inspected.
+- Verification result.
+- Security or reliability issues.
+- Remaining checks requiring authorized live access.
+
+D. Security findings
+
+- Severity.
+- Evidence.
+- Impact.
+- Fix applied or recommended.
+- Validation result.
+
+E. Financial and business workflow findings
+
+- Order processing.
+- Delivery and payment status.
+- Platform-fee calculation.
+- Seller fee ledger.
+- Subscription renewal.
+- Razorpay verification and reconciliation.
+
+F. Remediation report
+
+- Files changed.
+- Exact fixes made.
+- Security rules changed.
+- Functions changed.
+- Tests added.
+- Any migration or configuration still required.
+
+G. Test results
+
+- Commands actually run.
+- Build results.
+- Lint and type-check results.
+- Automated test results.
+- Security Rules test results.
+- Integration test results.
+- Tests not executed and reasons.
+
+H. Remaining risks and manual actions
+
+List the exact Firebase Console, Google Cloud, Razorpay, Hosting or CI/CD actions that still require manual verification or approval.
+
+I. Release decision
+
+Choose one:
+
+- READY FOR PRODUCTION REVIEW.
+- CONDITIONALLY READY — outstanding checks or accepted risks remain.
+- NOT READY FOR PRODUCTION.
+
+Explain the decision with evidence. Do not use vague claims such as “everything is perfect,” “100% secure” or “fully tested” without comprehensive supporting evidence.
+
+J. Production safety confirmation
+
+Confirm whether production data, live payments, deployed Security Rules, live credentials, Hosting configuration or external services were changed.
+
+Strict instruction: do not deploy to production, trigger live payments, change production Firebase rules, alter live credentials, modify DNS, enable paid services or run destructive migrations without my explicit approval. Perform the audit and safe local remediation first, then provide the report and wait for approval for any production-impacting action.

@@ -3,10 +3,67 @@ import {
   CustomerShoppingLocation,
   INITIAL_PRODUCTS,
   INITIAL_STORES,
+  LocalStore,
   normalizeCityId,
+  Product,
   ProductCategory,
   queryCityScopedCatalog,
 } from '@/lib/catalog-data';
+import {fetchStoresAndProductsFromFirestore} from '@/lib/firebase';
+import {serverDeletedStoresRegistry} from '@/lib/stores-registry';
+import {
+  serverProductOverridesRegistry,
+  serverStoreOverridesRegistry,
+} from '@/lib/super-admin-auth';
+
+export const dynamic = 'force-dynamic';
+
+declare global {
+  var __discoveryCatalogCache:
+    | {
+        stores: LocalStore[];
+        products: Product[];
+        fetchedAtMs: number;
+      }
+    | undefined;
+}
+
+const DISCOVERY_CACHE_TTL_MS = 15_000;
+
+async function getCachedLiveCatalog(): Promise<{
+  stores: LocalStore[];
+  products: Product[];
+}> {
+  const now = Date.now();
+  if (
+    globalThis.__discoveryCatalogCache &&
+    now - globalThis.__discoveryCatalogCache.fetchedAtMs < DISCOVERY_CACHE_TTL_MS
+  ) {
+    return globalThis.__discoveryCatalogCache;
+  }
+
+  try {
+    const liveCatalog = await Promise.race([
+      fetchStoresAndProductsFromFirestore(),
+      new Promise<{ stores: LocalStore[]; products: Product[] }>((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore discovery timeout')), 2500)
+      ),
+    ]);
+    globalThis.__discoveryCatalogCache = {
+      stores: liveCatalog.stores,
+      products: liveCatalog.products,
+      fetchedAtMs: now,
+    };
+    return liveCatalog;
+  } catch {
+    return (
+      globalThis.__discoveryCatalogCache || {
+        stores: [],
+        products: [],
+      }
+    );
+  }
+}
 
 export async function GET(req: NextRequest) {
   const {searchParams} = new URL(req.url);
@@ -38,9 +95,63 @@ export async function GET(req: NextRequest) {
         locality: '',
       };
 
+  // Merge initial catalog with cached live Firestore stores & products while respecting deletions & admin moderation
+  const storesMap = new Map<string, LocalStore>();
+  for (const s of INITIAL_STORES) {
+    if (!serverDeletedStoresRegistry.has(s.id)) {
+      storesMap.set(s.id, s);
+    }
+  }
+  const productsMap = new Map<string, Product>();
+  for (const p of INITIAL_PRODUCTS) {
+    if (!serverDeletedStoresRegistry.has(p.storeId)) {
+      productsMap.set(p.id, p);
+    }
+  }
+
+  const liveCatalog = await getCachedLiveCatalog();
+  for (const s of liveCatalog.stores) {
+    if (s?.id && !serverDeletedStoresRegistry.has(s.id)) {
+      storesMap.set(s.id, s);
+    }
+  }
+  for (const p of liveCatalog.products) {
+    if (p?.id && !serverDeletedStoresRegistry.has(p.storeId)) {
+      productsMap.set(p.id, p);
+    }
+  }
+
+  for (const [storeId, override] of serverStoreOverridesRegistry.entries()) {
+    const st = storesMap.get(storeId);
+    if (st) {
+      storesMap.set(storeId, {
+        ...st,
+        isSuspended: override.isSuspended,
+        isActive: override.isActive,
+      });
+    }
+  }
+  for (const [prodId, override] of serverProductOverridesRegistry.entries()) {
+    const pr = productsMap.get(prodId);
+    if (pr) {
+      productsMap.set(prodId, {
+        ...pr,
+        adminUnpublished: override.adminUnpublished,
+        isAvailable: override.isAvailable,
+      });
+    }
+  }
+
+  const eligibleStores = Array.from(storesMap.values()).filter(
+    (s) => !s.isSuspended && s.isActive !== false
+  );
+  const eligibleProducts = Array.from(productsMap.values()).filter(
+    (p) => !p.adminUnpublished && p.isAvailable !== false
+  );
+
   const result = queryCityScopedCatalog({
-    stores: INITIAL_STORES,
-    products: INITIAL_PRODUCTS,
+    stores: eligibleStores,
+    products: eligibleProducts,
     customerLocation,
     selectedCategory: category,
     searchQuery,

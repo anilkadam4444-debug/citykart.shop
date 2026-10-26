@@ -21,19 +21,92 @@ import {
   ChevronUp,
   CreditCard,
   RefreshCw,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  ShieldCheck,
 } from 'lucide-react';
 import { useUrbanDirect } from '@/components/urbandirect-provider';
 import { OrderRecord, OrderStatus } from '@/lib/catalog-data';
 
 export default function BuyerOrdersPage() {
-  const { orders, handleCancelOrder, stores, openOtpAuthModal, authenticatedUser } =
-    useUrbanDirect();
+  const {
+    orders,
+    handleCancelOrder,
+    stores,
+    openOtpAuthModal,
+    authenticatedUser,
+    getBuyerPinVaultEntry,
+    handleRegenerateBuyerDeliveryPin,
+  } = useUrbanDirect();
 
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'>('ALL');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('');
   const [isSubmittingCancel, setIsSubmittingCancel] = useState<boolean>(false);
+  const [revealedPins, setRevealedPins] = useState<Record<string, boolean>>({});
+  const [fetchedPins, setFetchedPins] = useState<Record<string, string>>({});
+  const [loadingPinOrderId, setLoadingPinOrderId] = useState<string | null>(null);
+  const [regeneratingPinOrderId, setRegeneratingPinOrderId] = useState<string | null>(null);
+  const [pinErrorByOrder, setPinErrorByOrder] = useState<Record<string, string>>({});
+  const [copiedPinOrderId, setCopiedPinOrderId] = useState<string | null>(null);
+
+  const handleFetchBuyerPin = async (orderId: string) => {
+    setLoadingPinOrderId(orderId);
+    setPinErrorByOrder((prev) => ({ ...prev, [orderId]: '' }));
+    const vaultEntry = getBuyerPinVaultEntry(orderId);
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/pin`, {
+        method: 'GET',
+        headers: {
+          ...(vaultEntry?.buyerAccessToken
+            ? { 'x-buyer-order-token': vaultEntry.buyerAccessToken }
+            : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setPinErrorByOrder((prev) => ({
+          ...prev,
+          [orderId]:
+            data.error || 'Please sign in as the buyer of this order to view its Delivery PIN.',
+        }));
+        return;
+      }
+      if (data.deliveryPin) {
+        setFetchedPins((prev) => ({ ...prev, [orderId]: data.deliveryPin }));
+        setRevealedPins((prev) => ({ ...prev, [orderId]: true }));
+      }
+    } catch {
+      setPinErrorByOrder((prev) => ({
+        ...prev,
+        [orderId]: 'Network error retrieving Delivery PIN.',
+      }));
+    } finally {
+      setLoadingPinOrderId(null);
+    }
+  };
+
+  const handleRegeneratePinClick = async (orderId: string) => {
+    setRegeneratingPinOrderId(orderId);
+    setPinErrorByOrder((prev) => ({ ...prev, [orderId]: '' }));
+    const result = await handleRegenerateBuyerDeliveryPin(orderId);
+    setRegeneratingPinOrderId(null);
+    if (!result.ok) {
+      setPinErrorByOrder((prev) => ({
+        ...prev,
+        [orderId]: result.error || 'Could not regenerate Delivery PIN.',
+      }));
+      return;
+    }
+    if (result.pin) {
+      setFetchedPins((prev) => ({ ...prev, [orderId]: result.pin! }));
+      setRevealedPins((prev) => ({ ...prev, [orderId]: true }));
+    }
+  };
 
   // Filter orders
   const filteredOrders = orders.filter((order) => {
@@ -323,6 +396,26 @@ export default function BuyerOrdersPage() {
                           #{order.id}
                         </span>
                         {getStatusBadge(order.orderStatus)}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                            order.paymentStatus === 'PAID'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : order.paymentStatus === 'DISPUTED'
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          <span>
+                            Payment: {order.paymentStatus || 'PENDING'} (
+                            {order.paymentMethod === 'UPI_ON_DELIVERY'
+                              ? 'UPI on Delivery'
+                              : order.paymentMethod === 'CASH_ON_DELIVERY'
+                              ? 'Cash on Delivery'
+                              : 'Card Tap'}
+                            )
+                          </span>
+                        </span>
                         {order.isDemo && (
                           <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
                             Demo Order
@@ -367,6 +460,202 @@ export default function BuyerOrdersPage() {
                   <div className="p-4 sm:p-5 border-b border-slate-100 bg-white">
                     {renderTimeline(order)}
                   </div>
+
+                  {/* Buyer Delivery PIN Panel */}
+                  {(() => {
+                    const status = order.orderStatus || 'NEW';
+                    const isActiveOrder = [
+                      'NEW',
+                      'CONFIRMED',
+                      'PREPARING',
+                      'OUT_FOR_DELIVERY',
+                    ].includes(status);
+                    const vaultEntry = getBuyerPinVaultEntry(order.id);
+                    const activePin =
+                      fetchedPins[order.id] || vaultEntry?.pin || null;
+                    const isPinRevealed = revealedPins[order.id] ?? Boolean(activePin);
+                    const pinErr = pinErrorByOrder[order.id];
+
+                    if (status === 'DELIVERED') {
+                      return (
+                        <div className="px-4 sm:px-5 py-3 bg-emerald-50/80 border-b border-emerald-200/80 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-950">
+                          <div className="flex items-center gap-2 font-bold">
+                            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>
+                              Delivery Confirmed via 6-Digit Delivery PIN
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-emerald-800">
+                            Single-use Delivery PIN verified and consumed · Payment Status:{' '}
+                            <strong>{order.paymentStatus || 'PENDING'}</strong>
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    if (!isActiveOrder) return null;
+
+                    return (
+                      <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 border-b border-blue-200/80 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-[#003B8E] text-white flex items-center justify-center shrink-0 mt-0.5">
+                              <KeyRound className="w-4 h-4 text-amber-300" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-extrabold text-slate-900">
+                                  Buyer 6-Digit Delivery PIN
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#003B8E] border border-blue-200">
+                                  {order.deliveryPinInfo?.status === 'LOCKED'
+                                    ? 'Locked — Regenerate Required'
+                                    : `Active (v${order.deliveryPinInfo?.pinVersion || 1})`}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 mt-0.5">
+                                Give this 6-digit PIN to the delivery person only when your order is in your hands.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {activePin ? (
+                              <div className="px-3.5 py-1.5 rounded-xl bg-white border border-blue-300 font-mono text-base font-extrabold tracking-[0.22em] text-[#003B8E] shadow-2xs tabular-nums">
+                                {isPinRevealed ? activePin : '••••••'}
+                              </div>
+                            ) : null}
+
+                            {activePin ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRevealedPins((prev) => ({
+                                      ...prev,
+                                      [order.id]: !isPinRevealed,
+                                    }))
+                                  }
+                                  className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  {isPinRevealed ? (
+                                    <>
+                                      <EyeOff className="w-3.5 h-3.5" />
+                                      <span>Hide</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="w-3.5 h-3.5" />
+                                      <span>Show</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void navigator.clipboard?.writeText(activePin);
+                                    setCopiedPinOrderId(order.id);
+                                    setTimeout(
+                                      () =>
+                                        setCopiedPinOrderId((curr) =>
+                                          curr === order.id ? null : curr
+                                        ),
+                                      2000
+                                    );
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  {copiedPinOrderId === order.id ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Copied</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      <span>Copy</span>
+                                    </>
+                                  )}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={loadingPinOrderId === order.id}
+                                onClick={() => void handleFetchBuyerPin(order.id)}
+                                className="px-3 py-1.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>
+                                  {loadingPinOrderId === order.id
+                                    ? 'Loading PIN...'
+                                    : 'View My Delivery PIN'}
+                                </span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              disabled={regeneratingPinOrderId === order.id}
+                              onClick={() => void handleRegeneratePinClick(order.id)}
+                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-[#003B8E] border border-blue-200 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <RefreshCw
+                                className={`w-3.5 h-3.5 ${
+                                  regeneratingPinOrderId === order.id
+                                    ? 'animate-spin'
+                                    : ''
+                                }`}
+                              />
+                              <span>
+                                {regeneratingPinOrderId === order.id
+                                  ? 'Generating...'
+                                  : 'Resend / Regenerate PIN'}
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {pinErr && (
+                          <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-800">
+                            {pinErr}
+                          </div>
+                        )}
+
+                        <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-[11px] sm:text-xs text-amber-950 flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                          <span className="font-semibold">
+                            Share your delivery PIN only after you have received your order. Never share it in advance. Your delivery PIN confirms delivery; it does not confirm payment.
+                          </span>
+                        </div>
+
+                        {activePin && (
+                          <div className="p-2.5 rounded-xl bg-white/90 border border-blue-200/80 text-[11px] text-slate-700 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2 font-bold text-[#003B8E]">
+                              <span>Unified Order &amp; Delivery PIN Notification (Push + SMS)</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-[#003B8E] border border-blue-200">
+                                Single Combined Alert
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                              <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-[#003B8E] font-semibold">
+                                Est. Delivery: ~{vaultEntry?.unifiedNotification?.estimatedDeliveryMins || order.estimatedMins || matchedStore?.avgDispatchMins || 25} mins
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-[#003B8E] font-mono font-semibold">
+                                Seller Mobile: {vaultEntry?.unifiedNotification?.sellerPhone || order.sellerPhone || matchedStore?.phone || '+919820000000'}
+                              </span>
+                            </div>
+                            <p className="font-mono text-[11px] text-slate-600 leading-relaxed">
+                              {isPinRevealed
+                                ? vaultEntry?.unifiedNotification?.smsText ||
+                                  `Citykart: Order #${order.id} placed successfully with ${order.storeName} for Rs.${order.total}. Est. Delivery: ~${order.estimatedMins || matchedStore?.avgDispatchMins || 25} mins. Seller Mobile: ${order.sellerPhone || matchedStore?.phone || '+919820000000'}. Your Delivery PIN is ${activePin}. SAFETY: Share this PIN with the delivery partner ONLY after receiving your order. Never share in advance. PIN confirms delivery only, not payment.`
+                                : `Citykart: Order #${order.id} placed successfully with ${order.storeName} for Rs.${order.total}. Est. Delivery: ~${vaultEntry?.unifiedNotification?.estimatedDeliveryMins || order.estimatedMins || matchedStore?.avgDispatchMins || 25} mins. Seller Mobile: ${vaultEntry?.unifiedNotification?.sellerPhone || order.sellerPhone || matchedStore?.phone || '+919820000000'}. Your Delivery PIN is ••••••. SAFETY: Share this PIN with the delivery partner ONLY after receiving your order. Never share in advance. PIN confirms delivery only, not payment.`}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Items Preview */}
                   <div className="p-4 sm:p-5 space-y-3">
@@ -444,10 +733,10 @@ export default function BuyerOrdersPage() {
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
                           <div className="font-bold text-slate-800 flex items-center gap-1.5">
                             <CreditCard className="w-3.5 h-3.5 text-[#003B8E]" />
-                            Payment Method
+                            Payment &amp; Fulfillment Status
                           </div>
                           <div className="flex items-center justify-between text-slate-700">
-                            <span>Method:</span>
+                            <span>Payment Method:</span>
                             <span className="font-bold text-slate-900">
                               {order.paymentMethod === 'UPI_ON_DELIVERY'
                                 ? 'UPI on Delivery'
@@ -458,9 +747,27 @@ export default function BuyerOrdersPage() {
                                 : order.paymentMethod}
                             </span>
                           </div>
+                          <div className="flex items-center justify-between text-slate-700">
+                            <span>Payment Status:</span>
+                            <span
+                              className={`font-bold ${
+                                order.paymentStatus === 'PAID'
+                                  ? 'text-emerald-700'
+                                  : order.paymentStatus === 'DISPUTED'
+                                  ? 'text-rose-700'
+                                  : 'text-amber-700'
+                              }`}
+                            >
+                              {order.paymentStatus === 'PAID'
+                                ? 'Paid on Delivery'
+                                : order.paymentStatus === 'DISPUTED'
+                                ? 'Disputed'
+                                : 'Pending on Delivery'}
+                            </span>
+                          </div>
                           {order.upiId && (
                             <div className="flex items-center justify-between text-slate-700">
-                              <span>Store UPI ID:</span>
+                              <span>UPI ID:</span>
                               <span className="font-mono text-[#003B8E] font-bold">
                                 {order.upiId}
                               </span>
