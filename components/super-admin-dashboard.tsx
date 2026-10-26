@@ -5323,8 +5323,8 @@ export function SuperAdminDashboard() {
             <AdminPartnerManagement
               isSuperAdmin={isSuperAdmin}
               onActionCompleted={(msg) => {
-                setActionFeedback(msg);
-                fetchDashboard();
+                setActionBanner({ type: 'success', message: msg });
+                void fetchDashboardData();
               }}
             />
           )}
