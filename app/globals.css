@@ -32,13 +32,34 @@
   background-color: #ffffff;
   border: 1px solid rgba(226, 232, 240, 0.95);
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ck-card:hover {
-  border-color: rgba(0, 59, 142, 0.35);
+  border-color: rgba(0, 59, 142, 0.28);
   box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.08), 0 8px 12px -6px rgba(15, 23, 42, 0.04);
   transform: translateY(-2px);
+}
+
+/* 3D Perspective & Depth Helpers */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Subtle Glassmorphism Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
 }
 
 /* Custom subtle scrollbar for drawers and panels */
@@ -72,4 +93,22 @@
 /* Tabular numerals utility for prices, quantities, and timers */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Accessibility & Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .smooth-lift,
+  .ck-card,
+  .preserve-3d {
+    transform: none !important;
+  }
 }

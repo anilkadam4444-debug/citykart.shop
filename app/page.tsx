@@ -41,6 +41,7 @@ import {ProductStudioArtwork} from '@/components/product-studio-artwork';
 import {ProductDetailModal} from '@/components/product-detail-modal';
 import {CartCheckoutDrawer} from '@/components/cart-checkout-drawer';
 import {CategoryIcon} from '@/components/category-icon';
+import {TiltCard} from '@/components/tilt-card';
 import {LocationSelectorModal} from '@/components/location-selector-modal';
 import {
   BuyerLeftSidebar,
@@ -1781,8 +1782,10 @@ export default function UrbanDirectPlatform() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {heroSpotlightProducts.map((item) => (
-                              <div
+                              <TiltCard
                                 key={item.id}
+                                maxTilt={5}
+                                scale={1.02}
                                 onClick={() => handleInspectProduct(item)}
                                 className="group bg-white border border-slate-200/90 hover:border-[#003B8E]/50 rounded-xl p-2.5 flex flex-col justify-between cursor-pointer transition-all shadow-2xs"
                               >
@@ -1815,7 +1818,7 @@ export default function UrbanDirectPlatform() {
                                     </span>
                                   </div>
                                 </div>
-                              </div>
+                              </TiltCard>
                             ))}
                           </div>
 

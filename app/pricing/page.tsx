@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Percent,
 } from 'lucide-react';
+import { TiltCard } from '@/components/tilt-card';
 import { SUBSCRIPTION_PLANS, VALUE_ADDED_SERVICES } from '@/lib/revenue-model';
 
 interface ComparisonFeature {
@@ -262,8 +263,10 @@ export default function PricingPage() {
             const periodLabel = isAnnual ? '/year' : '/month';
 
             return (
-              <div
+              <TiltCard
                 key={plan.id}
+                maxTilt={5}
+                scale={1.015}
                 className={`relative rounded-3xl flex flex-col justify-between p-6 sm:p-8 transition-all ${
                   isGrowth
                     ? 'bg-white border-2 border-[#003B8E] shadow-xl ring-1 ring-[#003B8E]/10'
@@ -324,7 +327,7 @@ export default function PricingPage() {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-              </div>
+              </TiltCard>
             );
           })}
         </div>

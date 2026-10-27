@@ -1,38 +1,79 @@
-# Implementation Plan — Platform Fee System
+# Component Modularization, Code Splitting & Premium Visual Enhancement — MyCityCart
 
-Implement a 2% (capped at ₹70/unit) platform fee system accrued per order and collected during subscription renewal.
+Transform MyCityCart into a production-grade, highly modular, smooth, and visually striking platform while strictly preserving all existing functionality, Firebase operations, auth flows, and user journeys.
 
-## 1. Data Schema Extensions
-- `platform_fee_ledger` (Firestore Collection):
-  - `id`: string
-  - `sellerId`: string
-  - `orderId`: string
-  - `amount`: number
-  - `currency`: string
-  - `status`: 'pending_eligibility' | 'outstanding' | 'paid' | 'reversed'
-  - `createdAt`: ISO string
+## User Review & Critical Decisions
 
-## 2. Backend Logic (Server-Side Authority)
-- **Fee Accrual**: Triggered on `orderStatus: 'DELIVERED'` in `orders-registry`. Updates `platform_fee_ledger` entries to `outstanding`.
-- **Renewal Billing (`/app/api/billing/create-checkout`)**:
-  - Fetch `outstanding` fees for the `sellerId`.
-  - Calculate total renewal: `planPrice + tax + outstandingFees`.
-  - Pass breakdown in Razorpay Order notes.
-- **Payment Settlement (`/app/api/billing/verify-payment` & webhook)**:
-  - Validate Razorpay signature.
-  - On `SUCCESS`, atomically update `platform_fee_ledger` entries to `paid`.
+> [!IMPORTANT]
+> The user confirmed the following preferences during Phase 1 clarification:
+> - **Component Organization**: Recommended structure (`/components/buyer/`, `/components/business/`, `/components/admin/`, `/components/ui/`).
+> - **Code Splitting**: Recommended dynamic imports for non-critical dashboard/admin views and heavy tabs to ensure fast initial page loads.
 
-## 3. Security & Validation
-- Enforce backend-authoritative calculation in all billing routes.
-- Use idempotency keys for all ledger state transitions.
-- Audit Firestore rules to prevent seller-initiated fee updates.
+- **Confirmed Decision 1**: Modularize `app/page.tsx` and other monolithic views into structured sub-components to improve maintainability and performance.
+- **Confirmed Decision 2**: Implement React lazy loading (`React.lazy` / `Suspense`) for secondary views (Admin Dashboard, Partner Onboarding, My Orders) while keeping critical above-the-fold marketplace home fully preloaded.
 
-## 4. Dashboard UI
-- Seller: "Billing" tab showing outstanding, paid, and itemized fees.
-- Admin: Reconciliation view of collected vs outstanding fees by seller.
+---
 
-## 5. Next Steps
-1. Define Firestore rules for ledger.
-2. Implement fee accrual Cloud Function/API call on delivery confirmation.
-3. Modify `/app/api/billing/create-checkout/route.ts` to fetch and add outstanding fees.
-4. Modify payment verification to settle ledger entries.
+## 1. Overview & Core Concept
+
+- **What It Does**: MyCityCart is a comprehensive local business growth platform connecting buyers with local city merchants, offering multi-role access (Buyer, Business Owner, Partner, Super Admin), robust store management, order tracking, and dynamic category navigation.
+- **Target Audience / Persona**: Local buyers discovering city merchants, local business owners managing products and orders, partners onboarding merchants, and super admins overseeing platform compliance and partner applications.
+- **Key Value**: Clean separation of concerns through modular component architecture, lightning-fast code-split page loads, and a polished SaaS visual aesthetic adhering to anti-slop guidelines.
+
+---
+
+## 2. User Experience & Visual Design
+
+- **Key User Flows**:
+  1. *Buyer Experience*: Landing page with hero spotlight, dynamic category grid with illustrations (`CategoryIcon`), store discovery, product catalog, cart checkout, and order history tracking.
+  2. *Business Owner Workflow*: Dashboard for managing store inventory, viewing incoming orders, and updating business status.
+  3. *Partner & Admin Workflow*: Partner onboarding form, Super Admin partner applications review panel with `super_admin` security rules enforcement.
+- **Visual Identity & Theme**:
+  - *Aesthetic Direction*: Premium, modern SaaS aesthetic with refined typography (`Plus Jakarta Sans` / `DM Sans`), generous whitespace, single-elevation cards, and subtle border definitions.
+  - *Color Palette & Mood*: Dominant neutral slate canvas (`#0F172A` / `#F8FAFC`), structural surfaces (`#FFFFFF` / `#1E293B`), and precise emerald/indigo accent highlights for key actions.
+  - *Typography & Hierarchy*: Clear editorial scale with tabular numerals (`tabular-nums`) for pricing, order counts, and timestamps.
+- **Interactive Feedback & Motion**:
+  - Smooth hover scaling and elevation transitions (`cubic-bezier(0.16, 1, 0.3, 1)`).
+  - Clean skeletons and loading spinners for asynchronous Firestore operations.
+  - Empty states with clear call-to-action buttons for zero-data views.
+
+---
+
+## 3. Key Product Decisions & Trade-Offs
+
+- **Decision 1: Domain-Driven Component Modularization**
+  - *Chosen Approach*: Extract monolithic logic from `app/page.tsx` into `/components/buyer/`, `/components/business/`, `/components/admin/`, and `/components/shared/`.
+  - *Why*: Reduces bundle size, enhances code readability, and makes testing/debugging isolated views trivial.
+- **Decision 2: Strategic Code Splitting**
+  - *Chosen Approach*: Wrap secondary dashboards (`AdminPanel`, `PartnerDashboard`, `MyOrdersView`) in `React.lazy` and `Suspense`.
+  - *Why*: Keeps initial JS bundle lean and ensures rapid time-to-interactive for public visitors while maintaining instant responsiveness on tab switches.
+
+---
+
+## 4. Technical Architecture & Data Strategy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Next.js App Router                     │
+│                           app/page.tsx                      │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+       ┌───────────────────────┼───────────────────────┐
+       ▼                       ▼                       ▼
+┌──────────────┐        ┌──────────────┐        ┌──────────────┐
+│ Buyer Views  │        │ Business Hub │        │ Admin Panels │
+│ (Marketplace,│        │ (Inventory,  │        │ (Partner Apps│
+│ Store, Cart) │        │ Orders, QR)  │        │ Super Admin) │
+└──────┬───────┘        └──────┬───────┘        └──────┬───────┘
+       │                       │                       │
+       └───────────────────────┼───────────────────────┘
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Firebase / Cloud Firestore                 │
+│         (Collections: users, admins, stores, products,      │
+│                     partner_applications, orders)           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Data Model & State**: Firebase Firestore persistent data with client-side React state hooks (`useState`, `useEffect`) and real-time subscription listeners where appropriate.
+- **Security Rules**: Firestore security rules enforcing role-based access control (RBAC), specifically verifying `super_admin` role in `admins` collection for `partner_applications` access.
