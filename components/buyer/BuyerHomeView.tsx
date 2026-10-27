@@ -14,7 +14,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { Product, ProductCategory, LocalStore as StoreRecord } from '@/lib/catalog-data';
+import { Product, ProductCategory, CategoryDefinition, LocalStore as StoreRecord } from '@/lib/catalog-data';
 import { CategoryIcon } from '@/components/category-icon';
 import { TiltCard } from '@/components/tilt-card';
 import { ProductSortOption } from '@/components/buyer-left-sidebar';
@@ -27,7 +27,7 @@ interface BuyerHomeViewProps {
   setSearchQuery: (query: string) => void;
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
-  categories: ProductCategory[];
+  categories: (CategoryDefinition | ProductCategory | string)[];
   filteredProducts: Product[];
   heroSpotlightProducts: Product[];
   isUnfilteredDiscovery: boolean;
@@ -162,12 +162,15 @@ export function BuyerHomeView({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
-          {categories.map((cat) => {
-            const isSelected = selectedCategory === cat.name;
+          {categories.map((cat, idx) => {
+            const catName = typeof cat === 'string' ? cat : cat.name;
+            const catId = typeof cat === 'string' ? cat : cat.id;
+            const catDesc = typeof cat === 'string' ? 'Local stores & items' : (cat.description || 'Local stores & items');
+            const isSelected = selectedCategory === catName;
             return (
               <div
-                key={cat.id}
-                onClick={() => setSelectedCategory(isSelected ? 'All Categories' : cat.name)}
+                key={catId || idx}
+                onClick={() => setSelectedCategory(isSelected ? 'All Categories' : catName)}
                 className={`group cursor-pointer rounded-2xl p-3.5 border transition-all duration-200 flex flex-col justify-between ${
                   isSelected
                     ? 'bg-[#003B8E] text-white border-[#003B8E] shadow-md scale-[1.02]'
@@ -176,16 +179,16 @@ export function BuyerHomeView({
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-50 text-[#003B8E]'}`}>
-                    <CategoryIcon categoryIdOrName={cat.id} variant="icon" className="w-5 h-5" />
+                    <CategoryIcon categoryIdOrName={catId} variant="icon" className="w-5 h-5" />
                   </div>
                   <span className="text-sm">✨</span>
                 </div>
                 <div>
                   <h3 className={`text-xs sm:text-sm font-bold line-clamp-1 ${isSelected ? 'text-white' : 'text-slate-900 group-hover:text-[#003B8E]'}`}>
-                    {cat.name}
+                    {catName}
                   </h3>
                   <p className={`text-[10px] mt-0.5 line-clamp-1 ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                    {cat.description || 'Local stores & items'}
+                    {catDesc}
                   </p>
                 </div>
               </div>
