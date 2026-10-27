@@ -2865,6 +2865,18 @@ export function SuperAdminDashboard() {
           )}
 
           {/* ================================================================
+              SECTION: CITY PARTNER PROGRAM GOVERNANCE & 50/50 REVENUE SETTLEMENTS
+             ================================================================ */}
+          {activeSection === 'partners' && (
+            <AdminPartnerManagement
+              isSuperAdmin={isSuperAdmin}
+              onActionCompleted={(msg) =>
+                setActionBanner({ type: 'success', message: msg })
+              }
+            />
+          )}
+
+          {/* ================================================================
               SECTION 3: SELLERS & STORES MANAGEMENT
              ================================================================ */}
           {activeSection === 'sellers-stores' && (

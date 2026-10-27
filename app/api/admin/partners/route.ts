@@ -142,13 +142,17 @@ export async function GET(req: NextRequest) {
   const applications = Array.from(
     serverPartnerApplicationsRegistry.values()
   )
-    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+    .sort((a, b) => {
+      const timeA = a.submittedAt || a.updatedAt || '';
+      const timeB = b.submittedAt || b.updatedAt || '';
+      return timeB.localeCompare(timeA);
+    })
     .map((app) =>
       authCheck.isSuperAdmin ? app : sanitizeApplicationForApplicantView(app)
     );
 
   const partners = Array.from(serverCityPartnersRegistry.values()).sort(
-    (a, b) => b.activatedAt.localeCompare(a.activatedAt)
+    (a, b) => (b.activatedAt || '').localeCompare(a.activatedAt || '')
   );
 
   const allocations = Array.from(serverCityAllocationsRegistry.values());

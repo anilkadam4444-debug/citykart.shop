@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, {useState, useMemo, useEffect, useRef} from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
   ShoppingBag,
@@ -25,6 +26,7 @@ import {
   ShieldCheck,
   Sparkles,
   Handshake,
+  Menu,
 } from 'lucide-react';
 import {
   CustomerShoppingLocation,
@@ -773,17 +775,15 @@ export default function UrbanDirectPlatform() {
         <div className="w-full max-w-none px-4 sm:px-5 lg:px-6 xl:px-7 py-2.5 flex flex-wrap items-center justify-between gap-3 lg:gap-5">
           {/* LEFT SECTION: Mobile Sidebar Toggle + Official Citykart Logo + Buyer Navigation */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            {(viewMode === 'BUYER_HOME' || viewMode === 'STORE_PAGE') && (
-              <button
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-colors"
-                aria-label="Open categories and filters"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-[#003B8E]" />
-                <span className="hidden sm:inline">Categories</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-colors"
+              aria-label="Open navigation menu and categories"
+            >
+              <Menu className="w-5 h-5 text-[#003B8E]" />
+              <span className="hidden sm:inline">Menu</span>
+            </button>
 
             <button
               type="button"
@@ -893,7 +893,7 @@ export default function UrbanDirectPlatform() {
             {/* Pricing Link for prospective merchants */}
             <Link
               href="/pricing"
-              className="hidden lg:inline-flex px-2.5 py-1.5 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              className="hidden md:inline-flex px-2.5 py-1.5 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
             >
               Pricing
             </Link>
@@ -901,7 +901,7 @@ export default function UrbanDirectPlatform() {
             {/* ONE CLEAR SELLER ACCESS BUTTON IN HEADER: "For Sellers" -> /seller */}
             <Link
               href="/seller"
-              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-[#003B8E]/40 text-xs font-semibold text-slate-800 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
+              className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-[#003B8E]/40 text-xs font-semibold text-slate-800 items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
               title="Manage your store or open a new store on Citykart"
             >
               <Store className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
@@ -911,7 +911,7 @@ export default function UrbanDirectPlatform() {
             {/* PROMINENT CITY PARTNER PROGRAM BUTTON: "Become a Partner" -> /partner */}
             <Link
               href="/partner"
-              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-300/90 bg-emerald-50/90 hover:bg-emerald-600 text-emerald-900 hover:text-white text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
+              className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-300/90 bg-emerald-50/90 hover:bg-emerald-600 text-emerald-900 hover:text-white text-xs font-bold items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
               title="Apply to become an exclusive Citykart City Partner (50/50 Net City Revenue Share)"
             >
               <Handshake className="w-3.5 h-3.5 shrink-0" />
@@ -929,7 +929,7 @@ export default function UrbanDirectPlatform() {
                 authenticatedUser?.isAdmin === true) && (
                 <Link
                   href="/admin"
-                  className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-[#003B8E]/30 bg-blue-50/90 hover:bg-[#003B8E] text-[#003B8E] hover:text-white text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
+                  className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl border border-[#003B8E]/30 bg-blue-50/90 hover:bg-[#003B8E] text-[#003B8E] hover:text-white text-xs font-bold items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
                   title="Open Citykart Platform Owner Super Admin Console"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
@@ -1015,84 +1015,204 @@ export default function UrbanDirectPlatform() {
       {/* =========================================================
           MOBILE / TABLET SLIDE-OVER SIDEBAR DRAWER (< lg)
          ========================================================= */}
-      {isMobileSidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div
-            onClick={() => setIsMobileSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
-            aria-hidden="true"
-          />
-          <div className="relative z-10 w-[300px] max-w-[86vw] h-full bg-[#F8FAFC] p-4 overflow-y-auto shadow-2xl space-y-4">
-            <BuyerLeftSidebar
-              hasSelectedCity={hasSelectedCity}
-              customerLocation={customerLocation}
-              formattedLocationFull={formattedLocationFull}
-              categories={categories}
-              selectedCategory={selectedCategory}
-              categoryStoreCounts={categoryStoreCounts}
-              categoryProductCounts={categoryProductCounts}
-              eligibleStoresInCity={eligibleStoresInCity}
-              totalCityProductsCount={totalCityProductsCount}
-              selectedStoreFilterId={selectedStoreFilterId}
-              onlyDeliverableToMe={onlyDeliverableToMe}
-              inStockOnly={inStockOnly}
-              sortBy={sortBy}
-              onOpenLocationModal={() => setIsLocationModalOpen(true)}
-              onQuickSelectCity={handleConfirmBuyerLocation}
-              onSelectCategory={(cat) => {
-                setSelectedCategory(cat);
-                if (viewMode !== 'BUYER_HOME' && viewMode !== 'STORE_PAGE') {
-                  setViewMode('BUYER_HOME');
-                }
-              }}
-              onSelectStoreFilter={setSelectedStoreFilterId}
-              onToggleOnlyDeliverableToMe={setOnlyDeliverableToMe}
-              onToggleInStockOnly={setInStockOnly}
-              onChangeSortBy={setSortBy}
-              onResetAllFilters={resetCityFilters}
-              onCloseMobileDrawer={() => setIsMobileSidebarOpen(false)}
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
+          <div className="fixed inset-0 z-50 md:hidden flex">
+            <motion.div
+              initial={{opacity: 0}}
+              animate={{opacity: 1}}
+              exit={{opacity: 0}}
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              aria-hidden="true"
             />
+            <motion.div
+              initial={{x: '-100%'}}
+              animate={{x: 0}}
+              exit={{x: '-100%'}}
+              transition={{type: 'spring', damping: 28, stiffness: 280}}
+              className="relative z-10 w-[310px] max-w-[88vw] h-full bg-[#F8FAFC] p-4 overflow-y-auto shadow-2xl space-y-4"
+            >
+              {/* User Account / Profile Summary Card inside Mobile Drawer */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#003B8E] flex items-center justify-center font-bold text-xs">
+                      {isMounted && authenticatedUser ? authenticatedUser.fullName.charAt(0).toUpperCase() : 'CK'}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 truncate max-w-[150px]">
+                        {isMounted && authenticatedUser ? authenticatedUser.fullName : 'Guest Visitor'}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500">
+                        {isMounted && authenticatedUser ? authenticatedUser.phoneE164 : 'Sign in for full access'}
+                      </div>
+                    </div>
+                  </div>
+                  {isMounted && authenticatedUser ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSignOutOtpSession();
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Sign out
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileSidebarOpen(false);
+                        openOtpAuthModal({
+                          defaultJourney: 'BUYER',
+                          authContextMode: 'BUYER_SIGN_IN',
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-lg cursor-pointer"
+                    >
+                      Sign in
+                    </button>
+                  )}
+                </div>
+              </div>
 
-            {/* Seller Links inside Mobile Navigation Drawer */}
-            <div className="pt-3 border-t border-slate-200 space-y-2">
-              <Link
-                href="/pricing"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100 flex items-center justify-between"
-              >
-                <span>Merchant Plans &amp; Pricing</span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-              </Link>
-              <Link
-                href="/seller"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100 flex items-center justify-between"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Store className="w-4 h-4 text-[#003B8E]" />
-                  <span>For Sellers</span>
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-              </Link>
-              <Link
-                href="/partner"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 hover:bg-emerald-100 flex items-center justify-between"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Handshake className="w-4 h-4 text-emerald-700" />
-                  <span>
-                    {isMounted && authenticatedUser?.isPartner
-                      ? 'City Partner Console'
-                      : 'Become a Partner (50/50 Share)'}
+              {/* Core Account & Order Links */}
+              <div className="pb-3 border-b border-slate-200 space-y-1.5">
+                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">
+                  Core Account &amp; Orders
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('BUYER_HOME');
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                    viewMode === 'BUYER_HOME' || viewMode === 'STORE_PAGE'
+                      ? 'bg-blue-50 text-[#003B8E] font-bold border border-blue-200/60'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <ShoppingBag className="w-3.5 h-3.5 text-[#003B8E]" />
+                    <span>Shop Local Storefront</span>
                   </span>
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
-              </Link>
-            </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('MY_ORDERS');
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                    viewMode === 'MY_ORDERS'
+                      ? 'bg-blue-50 text-[#003B8E] font-bold border border-blue-200/60'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5 text-[#003B8E]" />
+                    <span>My Orders &amp; Tracking</span>
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                {isMounted &&
+                  authenticatedUser?.phoneE164 === '+918329306616' &&
+                  (authenticatedUser?.role === 'super_admin' ||
+                    authenticatedUser?.isAdmin === true) && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsMobileSidebarOpen(false)}
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs font-bold text-[#003B8E] hover:bg-blue-100 flex items-center justify-between"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-[#003B8E]" />
+                        <span>Super Admin Console</span>
+                      </span>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#003B8E]" />
+                    </Link>
+                  )}
+              </div>
+
+              {/* Store & Partner Management Links */}
+              <div className="pt-2 pb-3 border-b border-slate-200 space-y-2">
+                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">
+                  Store &amp; Partner Management
+                </div>
+                <Link
+                  href="/pricing"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100 flex items-center justify-between"
+                >
+                  <span>Merchant Plans &amp; Pricing</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                </Link>
+                <Link
+                  href="/seller"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100 flex items-center justify-between"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Store className="w-4 h-4 text-[#003B8E]" />
+                    <span>For Sellers &amp; Store Studio</span>
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                </Link>
+                <Link
+                  href="/partner"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 hover:bg-emerald-100 flex items-center justify-between"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Handshake className="w-4 h-4 text-emerald-700" />
+                    <span>
+                      {isMounted && authenticatedUser?.isPartner
+                        ? 'City Partner Console'
+                        : 'Become a Partner (50/50 Share)'}
+                    </span>
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
+                </Link>
+              </div>
+
+              {/* Categories & Location Filter Sidebar */}
+              <BuyerLeftSidebar
+                hasSelectedCity={hasSelectedCity}
+                customerLocation={customerLocation}
+                formattedLocationFull={formattedLocationFull}
+                categories={categories}
+                selectedCategory={selectedCategory}
+                categoryStoreCounts={categoryStoreCounts}
+                categoryProductCounts={categoryProductCounts}
+                eligibleStoresInCity={eligibleStoresInCity}
+                totalCityProductsCount={totalCityProductsCount}
+                selectedStoreFilterId={selectedStoreFilterId}
+                onlyDeliverableToMe={onlyDeliverableToMe}
+                inStockOnly={inStockOnly}
+                sortBy={sortBy}
+                onOpenLocationModal={() => setIsLocationModalOpen(true)}
+                onQuickSelectCity={handleConfirmBuyerLocation}
+                onSelectCategory={(cat) => {
+                  setSelectedCategory(cat);
+                  if (viewMode !== 'BUYER_HOME' && viewMode !== 'STORE_PAGE') {
+                    setViewMode('BUYER_HOME');
+                  }
+                }}
+                onSelectStoreFilter={setSelectedStoreFilterId}
+                onToggleOnlyDeliverableToMe={setOnlyDeliverableToMe}
+                onToggleInStockOnly={setInStockOnly}
+                onChangeSortBy={setSortBy}
+                onResetAllFilters={resetCityFilters}
+                onCloseMobileDrawer={() => setIsMobileSidebarOpen(false)}
+              />
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 w-full max-w-none">
         {/* =========================================================

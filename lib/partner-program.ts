@@ -5,6 +5,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { adminDb } from './firebase-admin';
 import {
   LocalStore,
   OrderRecord,
@@ -744,11 +745,18 @@ export async function persistPartnerApplication(
 ): Promise<void> {
   serverPartnerApplicationsRegistry.set(record.id, record);
   try {
-    await setDoc(doc(db, 'partnerApplications', record.id), record, {
-      merge: true,
-    });
+    await adminDb
+      .collection('partnerApplications')
+      .doc(record.id)
+      .set(record, { merge: true });
   } catch {
-    // Preserved in serverPartnerApplicationsRegistry when client SDK rules restrict unprivileged write
+    try {
+      await setDoc(doc(db, 'partnerApplications', record.id), record, {
+        merge: true,
+      });
+    } catch {
+      // Preserved in serverPartnerApplicationsRegistry
+    }
   }
 }
 
@@ -757,8 +765,15 @@ export async function persistCityPartner(
 ): Promise<void> {
   serverCityPartnersRegistry.set(record.id, record);
   try {
-    await setDoc(doc(db, 'cityPartners', record.id), record, { merge: true });
-  } catch {}
+    await adminDb
+      .collection('cityPartners')
+      .doc(record.id)
+      .set(record, { merge: true });
+  } catch {
+    try {
+      await setDoc(doc(db, 'cityPartners', record.id), record, { merge: true });
+    } catch {}
+  }
 }
 
 export async function persistCityAllocation(
@@ -766,12 +781,19 @@ export async function persistCityAllocation(
 ): Promise<void> {
   serverCityAllocationsRegistry.set(record.cityId.toLowerCase(), record);
   try {
-    await setDoc(
-      doc(db, 'cityPartnerAllocations', record.cityId.toLowerCase()),
-      record,
-      { merge: true }
-    );
-  } catch {}
+    await adminDb
+      .collection('cityPartnerAllocations')
+      .doc(record.cityId.toLowerCase())
+      .set(record, { merge: true });
+  } catch {
+    try {
+      await setDoc(
+        doc(db, 'cityPartnerAllocations', record.cityId.toLowerCase()),
+        record,
+        { merge: true }
+      );
+    } catch {}
+  }
 }
 
 export async function persistPartnerSettlement(
@@ -779,10 +801,17 @@ export async function persistPartnerSettlement(
 ): Promise<void> {
   serverPartnerSettlementsRegistry.set(record.id, record);
   try {
-    await setDoc(doc(db, 'partnerSettlements', record.id), record, {
-      merge: true,
-    });
-  } catch {}
+    await adminDb
+      .collection('partnerSettlements')
+      .doc(record.id)
+      .set(record, { merge: true });
+  } catch {
+    try {
+      await setDoc(doc(db, 'partnerSettlements', record.id), record, {
+        merge: true,
+      });
+    } catch {}
+  }
 }
 
 export async function createPartnerNotification(
@@ -797,55 +826,82 @@ export async function createPartnerNotification(
   };
   serverPartnerNotificationsRegistry.set(id, notif);
   try {
-    await setDoc(doc(db, 'partnerNotifications', id), notif, { merge: true });
-  } catch {}
+    await adminDb.collection('partnerNotifications').doc(id).set(notif, { merge: true });
+  } catch {
+    try {
+      await setDoc(doc(db, 'partnerNotifications', id), notif, { merge: true });
+    } catch {}
+  }
   return notif;
 }
 
 export async function hydratePartnerRegistriesFromFirestore(): Promise<void> {
   try {
-    const [appsSnap, partnersSnap, allocsSnap, settlementsSnap, notifsSnap] =
-      await Promise.all([
-        getDocs(collection(db, 'partnerApplications')).catch(() => null),
-        getDocs(collection(db, 'cityPartners')).catch(() => null),
-        getDocs(collection(db, 'cityPartnerAllocations')).catch(() => null),
-        getDocs(collection(db, 'partnerSettlements')).catch(() => null),
-        getDocs(collection(db, 'partnerNotifications')).catch(() => null),
-      ]);
+    let appsData: PartnerApplicationRecord[] = [];
+    let partnersData: CityPartnerRecord[] = [];
+    let allocsData: CityPartnerAllocationRecord[] = [];
+    let settlementsData: PartnerMonthlySettlementRecord[] = [];
+    let notifsData: PartnerNotificationRecord[] = [];
 
-    appsSnap?.forEach((d) => {
-      const data = d.data() as PartnerApplicationRecord;
-      if (data?.id && !serverPartnerApplicationsRegistry.has(data.id)) {
+    try {
+      const [appsSnap, partnersSnap, allocsSnap, settlementsSnap, notifsSnap] =
+        await Promise.all([
+          adminDb.collection('partnerApplications').get(),
+          adminDb.collection('cityPartners').get(),
+          adminDb.collection('cityPartnerAllocations').get(),
+          adminDb.collection('partnerSettlements').get(),
+          adminDb.collection('partnerNotifications').get(),
+        ]);
+
+      appsSnap.forEach((d) => appsData.push(d.data() as PartnerApplicationRecord));
+      partnersSnap.forEach((d) => partnersData.push(d.data() as CityPartnerRecord));
+      allocsSnap.forEach((d) => allocsData.push(d.data() as CityPartnerAllocationRecord));
+      settlementsSnap.forEach((d) => settlementsData.push(d.data() as PartnerMonthlySettlementRecord));
+      notifsSnap.forEach((d) => notifsData.push(d.data() as PartnerNotificationRecord));
+    } catch {
+      // Fallback to client Web SDK if adminDb fails
+      const [appsSnap, partnersSnap, allocsSnap, settlementsSnap, notifsSnap] =
+        await Promise.all([
+          getDocs(collection(db, 'partnerApplications')).catch(() => null),
+          getDocs(collection(db, 'cityPartners')).catch(() => null),
+          getDocs(collection(db, 'cityPartnerAllocations')).catch(() => null),
+          getDocs(collection(db, 'partnerSettlements')).catch(() => null),
+          getDocs(collection(db, 'partnerNotifications')).catch(() => null),
+        ]);
+
+      appsSnap?.forEach((d) => appsData.push(d.data() as PartnerApplicationRecord));
+      partnersSnap?.forEach((d) => partnersData.push(d.data() as CityPartnerRecord));
+      allocsSnap?.forEach((d) => allocsData.push(d.data() as CityPartnerAllocationRecord));
+      settlementsSnap?.forEach((d) => settlementsData.push(d.data() as PartnerMonthlySettlementRecord));
+      notifsSnap?.forEach((d) => notifsData.push(d.data() as PartnerNotificationRecord));
+    }
+
+    for (const data of appsData) {
+      if (data?.id) {
+        // ALWAYS update the registry with the latest document state from Firestore!
         serverPartnerApplicationsRegistry.set(data.id, data);
       }
-    });
-    partnersSnap?.forEach((d) => {
-      const data = d.data() as CityPartnerRecord;
-      if (data?.id && !serverCityPartnersRegistry.has(data.id)) {
+    }
+    for (const data of partnersData) {
+      if (data?.id) {
         serverCityPartnersRegistry.set(data.id, data);
       }
-    });
-    allocsSnap?.forEach((d) => {
-      const data = d.data() as CityPartnerAllocationRecord;
-      if (
-        data?.cityId &&
-        !serverCityAllocationsRegistry.has(data.cityId.toLowerCase())
-      ) {
+    }
+    for (const data of allocsData) {
+      if (data?.cityId) {
         serverCityAllocationsRegistry.set(data.cityId.toLowerCase(), data);
       }
-    });
-    settlementsSnap?.forEach((d) => {
-      const data = d.data() as PartnerMonthlySettlementRecord;
-      if (data?.id && !serverPartnerSettlementsRegistry.has(data.id)) {
+    }
+    for (const data of settlementsData) {
+      if (data?.id) {
         serverPartnerSettlementsRegistry.set(data.id, data);
       }
-    });
-    notifsSnap?.forEach((d) => {
-      const data = d.data() as PartnerNotificationRecord;
-      if (data?.id && !serverPartnerNotificationsRegistry.has(data.id)) {
+    }
+    for (const data of notifsData) {
+      if (data?.id) {
         serverPartnerNotificationsRegistry.set(data.id, data);
       }
-    });
+    }
   } catch {
     // Continue with in-memory registries
   }

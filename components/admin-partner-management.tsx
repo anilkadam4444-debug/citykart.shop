@@ -25,6 +25,7 @@ import {
   UserX,
   X,
 } from 'lucide-react';
+import { auth } from '@/lib/firebase';
 import { formatCurrency } from '@/lib/catalog-data';
 import {
   getAllCountries,
@@ -179,13 +180,23 @@ export function AdminPartnerManagement({
 
   const fetchPartnersData = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/partners', { cache: 'no-store' });
+      const headers: Record<string, string> = {};
+      if (auth.currentUser) {
+        const token = await auth.currentUser.getIdToken().catch(() => undefined);
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+      const res = await fetch('/api/admin/partners', {
+        headers,
+        cache: 'no-store',
+      });
       const json = await res.json();
       if (json?.ok) {
         setData(json as AdminPartnersPayload);
         setGenPartnerId((prev) =>
           !prev && json.partners?.length > 0 ? json.partners[0].id : prev
         );
+      } else if (json?.error) {
+        setActionError(json.error);
       }
     } catch {
       // Ignore network error
@@ -208,9 +219,14 @@ export function AdminPartnerManagement({
     setSubmitting(true);
     setActionError(null);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (auth.currentUser) {
+        const token = await auth.currentUser.getIdToken().catch(() => undefined);
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
       const res = await fetch('/api/admin/partners', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
       const json = await res.json();
@@ -345,7 +361,7 @@ export function AdminPartnerManagement({
       }
       if (
         appDateFilter &&
-        !app.submittedAt.startsWith(appDateFilter)
+        (!app.submittedAt || !app.submittedAt.startsWith(appDateFilter))
       ) {
         return false;
       }
