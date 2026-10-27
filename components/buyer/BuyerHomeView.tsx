@@ -165,7 +165,7 @@ export function BuyerHomeView({
           {categories.map((cat, idx) => {
             const catName = typeof cat === 'string' ? cat : cat.name;
             const catId = typeof cat === 'string' ? cat : cat.id;
-            const catDesc = typeof cat === 'string' ? 'Local stores & items' : (cat.description || 'Local stores & items');
+            const catDesc = 'Local stores & items';
             const isSelected = selectedCategory === catName;
             return (
               <div
