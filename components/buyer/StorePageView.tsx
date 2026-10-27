@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ArrowLeft, Store, MapPin, Clock, Phone, ShieldCheck, Search } from 'lucide-react';
-import { Store as StoreRecord, Product } from '@/lib/catalog-data';
+import { LocalStore as StoreRecord, Product } from '@/lib/catalog-data';
 
 interface StorePageViewProps {
   viewedStoreId: string | null;

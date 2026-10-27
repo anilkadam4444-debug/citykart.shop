@@ -14,7 +14,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { Product, ProductCategory, Store as StoreRecord } from '@/lib/catalog-data';
+import { Product, ProductCategory, LocalStore as StoreRecord } from '@/lib/catalog-data';
 import { CategoryIcon } from '@/components/category-icon';
 import { TiltCard } from '@/components/tilt-card';
 import { ProductSortOption } from '@/components/buyer-left-sidebar';
