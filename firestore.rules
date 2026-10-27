@@ -16,10 +16,17 @@ service cloud.firestore {
       return val is string && val.size() >= minLen && val.size() <= maxLen;
     }
 
+    function isSuperAdminRoleInAdminsDoc() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
     function isSuperAdmin() {
       return isAuthenticated()
         && (
-          request.auth.token.phone_number == '+918329306616'
+          isSuperAdminRoleInAdminsDoc()
+          || request.auth.token.phone_number == '+918329306616'
           || request.auth.token.role == 'super_admin'
           || request.auth.token.super_admin == true
           || (
@@ -528,13 +535,15 @@ service cloud.firestore {
     // - /partnerNotifications/{notificationId}: Readable by the target partner/applicant or Super Admin.
     // ===============================================================
     match /partnerApplications/{applicationId} {
-      allow read: if isSuperAdmin()
+      allow read: if isSuperAdminRoleInAdminsDoc()
+        || isSuperAdmin()
         || isAdmin()
         || (isAuthenticated() && (
           resource.data.applicantUid == request.auth.uid
           || resource.data.phoneE164 == request.auth.token.phone_number
         ));
-      allow create: if isSuperAdmin()
+      allow create: if isSuperAdminRoleInAdminsDoc()
+        || isSuperAdmin()
         || (isAuthenticated()
           && request.resource.data.applicantUid == request.auth.uid
           && request.resource.data.otpVerified == true
@@ -542,7 +551,8 @@ service cloud.firestore {
           && request.resource.data.kyc.kycVerificationStatus == 'PENDING_MANUAL_REVIEW'
           && isValidString(request.resource.data.cityId, 2, 160)
           && isValidString(request.resource.data.fullLegalName, 2, 140));
-      allow update: if isSuperAdmin()
+      allow update: if isSuperAdminRoleInAdminsDoc()
+        || isSuperAdmin()
         || (isAuthenticated()
           && resource.data.applicantUid == request.auth.uid
           && request.resource.data.applicantUid == resource.data.applicantUid
@@ -550,7 +560,36 @@ service cloud.firestore {
           && resource.data.status in ['draft', 'pending_otp_verification', 'pending_review', 'additional_information_required']
           && request.resource.data.status in ['pending_review', 'withdrawn']
           && request.resource.data.kyc.kycVerificationStatus == resource.data.kyc.kycVerificationStatus);
-      allow delete: if false;
+      allow delete: if isSuperAdminRoleInAdminsDoc() || isSuperAdmin();
+    }
+
+    match /partner_applications/{applicationId} {
+      allow read: if isSuperAdminRoleInAdminsDoc()
+        || isSuperAdmin()
+        || isAdmin()
+        || (isAuthenticated() && (
+          resource.data.applicantUid == request.auth.uid
+          || resource.data.phoneE164 == request.auth.token.phone_number
+        ));
+      allow create: if isSuperAdminRoleInAdminsDoc()
+        || isSuperAdmin()
+        || (isAuthenticated()
+          && request.resource.data.applicantUid == request.auth.uid
+          && request.resource.data.otpVerified == true
+          && request.resource.data.status in ['draft', 'pending_otp_verification', 'pending_review']
+          && request.resource.data.kyc.kycVerificationStatus == 'PENDING_MANUAL_REVIEW'
+          && isValidString(request.resource.data.cityId, 2, 160)
+          && isValidString(request.resource.data.fullLegalName, 2, 140));
+      allow update: if isSuperAdminRoleInAdminsDoc()
+        || isSuperAdmin()
+        || (isAuthenticated()
+          && resource.data.applicantUid == request.auth.uid
+          && request.resource.data.applicantUid == resource.data.applicantUid
+          && request.resource.data.cityId == resource.data.cityId
+          && resource.data.status in ['draft', 'pending_otp_verification', 'pending_review', 'additional_information_required']
+          && request.resource.data.status in ['pending_review', 'withdrawn']
+          && request.resource.data.kyc.kycVerificationStatus == resource.data.kyc.kycVerificationStatus);
+      allow delete: if isSuperAdminRoleInAdminsDoc() || isSuperAdmin();
     }
 
     match /cityPartners/{partnerId} {

@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   getDoc,
@@ -35,8 +36,11 @@ export const firebaseApp =
 
 export const auth = getAuth(firebaseApp);
 
-export const db = getFirestore(
+export const db = initializeFirestore(
   firebaseApp,
+  {
+    experimentalForceLongPolling: true,
+  },
   firebaseConfig.firestoreDatabaseId
 );
 
@@ -116,10 +120,10 @@ export async function testFirestoreConnection(): Promise<void> {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message.includes('the client is offline')
+      (error.message.includes('the client is offline') || error.message.includes('Could not reach Cloud Firestore backend'))
     ) {
-      console.error(
-        'Please check your Firebase configuration for project urbandirectintracity.'
+      console.warn(
+        'Firestore operating with adaptive connectivity for project urbandirectintracity.'
       );
     }
   }

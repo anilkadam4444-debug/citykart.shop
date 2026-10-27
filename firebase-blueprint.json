@@ -670,6 +670,10 @@
       "schema": { "$ref": "#/entities/PartnerApplicationRecord" },
       "description": "Prospective City Partner applications with restricted KYC & payout details."
     },
+    "/partner_applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/PartnerApplicationRecord" },
+      "description": "Prospective City Partner applications with restricted KYC & payout details."
+    },
     "/cityPartners/{partnerId}": {
       "schema": { "$ref": "#/entities/CityPartnerRecord" },
       "description": "Authorized City Partner records scoped to a single canonical cityId."
