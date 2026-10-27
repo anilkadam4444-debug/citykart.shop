@@ -41,12 +41,16 @@ export function MyOrdersView({ orders, onBackToHome }: MyOrdersViewProps) {
               </div>
 
               <div className="space-y-2">
-                {order.items?.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-slate-800 font-medium">{item.productName} × {item.quantity}</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-900">₹{item.price * item.quantity}</span>
-                  </div>
-                ))}
+                {order.items?.map((item, idx) => {
+                  const productName = item.product?.name || (item as unknown as { productName?: string }).productName || 'Item';
+                  const itemPrice = item.product?.price ?? (item as unknown as { price?: number }).price ?? 0;
+                  return (
+                    <div key={idx} className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-slate-800 font-medium">{productName} × {item.quantity}</span>
+                      <span className="font-mono tabular-nums font-semibold text-slate-900">₹{itemPrice * item.quantity}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
