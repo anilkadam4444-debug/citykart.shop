@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
-import { db, removeUndefined } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE, removeUndefined } from '@/lib/firebase';
 import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import {
   BillingCycle,
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         let alreadyProcessed = Boolean(
           globalThis.__serverCampaignTransactionsRegistry?.has(txId)
         );
-        if (!alreadyProcessed) {
+        if (!alreadyProcessed && !IS_PREVIEW_DUMMY_FIREBASE) {
           try {
             const clientDoc = await getDoc(doc(db, 'billingTransactions', txId));
             alreadyProcessed = clientDoc.exists();
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
         let storedCampaign: FeaturedCampaign | null =
           globalThis.__serverCampaignsRegistry?.get(campaignId) || null;
-        if (!storedCampaign) {
+        if (!storedCampaign && !IS_PREVIEW_DUMMY_FIREBASE) {
           try {
             const campSnap = await getDoc(
               doc(db, 'featuredCampaigns', campaignId)
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
               storedCampaign = campSnap.data() as FeaturedCampaign;
             }
           } catch {
-            // Ignore
+            // Memory fallback
           }
         }
 
@@ -187,16 +187,18 @@ export async function POST(req: NextRequest) {
         );
         globalThis.__serverCampaignTransactionsRegistry?.set(txId, transaction);
 
-        try {
-          const clientBatch = writeBatch(db);
-          clientBatch.set(
-            doc(db, 'featuredCampaigns', campaignId),
-            activatedCampaign
-          );
-          clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
-          await clientBatch.commit();
-        } catch (err) {
-          console.warn('[webhook] Ad campaign Firestore write notice:', err);
+        if (!IS_PREVIEW_DUMMY_FIREBASE) {
+          try {
+            const clientBatch = writeBatch(db);
+            clientBatch.set(
+              doc(db, 'featuredCampaigns', campaignId),
+              activatedCampaign
+            );
+            clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
+            await clientBatch.commit();
+          } catch (err) {
+            console.warn('[webhook] Ad campaign Firestore write notice:', err);
+          }
         }
 
         return NextResponse.json({
@@ -238,13 +240,15 @@ export async function POST(req: NextRequest) {
             .get();
           alreadyExists = txDoc.exists;
         } catch {
-          try {
-            const clientDoc = await getDoc(
-              doc(db, 'billingTransactions', txId)
-            );
-            alreadyExists = clientDoc.exists();
-          } catch {
-            alreadyExists = false;
+          if (!IS_PREVIEW_DUMMY_FIREBASE) {
+            try {
+              const clientDoc = await getDoc(
+                doc(db, 'billingTransactions', txId)
+              );
+              alreadyExists = clientDoc.exists();
+            } catch {
+              alreadyExists = false;
+            }
           }
         }
 
@@ -314,26 +318,28 @@ export async function POST(req: NextRequest) {
             '[webhook] adminDb write notice, falling back to Web SDK:',
             adminErr
           );
-          try {
-            const clientBatch = writeBatch(db);
-            clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
-            clientBatch.set(
-              doc(db, 'merchantSubscriptions', subscription.id),
-              subscription,
-              { merge: true }
-            );
-            clientBatch.set(
-              doc(db, 'stores', storeId),
-              {
-                subscriptionTier: planId,
-                subscriptionStatus: 'ACTIVE',
-                subscriptionExpiry: subscription.currentPeriodEnd,
-              },
-              { merge: true }
-            );
-            await clientBatch.commit();
-          } catch (fallbackErr) {
-            console.warn('[webhook] Web SDK write notice:', fallbackErr);
+          if (!IS_PREVIEW_DUMMY_FIREBASE) {
+            try {
+              const clientBatch = writeBatch(db);
+              clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
+              clientBatch.set(
+                doc(db, 'merchantSubscriptions', subscription.id),
+                subscription,
+                { merge: true }
+              );
+              clientBatch.set(
+                doc(db, 'stores', storeId),
+                {
+                  subscriptionTier: planId,
+                  subscriptionStatus: 'ACTIVE',
+                  subscriptionExpiry: subscription.currentPeriodEnd,
+                },
+                { merge: true }
+              );
+              await clientBatch.commit();
+            } catch (fallbackErr) {
+              console.warn('[webhook] Web SDK write notice:', fallbackErr);
+            }
           }
         }
 
@@ -376,18 +382,20 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        try {
-          await setDoc(
-            doc(db, 'featuredCampaigns', campaignId),
-            {
-              status: nextStatus,
-              paymentStatus: nextPaymentStatus,
-              updatedAt: nowIso,
-            },
-            { merge: true }
-          );
-        } catch {
-          // Ignore
+        if (!IS_PREVIEW_DUMMY_FIREBASE) {
+          try {
+            await setDoc(
+              doc(db, 'featuredCampaigns', campaignId),
+              {
+                status: nextStatus,
+                paymentStatus: nextPaymentStatus,
+                updatedAt: nowIso,
+              },
+              { merge: true }
+            );
+          } catch {
+            // Ignore
+          }
         }
       }
     }

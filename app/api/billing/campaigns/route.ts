@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
-import { db, removeUndefined } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE, removeUndefined } from '@/lib/firebase';
 import {
   collection,
   doc,
@@ -82,10 +82,11 @@ async function loadServerPlacementSettings(): Promise<{
   placements: Record<SponsoredPlacementTier, SponsoredPlacementConfig>;
   livePaymentsApproved: boolean;
 }> {
-  try {
-    const snap = await getDoc(doc(db, 'platformSettings', 'sponsoredPricing'));
-    if (snap.exists()) {
-      const data = snap.data();
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const snap = await getDoc(doc(db, 'platformSettings', 'sponsoredPricing'));
+      if (snap.exists()) {
+        const data = snap.data();
       if (data && data.placements) {
         const mergedPlacements: Record<
           SponsoredPlacementTier,
@@ -109,6 +110,7 @@ async function loadServerPlacementSettings(): Promise<{
     }
   } catch {
     // Fallback to in-memory or default configs
+  }
   }
 
   if (globalThis.__serverSponsoredPricingOverride) {
@@ -171,29 +173,33 @@ async function resolveAuthoritativeStoreAndProduct(params: {
   // 1. Resolve store
   let store: LocalStore | null =
     INITIAL_STORES.find((s) => s.id === storeId) || null;
-  try {
-    const storeSnap = await getDoc(doc(db, 'stores', storeId));
-    if (storeSnap.exists()) {
-      store = storeSnap.data() as LocalStore;
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const storeSnap = await getDoc(doc(db, 'stores', storeId));
+      if (storeSnap.exists()) {
+        store = storeSnap.data() as LocalStore;
+      }
+    } catch {
+      // Use initial store fallback if available
     }
-  } catch {
-    // Use initial store fallback if available
   }
 
   // Check if store was deleted or suspended
-  try {
-    const deletedSnap = await getDoc(doc(db, 'deleted_stores', storeId));
-    if (deletedSnap.exists()) {
-      return {
-        store: null,
-        product: null,
-        isStoreEligible: false,
-        isProductEligible: false,
-        ineligibleReason: 'Store has been permanently deleted.',
-      };
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const deletedSnap = await getDoc(doc(db, 'deleted_stores', storeId));
+      if (deletedSnap.exists()) {
+        return {
+          store: null,
+          product: null,
+          isStoreEligible: false,
+          isProductEligible: false,
+          ineligibleReason: 'Store has been permanently deleted.',
+        };
+      }
+    } catch {
+      // Ignore
     }
-  } catch {
-    // Ignore
   }
 
   const storeOverride = serverStoreOverridesRegistry?.get(storeId);
@@ -228,13 +234,15 @@ async function resolveAuthoritativeStoreAndProduct(params: {
   // 2. Resolve product
   let product: Product | null =
     INITIAL_PRODUCTS.find((p) => p.id === targetProductId) || null;
-  try {
-    const prodSnap = await getDoc(doc(db, 'products', targetProductId));
-    if (prodSnap.exists()) {
-      product = prodSnap.data() as Product;
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const prodSnap = await getDoc(doc(db, 'products', targetProductId));
+      if (prodSnap.exists()) {
+        product = prodSnap.data() as Product;
+      }
+    } catch {
+      // Use initial product fallback if available
     }
-  } catch {
-    // Use initial product fallback if available
   }
 
   if (!product) {
@@ -291,17 +299,19 @@ async function getAllCampaignsMerged(): Promise<Map<string, FeaturedCampaign>> {
   for (const [id, camp] of serverCampaignsRegistry.entries()) {
     merged.set(id, camp);
   }
-  try {
-    const snap = await getDocs(collection(db, 'featuredCampaigns'));
-    snap.forEach((docSnap) => {
-      const raw = docSnap.data() as FeaturedCampaign;
-      if (raw && raw.id) {
-        merged.set(raw.id, raw);
-        serverCampaignsRegistry.set(raw.id, raw);
-      }
-    });
-  } catch {
-    // Fallback to in-memory registry
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const snap = await getDocs(collection(db, 'featuredCampaigns'));
+      snap.forEach((docSnap) => {
+        const raw = docSnap.data() as FeaturedCampaign;
+        if (raw && raw.id) {
+          merged.set(raw.id, raw);
+          serverCampaignsRegistry.set(raw.id, raw);
+        }
+      });
+    } catch {
+      // Fallback to in-memory registry
+    }
   }
   return merged;
 }
@@ -494,13 +504,15 @@ export async function POST(req: NextRequest) {
       const fieldToIncrement =
         metricType === 'CLICK' ? 'clicks' : 'impressions';
 
-      try {
-        await updateDoc(doc(db, 'featuredCampaigns', campaignId), {
-          [fieldToIncrement]: increment(1),
-          updatedAt: nowIso,
-        });
-      } catch {
-        // Ignore if campaign exists only in memory/local state
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          await updateDoc(doc(db, 'featuredCampaigns', campaignId), {
+            [fieldToIncrement]: increment(1),
+            updatedAt: nowIso,
+          });
+        } catch {
+          // Ignore if campaign exists only in memory/local state
+        }
       }
 
       return NextResponse.json({ ok: true, success: true });
@@ -601,14 +613,16 @@ export async function POST(req: NextRequest) {
       };
       serverCampaignsRegistry.set(campaignId, updated);
 
-      try {
-        await setDoc(
-          doc(db, 'featuredCampaigns', campaignId),
-          removeUndefined({ status: requestedStatus, updatedAt: nowIso }),
-          { merge: true }
-        );
-      } catch {
-        // Fallback to server memory registry
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          await setDoc(
+            doc(db, 'featuredCampaigns', campaignId),
+            removeUndefined({ status: requestedStatus, updatedAt: nowIso }),
+            { merge: true }
+          );
+        } catch {
+          // Fallback to server memory registry
+        }
       }
 
       return NextResponse.json({
@@ -772,7 +786,7 @@ export async function POST(req: NextRequest) {
           placements: normalizedPlacements,
           livePaymentsApproved: nextLiveApproved,
           updatedAt: nowIso,
-          updatedBy: adminAuth.phoneE164,
+          updatedBy: adminAuth.phoneE164 || undefined,
         };
 
         const payload = removeUndefined({
@@ -780,15 +794,17 @@ export async function POST(req: NextRequest) {
           placements: normalizedPlacements,
           livePaymentsApproved: nextLiveApproved,
           updatedAt: nowIso,
-          updatedBy: adminAuth.phoneE164,
+          updatedBy: adminAuth.phoneE164 || undefined,
         });
 
-        try {
-          await setDoc(doc(db, 'platformSettings', 'sponsoredPricing'), payload, {
-            merge: true,
-          });
-        } catch {
-          // Persisted in server memory registry if client SDK requires user auth token
+        if (!IS_PREVIEW_DUMMY_FIREBASE) {
+          try {
+            await setDoc(doc(db, 'platformSettings', 'sponsoredPricing'), payload, {
+              merge: true,
+            });
+          } catch {
+            // Persisted in server memory registry if client SDK requires user auth token
+          }
         }
 
         await recordAdminAuditLog({
@@ -844,14 +860,16 @@ export async function POST(req: NextRequest) {
         };
         serverCampaignsRegistry.set(campaignId, updatedCampaign);
 
-        try {
-          await setDoc(
-            doc(db, 'featuredCampaigns', campaignId),
-            removeUndefined(updates),
-            { merge: true }
-          );
-        } catch {
-          // Fallback to server memory registry
+        if (!IS_PREVIEW_DUMMY_FIREBASE) {
+          try {
+            await setDoc(
+              doc(db, 'featuredCampaigns', campaignId),
+              removeUndefined(updates),
+              { merge: true }
+            );
+          } catch {
+            // Fallback to server memory registry
+          }
         }
 
         await recordAdminAuditLog({
@@ -977,7 +995,7 @@ export async function POST(req: NextRequest) {
       // 4. Idempotency check: prevent duplicate activation or payment replay across campaigns
       const txId = `tx_ad_${gatewayPaymentId}`;
       let existingTx = serverCampaignTransactionsRegistry.get(txId);
-      if (!existingTx) {
+      if (!existingTx && !IS_PREVIEW_DUMMY_FIREBASE) {
         try {
           const txSnap = await getDoc(doc(db, 'billingTransactions', txId));
           if (txSnap.exists()) {
@@ -1056,16 +1074,18 @@ export async function POST(req: NextRequest) {
       serverCampaignsRegistry.set(activatedCampaign.id, activatedCampaign);
       serverCampaignTransactionsRegistry.set(txId, transaction);
 
-      try {
-        const batch = writeBatch(db);
-        batch.set(
-          doc(db, 'featuredCampaigns', activatedCampaign.id),
-          activatedCampaign
-        );
-        batch.set(doc(db, 'billingTransactions', txId), transaction);
-        await batch.commit();
-      } catch (err) {
-        console.warn('[campaigns/verify] Firestore write warning:', err);
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const batch = writeBatch(db);
+          batch.set(
+            doc(db, 'featuredCampaigns', activatedCampaign.id),
+            activatedCampaign
+          );
+          batch.set(doc(db, 'billingTransactions', txId), transaction);
+          await batch.commit();
+        } catch (err) {
+          console.warn('[campaigns/verify] Firestore write warning:', err);
+        }
       }
 
       return NextResponse.json({
@@ -1380,10 +1400,12 @@ export async function POST(req: NextRequest) {
 
       // Persist PENDING_PAYMENT campaign authoritatively on server before returning to client
       serverCampaignsRegistry.set(campaignId, pendingCampaign);
-      try {
-        await setDoc(doc(db, 'featuredCampaigns', campaignId), pendingCampaign);
-      } catch (err) {
-        console.warn('[campaigns] Pending campaign write notice:', err);
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          await setDoc(doc(db, 'featuredCampaigns', campaignId), pendingCampaign);
+        } catch (err) {
+          console.warn('[campaigns] Pending campaign write notice:', err);
+        }
       }
 
       return NextResponse.json({
@@ -1482,13 +1504,15 @@ export async function POST(req: NextRequest) {
     serverCampaignsRegistry.set(campaign.id, campaign);
     serverCampaignTransactionsRegistry.set(transaction.id, transaction);
 
-    try {
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'featuredCampaigns', campaign.id), campaign);
-      batch.set(doc(db, 'billingTransactions', transaction.id), transaction);
-      await batch.commit();
-    } catch (err) {
-      console.warn('[campaigns] Firestore persist notice:', err);
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'featuredCampaigns', campaign.id), campaign);
+        batch.set(doc(db, 'billingTransactions', transaction.id), transaction);
+        await batch.commit();
+      } catch (err) {
+        console.warn('[campaigns] Firestore persist notice:', err);
+      }
     }
 
     return NextResponse.json({

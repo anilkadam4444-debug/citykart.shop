@@ -1,22 +1,17 @@
-import type {Metadata} from 'next';
-import {Plus_Jakarta_Sans, Space_Mono} from 'next/font/google';
+import type {Metadata, Viewport} from 'next';
 
 import './globals.css';
 import {UrbanDirectProvider} from '@/components/urbandirect-provider';
 import {SITE_CONFIG} from '@/lib/seo-config';
 import {generateOrganizationSchema, generateWebsiteSchema} from '@/lib/seo-schema';
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
-});
-
-const spaceMono = Space_Mono({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-mono',
-});
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#003B8E',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.siteUrl),
@@ -79,16 +74,18 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   const organizationSchema = generateOrganizationSchema();
 
   return (
-    <html lang="en" className={`${plusJakarta.variable} ${spaceMono.variable}`}>
+    <html lang="en">
       <body
         suppressHydrationWarning
         className="bg-[#F8FAFC] text-slate-900 antialiased selection:bg-[#003B8E] selection:text-white font-sans"
       >
         <script
+          key="website-schema"
           type="application/ld+json"
           dangerouslySetInnerHTML={{__html: JSON.stringify(websiteSchema)}}
         />
         <script
+          key="organization-schema"
           type="application/ld+json"
           dangerouslySetInnerHTML={{__html: JSON.stringify(organizationSchema)}}
         />

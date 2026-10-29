@@ -12,6 +12,7 @@ import {
 } from '@/lib/catalog-data';
 import { CategoryIcon } from '@/components/category-icon';
 import { ProductStudioArtwork } from '@/components/product-studio-artwork';
+import { StoreRatingBadge } from '@/components/store-star-rating';
 import { getCanonicalUrl, getCategorySeo, SITE_CONFIG } from '@/lib/seo-config';
 import {
   generateBreadcrumbSchema,
@@ -238,11 +239,19 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                         <MapPin className="w-3.5 h-3.5 text-[#003B8E]" />
                         <span>{st.neighborhood}, {st.cityName}</span>
                       </span>
-                      {st.isDemo && (
-                        <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold">
-                          Demo Store
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        <StoreRatingBadge
+                          storeId={st.id}
+                          fallbackRating={st.rating}
+                          fallbackReviewsCount={st.reviewsCount}
+                          size="xs"
+                        />
+                        {st.isDemo && (
+                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold">
+                            Demo Store
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <h3 className="text-base font-extrabold text-slate-900">
                       <Link

@@ -4,7 +4,7 @@ import {
   getDocs,
   setDoc,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from './firebase';
 import { adminDb } from './firebase-admin';
 import {
   LocalStore,
@@ -53,12 +53,18 @@ export type PartnerApplicationStatus =
   | 'additional_information_required'
   | 'approved'
   | 'rejected'
-  | 'withdrawn';
+  | 'withdrawn'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'NEEDS_MORE_INFO'
+  | 'APPROVED'
+  | 'REJECTED';
 
 export type PartnerAccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
 export type PartnerKycVerificationStatus =
   | 'PENDING_MANUAL_REVIEW'
+  | 'PENDING'
   | 'VERIFIED'
   | 'ADDITIONAL_DOCS_REQUIRED'
   | 'REJECTED';
@@ -89,7 +95,7 @@ export interface PartnerKycAndPayoutInfo {
     | 'VOTER_ID'
     | 'NATIONAL_ID';
   identityDocNumber: string;
-  identityDocNumberMasked: string;
+  identityDocNumberMasked?: string;
   addressProofType:
     | 'AADHAAR'
     | 'UTILITY_BILL'
@@ -98,13 +104,13 @@ export interface PartnerKycAndPayoutInfo {
     | 'BUSINESS_REGISTRATION';
   addressProofReference?: string;
   panOrTaxId: string;
-  panOrTaxIdMasked: string;
+  panOrTaxIdMasked?: string;
   bankAccountHolderName: string;
   bankAccountNumber: string;
-  bankAccountNumberMasked: string;
+  bankAccountNumberMasked?: string;
   bankIfscOrRoutingCode: string;
   bankName: string;
-  supportingDocuments: PartnerSupportingDocument[];
+  supportingDocuments?: PartnerSupportingDocument[];
   kycVerificationStatus: PartnerKycVerificationStatus;
   kycVerifiedByUid?: string;
   kycVerifiedByName?: string;
@@ -126,15 +132,15 @@ export interface PartnerApplicationHistoryEntry {
 export interface PartnerApplicationRecord {
   id: string;
   referenceId: string;
-  applicantUid: string;
+  applicantUid?: string;
   fullLegalName: string;
   phoneE164: string;
-  maskedPhone: string;
+  maskedPhone?: string;
   otpVerified: boolean;
   otpVerifiedAt?: string;
   email: string;
   residentialOrBusinessAddress: string;
-  country: string;
+  country?: string;
   countryCode: string;
   stateRegion: string;
   cityId: string;
@@ -144,21 +150,25 @@ export interface PartnerApplicationRecord {
   relevantExperience: string;
   localGrowthPlan: string;
   kyc: PartnerKycAndPayoutInfo;
-  consentAccepted: boolean;
-  consentAcceptedAt: string;
-  consentVersion: string;
+  consentAccepted?: boolean;
+  consentAcceptedAt?: string;
+  consentVersion?: string;
   status: PartnerApplicationStatus;
   statusReason?: string;
   additionalInfoPrompt?: string;
   applicantAdditionalResponse?: string;
   waitlisted?: boolean;
   assignedPartnerId?: string;
-  history: PartnerApplicationHistoryEntry[];
+  history?: PartnerApplicationHistoryEntry[];
   submittedAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   reviewedByUid?: string;
+  reviewedByAdminUid?: string;
+  reviewedByAdminPhone?: string;
   reviewedByName?: string;
   reviewedAt?: string;
+  reviewNotes?: string;
+  rejectionReason?: string;
 }
 
 export interface CityPartnerAllocationRecord {
@@ -750,12 +760,14 @@ export async function persistPartnerApplication(
       .doc(record.id)
       .set(record, { merge: true });
   } catch {
-    try {
-      await setDoc(doc(db, 'partnerApplications', record.id), record, {
-        merge: true,
-      });
-    } catch {
-      // Preserved in serverPartnerApplicationsRegistry
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        await setDoc(doc(db, 'partnerApplications', record.id), record, {
+          merge: true,
+        });
+      } catch {
+        // Preserved in serverPartnerApplicationsRegistry
+      }
     }
   }
 }
@@ -770,9 +782,11 @@ export async function persistCityPartner(
       .doc(record.id)
       .set(record, { merge: true });
   } catch {
-    try {
-      await setDoc(doc(db, 'cityPartners', record.id), record, { merge: true });
-    } catch {}
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        await setDoc(doc(db, 'cityPartners', record.id), record, { merge: true });
+      } catch {}
+    }
   }
 }
 
@@ -786,13 +800,15 @@ export async function persistCityAllocation(
       .doc(record.cityId.toLowerCase())
       .set(record, { merge: true });
   } catch {
-    try {
-      await setDoc(
-        doc(db, 'cityPartnerAllocations', record.cityId.toLowerCase()),
-        record,
-        { merge: true }
-      );
-    } catch {}
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        await setDoc(
+          doc(db, 'cityPartnerAllocations', record.cityId.toLowerCase()),
+          record,
+          { merge: true }
+        );
+      } catch {}
+    }
   }
 }
 
@@ -806,11 +822,13 @@ export async function persistPartnerSettlement(
       .doc(record.id)
       .set(record, { merge: true });
   } catch {
-    try {
-      await setDoc(doc(db, 'partnerSettlements', record.id), record, {
-        merge: true,
-      });
-    } catch {}
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        await setDoc(doc(db, 'partnerSettlements', record.id), record, {
+          merge: true,
+        });
+      } catch {}
+    }
   }
 }
 
@@ -828,9 +846,11 @@ export async function createPartnerNotification(
   try {
     await adminDb.collection('partnerNotifications').doc(id).set(notif, { merge: true });
   } catch {
-    try {
-      await setDoc(doc(db, 'partnerNotifications', id), notif, { merge: true });
-    } catch {}
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        await setDoc(doc(db, 'partnerNotifications', id), notif, { merge: true });
+      } catch {}
+    }
   }
   return notif;
 }
@@ -859,21 +879,27 @@ export async function hydratePartnerRegistriesFromFirestore(): Promise<void> {
       settlementsSnap.forEach((d) => settlementsData.push(d.data() as PartnerMonthlySettlementRecord));
       notifsSnap.forEach((d) => notifsData.push(d.data() as PartnerNotificationRecord));
     } catch {
-      // Fallback to client Web SDK if adminDb fails
-      const [appsSnap, partnersSnap, allocsSnap, settlementsSnap, notifsSnap] =
-        await Promise.all([
-          getDocs(collection(db, 'partnerApplications')).catch(() => null),
-          getDocs(collection(db, 'cityPartners')).catch(() => null),
-          getDocs(collection(db, 'cityPartnerAllocations')).catch(() => null),
-          getDocs(collection(db, 'partnerSettlements')).catch(() => null),
-          getDocs(collection(db, 'partnerNotifications')).catch(() => null),
-        ]);
+      // Fallback to client Web SDK only if not in preview dummy mode
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const [appsSnap, partnersSnap, allocsSnap, settlementsSnap, notifsSnap] =
+            await Promise.all([
+              getDocs(collection(db, 'partnerApplications')).catch(() => null),
+              getDocs(collection(db, 'cityPartners')).catch(() => null),
+              getDocs(collection(db, 'cityPartnerAllocations')).catch(() => null),
+              getDocs(collection(db, 'partnerSettlements')).catch(() => null),
+              getDocs(collection(db, 'partnerNotifications')).catch(() => null),
+            ]);
 
-      appsSnap?.forEach((d) => appsData.push(d.data() as PartnerApplicationRecord));
-      partnersSnap?.forEach((d) => partnersData.push(d.data() as CityPartnerRecord));
-      allocsSnap?.forEach((d) => allocsData.push(d.data() as CityPartnerAllocationRecord));
-      settlementsSnap?.forEach((d) => settlementsData.push(d.data() as PartnerMonthlySettlementRecord));
-      notifsSnap?.forEach((d) => notifsData.push(d.data() as PartnerNotificationRecord));
+          appsSnap?.forEach((d) => appsData.push(d.data() as PartnerApplicationRecord));
+          partnersSnap?.forEach((d) => partnersData.push(d.data() as CityPartnerRecord));
+          allocsSnap?.forEach((d) => allocsData.push(d.data() as CityPartnerAllocationRecord));
+          settlementsSnap?.forEach((d) => settlementsData.push(d.data() as PartnerMonthlySettlementRecord));
+          notifsSnap?.forEach((d) => notifsData.push(d.data() as PartnerNotificationRecord));
+        } catch {
+          // In-memory fallback
+        }
+      }
     }
 
     for (const data of appsData) {
@@ -2400,7 +2426,7 @@ export function calculateCityPartnerRevenueReport(
     const linkedOrder = ordersById.get(entry.orderId);
     const linkedStore = linkedOrder
       ? storesById.get(linkedOrder.storeId)
-      : sellerToCityStoreMap.get(entry.sellerId);
+      : sellerToCityStoreMap.get(entry.sellerId || '');
 
     const attributedCityId = (
       (entry as unknown as { cityId?: string }).cityId ||
@@ -2431,7 +2457,7 @@ export function calculateCityPartnerRevenueReport(
         storeId: linkedStore?.id || linkedOrder?.storeId || 'unknown',
         storeName:
           linkedStore?.name || linkedOrder?.storeName || 'City Merchant',
-        sellerId: entry.sellerId,
+        sellerId: entry.sellerId || 'unknown',
         description: `Collected 2% order platform fee (Order #${entry.orderId})`,
         currency: targetCurrency,
         grossAmountCollected: feeAmount,
@@ -2460,7 +2486,7 @@ export function calculateCityPartnerRevenueReport(
         storeId: linkedStore?.id || linkedOrder?.storeId || 'unknown',
         storeName:
           linkedStore?.name || linkedOrder?.storeName || 'City Merchant',
-        sellerId: entry.sellerId,
+        sellerId: entry.sellerId || 'unknown',
         description: `Reversed previously collected platform fee (Order #${entry.orderId})`,
         currency: targetCurrency,
         grossAmountCollected: feeAmount,
@@ -2492,7 +2518,7 @@ export function calculateCityPartnerRevenueReport(
     const txCurrency = (tx.currency || 'INR').toUpperCase();
     if (txCurrency !== targetCurrency) continue;
 
-    const txStore = storesById.get(tx.storeId);
+    const txStore = storesById.get(tx.storeId || '');
     const attributedCityId = (
       (tx as unknown as { cityId?: string }).cityId ||
       txStore?.cityId ||
@@ -2545,7 +2571,7 @@ export function calculateCityPartnerRevenueReport(
         sourceType,
         cityId: targetCityId,
         cityName: params.cityName || txStore?.cityName || targetCityId,
-        storeId: tx.storeId,
+        storeId: tx.storeId || 'unknown',
         storeName: txStore?.name || 'City Merchant',
         sellerId: tx.sellerId,
         description: tx.description || `${tx.type} (${tx.invoiceNumber})`,
@@ -2582,7 +2608,7 @@ export function calculateCityPartnerRevenueReport(
         sourceType,
         cityId: targetCityId,
         cityName: params.cityName || txStore?.cityName || targetCityId,
-        storeId: tx.storeId,
+        storeId: tx.storeId || 'unknown',
         storeName: txStore?.name || 'City Merchant',
         sellerId: tx.sellerId,
         description: `REFUNDED: ${tx.description || tx.invoiceNumber}`,
@@ -3036,11 +3062,13 @@ export async function markPartnerNotificationRead(params: {
     isRead: true,
   };
   serverPartnerNotificationsRegistry.set(params.notificationId, updated);
-  try {
-    await setDoc(doc(db, 'partnerNotifications', updated.id), updated, {
-      merge: true,
-    });
-  } catch {}
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      await setDoc(doc(db, 'partnerNotifications', updated.id), updated, {
+        merge: true,
+      });
+    } catch {}
+  }
   return true;
 }
 

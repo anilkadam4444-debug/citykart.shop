@@ -83,46 +83,46 @@ export function ProductDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pdp-title"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-auto"
+        className="relative w-full max-w-4xl max-h-[92dvh] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Breadcrumb Bar */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-slate-50/80">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-            <span className="w-6 h-6 rounded-md bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#003B8E]">
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 border-b border-slate-200 bg-slate-50/80 shrink-0">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-600 min-w-0">
+            <span className="w-6 h-6 rounded-md bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#003B8E] shrink-0">
               <CategoryIcon
                 categoryIdOrName={product.categoryId || product.category}
                 className="w-3.5 h-3.5"
               />
             </span>
-            <span className="font-semibold text-slate-800">{product.category}</span>
-            <span aria-hidden="true" className="text-slate-300">/</span>
-            <span className="inline-flex items-center gap-1 text-slate-600">
-              <MapPin className="w-3 h-3 text-[#003B8E]" />
-              {product.city}
+            <span className="font-semibold text-slate-800 truncate">{product.category}</span>
+            <span aria-hidden="true" className="text-slate-300 shrink-0">/</span>
+            <span className="inline-flex items-center gap-1 text-slate-600 truncate">
+              <MapPin className="w-3 h-3 text-[#003B8E] shrink-0" />
+              <span className="truncate">{product.city}</span>
             </span>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close product details"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200/70 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-200/70 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span>Close</span>
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch overflow-y-auto overscroll-contain flex-1">
           {/* Left Column: Studio Product Gallery */}
-          <div className="lg:col-span-6 bg-slate-100/70 p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200">
+          <div className="lg:col-span-6 bg-slate-100/70 p-4 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200">
             <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-white border border-slate-200/80 shadow-xs">
               <ProductStudioArtwork
                 preset={product.artworkPreset}

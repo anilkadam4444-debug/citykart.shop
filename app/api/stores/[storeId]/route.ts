@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, doc, getDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
 import { INITIAL_PRODUCTS, INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
-import { isStoreDeletedServer, recordStoreDeletedServer, serverDeletedStoresRegistry } from '@/lib/stores-registry';
+import {
+  isStoreDeletedServer,
+  recordStoreDeletedServer,
+  serverDeletedStoresRegistry,
+  serverStoresRegistry,
+} from '@/lib/stores-registry';
 import {
   normalizePhoneE164,
+  serverStoreOverridesRegistry,
   verifyAdminRequest,
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
@@ -36,16 +42,24 @@ export async function GET(
       );
     }
 
-    // Try Firestore
-    const snap = await getDoc(doc(db, 'stores', storeId));
-    if (snap.exists()) {
-      return NextResponse.json({ ok: true, store: snap.data() });
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const snap = await getDoc(doc(db, 'stores', storeId));
+        if (snap.exists()) {
+          return NextResponse.json({ ok: true, store: snap.data() });
+        }
+      } catch {
+        // Fallback to serverStoresRegistry / INITIAL_STORES
+      }
     }
 
-    // Fallback to static initial stores
-    const initialStore = INITIAL_STORES.find((s) => s.id === storeId);
-    if (initialStore) {
-      return NextResponse.json({ ok: true, store: initialStore });
+    const memStore = serverStoresRegistry.get(storeId) || INITIAL_STORES.find((s) => s.id === storeId);
+    if (memStore) {
+      const override = serverStoreOverridesRegistry.get(storeId);
+      return NextResponse.json({
+        ok: true,
+        store: override ? { ...memStore, ...override } : memStore,
+      });
     }
 
     return NextResponse.json({ ok: false, error: 'Store not found' }, { status: 404 });
@@ -103,18 +117,21 @@ export async function DELETE(
     let storeRecord: LocalStore | null = null;
     let existsInFirestore = false;
 
-    try {
-      const storeSnap = await getDoc(doc(db, 'stores', storeId));
-      if (storeSnap.exists()) {
-        storeRecord = storeSnap.data() as LocalStore;
-        existsInFirestore = true;
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const storeSnap = await getDoc(doc(db, 'stores', storeId));
+        if (storeSnap.exists()) {
+          storeRecord = storeSnap.data() as LocalStore;
+          existsInFirestore = true;
+        }
+      } catch (e) {
+        console.warn(`[api/stores/delete] Could not read store ${storeId} from Firestore:`, e);
       }
-    } catch (e) {
-      console.warn(`[api/stores/delete] Could not read store ${storeId} from Firestore:`, e);
     }
 
     if (!storeRecord) {
-      const staticMatch = INITIAL_STORES.find((s) => s.id === storeId);
+      const staticMatch =
+        serverStoresRegistry.get(storeId) || INITIAL_STORES.find((s) => s.id === storeId);
       if (staticMatch) {
         storeRecord = staticMatch;
       }
@@ -219,8 +236,8 @@ export async function DELETE(
     // 6. Record tombstone in server memory registry and Firestore
     await recordStoreDeletedServer(storeId, {
       storeName: storeRecord.name,
-      deletedByUid: caller.uid || adminCheck.firebaseUid,
-      deletedByPhone: caller.phoneE164 || adminCheck.phoneE164,
+      deletedByUid: caller.uid || adminCheck.firebaseUid || undefined,
+      deletedByPhone: caller.phoneE164 || adminCheck.phoneE164 || undefined,
       reason: reason || 'Verified seller permanent deletion from seller dashboard',
     });
 

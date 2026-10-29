@@ -61,7 +61,7 @@ export function StorePageView({
 
           <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-slate-300 font-medium">
             <span className="inline-flex items-center gap-1.5"><MapPin className="w-4 h-4 text-[#F96302]" /> {store.address}, {store.cityName}</span>
-            <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-amber-400" /> {store.deliveryMins || 30} mins delivery</span>
+            <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4 text-amber-400" /> {store.avgDispatchMins || 30} mins delivery</span>
             {store.phone && (
               <span className="inline-flex items-center gap-1.5"><Phone className="w-4 h-4 text-emerald-400" /> {store.phone}</span>
             )}

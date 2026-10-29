@@ -66,12 +66,8 @@ export async function requestAndRegisterFcmToken(params: {
       }
     }
 
-    const vapidKey =
-      process.env.NEXT_PUBLIC_FIREBASE_WEB_PUSH_CERTIFICATE_KEY?.trim() ||
-      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim();
     const token = await getToken(messaging, {
       serviceWorkerRegistration: swRegistration,
-      ...(vapidKey ? {vapidKey} : {}),
     });
 
     if (!token) {

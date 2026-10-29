@@ -1,4 +1,4 @@
-import {db} from './firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from './firebase';
 import {
   doc,
   setDoc,
@@ -61,11 +61,13 @@ export async function registerFcmToken(
   serverFcmTokensMap.set(cleanToken, fullRecord);
 
   // Persist to Firestore (/fcm_tokens/{safeDocId}) for cross-instance durability
-  try {
-    const safeDocId = toSafeTokenDocId(cleanToken);
-    await setDoc(doc(db, 'fcm_tokens', safeDocId), fullRecord, {merge: true});
-  } catch (err) {
-    console.warn('[FCM Registry] Could not write token to Firestore:', err);
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const safeDocId = toSafeTokenDocId(cleanToken);
+      await setDoc(doc(db, 'fcm_tokens', safeDocId), fullRecord, {merge: true});
+    } catch (err) {
+      console.warn('[FCM Registry] Could not write token to Firestore:', err);
+    }
   }
 
   return fullRecord;
@@ -101,9 +103,10 @@ export async function getFcmTokensForRecipient(params: {
   }
 
   // 2. Query Firestore /fcm_tokens collection for multi-device durability
-  try {
-    const tokensCol = collection(db, 'fcm_tokens');
-    const queries = [];
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const tokensCol = collection(db, 'fcm_tokens');
+      const queries = [];
 
     if (params.sellerId) {
       queries.push(
@@ -154,6 +157,7 @@ export async function getFcmTokensForRecipient(params: {
   } catch (err) {
     console.warn('[FCM Registry] Could not query Firestore tokens:', err);
   }
+  }
 
   return Array.from(matchedTokens);
 }
@@ -162,10 +166,12 @@ export async function removeInvalidFcmToken(token: string): Promise<void> {
   const cleanToken = token.trim();
   if (!cleanToken) return;
   serverFcmTokensMap.delete(cleanToken);
-  try {
-    const safeDocId = toSafeTokenDocId(cleanToken);
-    await deleteDoc(doc(db, 'fcm_tokens', safeDocId));
-  } catch {
-    // Ignore cleanup errors
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const safeDocId = toSafeTokenDocId(cleanToken);
+      await deleteDoc(doc(db, 'fcm_tokens', safeDocId));
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }

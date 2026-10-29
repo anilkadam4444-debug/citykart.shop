@@ -27,6 +27,7 @@ import {
   Sparkles,
   Handshake,
   Menu,
+  Lock,
 } from 'lucide-react';
 import {
   CustomerShoppingLocation,
@@ -54,6 +55,8 @@ import {
 } from '@/components/urbandirect-provider';
 import { CAMPAIGNS_STORAGE_KEY } from '@/lib/entitlements';
 import { FeaturedCampaign } from '@/lib/revenue-model';
+import { HamburgerNavigationDrawer } from '@/components/hamburger-navigation-drawer';
+import { StoreRatingBadge, OrderStoreRatingWidget } from '@/components/store-star-rating';
 
 type BuyerViewMode = 'BUYER_HOME' | 'STORE_PAGE' | 'MY_ORDERS';
 
@@ -66,10 +69,13 @@ export default function UrbanDirectPlatform() {
     categories,
     customerLocation,
     hasSelectedCity,
+    isBuyerCityLocked,
     isLocationModalOpen,
     setIsLocationModalOpen,
     handleConfirmBuyerLocation: confirmLocationInContext,
     authenticatedUser,
+    hasSellerRole,
+    userOwnedStores,
     openOtpAuthModal,
     handleSignOutOtpSession,
     cart,
@@ -79,6 +85,7 @@ export default function UrbanDirectPlatform() {
     handleUpdateCartQuantity,
     handleRemoveCartItem,
     handlePlaceOrder: placeOrderInContext,
+    handleCancelOrder,
     showToast,
   } = useUrbanDirect();
 
@@ -88,6 +95,7 @@ export default function UrbanDirectPlatform() {
   const [storeSearchQuery, setStoreSearchQuery] = useState<string>('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] =
     useState<boolean>(false);
+  const hamburgerTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const [onlyDeliverableToMe, setOnlyDeliverableToMe] =
     useState<boolean>(false);
@@ -117,6 +125,7 @@ export default function UrbanDirectPlatform() {
 
   const [remoteCampaigns, setRemoteCampaigns] = useState<FeaturedCampaign[]>([]);
   const recordedImpressionIdsRef = useRef<Set<string>>(new Set());
+  const hasProcessedDeepLinkRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!isMounted) return;
@@ -134,8 +143,23 @@ export default function UrbanDirectPlatform() {
     };
   }, [isMounted]);
 
-  // Deep-Link to Product from Social Media Sharing (?product=[id] or ?productId=[id])
-  const hasProcessedDeepLinkRef = useRef(false);
+  const onOpenLocationModal = () => setIsLocationModalOpen(true);
+  
+  const handleSelectCategory = (cat: ProductCategory) => {
+    setSelectedCategory(cat);
+  };
+  
+  const handleSelectStoreFilter = (storeId: string) => {
+    setSelectedStoreFilterId(storeId);
+  };
+  
+  const handleResetAllFilters = () => {
+    setSelectedCategory('All Categories');
+    setSelectedStoreFilterId('ALL');
+    setOnlyDeliverableToMe(false);
+    setInStockOnly(false);
+    setSortBy('POPULARITY');
+  };
 
   useEffect(() => {
     if (!isMounted || !products || products.length === 0) return;
@@ -153,7 +177,7 @@ export default function UrbanDirectPlatform() {
             setActivePdpProduct(matched);
             setViewMode('BUYER_HOME');
 
-            // Align customer browsing city with product store's city so the customer can seamlessly view and order
+            // Align customer browsing city with product store's city only if buyer city is NOT locked
             const productStore = stores.find((s) => s.id === matched.storeId);
             if (
               productStore &&
@@ -161,25 +185,31 @@ export default function UrbanDirectPlatform() {
                 customerLocation.city.toLowerCase() !==
                   productStore.cityName.toLowerCase())
             ) {
-              confirmLocationInContext({
-                mode: 'SELECTED_LOCATION',
-                cityId: productStore.cityId,
-                city: productStore.cityName,
-                country:
-                  productStore.country || customerLocation.country || 'India',
-                stateRegion:
-                  productStore.stateRegion ||
-                  customerLocation.stateRegion ||
-                  '',
-                locality:
-                  productStore.neighborhood ||
-                  customerLocation.locality ||
-                  '',
-                postalCode:
-                  productStore.postalCode ||
-                  customerLocation.postalCode ||
-                  '',
-              });
+              if (isBuyerCityLocked) {
+                showToast(
+                  `Your city is locked to ${customerLocation.city}. Cross-city delivery from ${productStore.cityName} is not permitted.`
+                );
+              } else {
+                confirmLocationInContext({
+                  mode: 'SELECTED_LOCATION',
+                  cityId: productStore.cityId,
+                  city: productStore.cityName,
+                  country:
+                    productStore.country || customerLocation.country || 'India',
+                  stateRegion:
+                    productStore.stateRegion ||
+                    customerLocation.stateRegion ||
+                    '',
+                  locality:
+                    productStore.neighborhood ||
+                    customerLocation.locality ||
+                    '',
+                  postalCode:
+                    productStore.postalCode ||
+                    customerLocation.postalCode ||
+                    '',
+                });
+              }
             }
           }, 0);
           return () => clearTimeout(timer);
@@ -193,8 +223,10 @@ export default function UrbanDirectPlatform() {
     products,
     stores,
     hasSelectedCity,
+    isBuyerCityLocked,
     customerLocation,
     confirmLocationInContext,
+    showToast,
   ]);
 
   // Active Sponsored Products & Featured Stores Advertising Campaigns
@@ -218,15 +250,20 @@ export default function UrbanDirectPlatform() {
       } catch {}
     }
     const now = new Date().toISOString();
-    return Array.from(mergedMap.values()).filter(
-      (c) =>
-        c.status === 'ACTIVE' &&
-        (!c.startDate || c.startDate <= now) &&
-        c.endDate >= now &&
-        c.approvalStatus !== 'REJECTED' &&
-        c.paymentStatus !== 'FAILED' &&
-        c.paymentStatus !== 'REFUNDED'
-    );
+    return Array.from(mergedMap.values()).filter((c) => {
+      const camp = c as FeaturedCampaign & {
+        approvalStatus?: string;
+        paymentStatus?: string;
+      };
+      return (
+        camp.status === 'ACTIVE' &&
+        (!camp.startDate || camp.startDate <= now) &&
+        (!camp.endDate || camp.endDate >= now) &&
+        camp.approvalStatus !== 'REJECTED' &&
+        camp.paymentStatus !== 'FAILED' &&
+        camp.paymentStatus !== 'REFUNDED'
+      );
+    });
   }, [isMounted, remoteCampaigns]);
 
   const recordCampaignMetric = (
@@ -323,10 +360,11 @@ export default function UrbanDirectPlatform() {
     });
 
     activeCampaigns.forEach((c) => {
-      if (c.type === 'SPONSORED_PRODUCT' && c.targetProductId) {
-        const prod = eligibleProductsById.get(c.targetProductId);
+      const targetId = (c as FeaturedCampaign & { targetProductId?: string }).targetProductId;
+      if (c.type === 'SPONSORED_PRODUCT' && targetId) {
+        const prod = eligibleProductsById.get(targetId);
         if (prod && prod.storeId === c.storeId) {
-          map.set(c.targetProductId, c);
+          map.set(targetId, c);
         }
       }
     });
@@ -381,9 +419,10 @@ export default function UrbanDirectPlatform() {
         selectedCategory !== 'All Categories' || searchQuery.trim() !== '';
       const getPlacementScore = (camp?: FeaturedCampaign) => {
         if (!camp) return 0;
-        if (camp.placementTier === 'HOMEPAGE_SPONSORED') return 3;
-        if (camp.placementTier === 'LOCAL_FEATURED') return 2;
-        if (camp.placementTier === 'CATEGORY_SPONSORED') {
+        const tier = (camp as FeaturedCampaign & { placementTier?: string }).placementTier;
+        if (tier === 'HOMEPAGE_SPONSORED') return 3;
+        if (tier === 'LOCAL_FEATURED') return 2;
+        if (tier === 'CATEGORY_SPONSORED') {
           return isCategoryOrSearchScoped ? 1 : 0;
         }
         return 1;
@@ -466,7 +505,9 @@ export default function UrbanDirectPlatform() {
       !isStoreEligibleForSelectedCity(targetStore, customerLocation)
     ) {
       showToast(
-        `This store does not serve ${customerLocation.city}. Please change your location to view it.`
+        isBuyerCityLocked
+          ? `This store is in ${targetStore.cityName}. Your city is locked to ${customerLocation.city} (intra-city delivery only).`
+          : `This store does not serve ${customerLocation.city}. Please change your location to view it.`
       );
       return;
     }
@@ -545,10 +586,11 @@ export default function UrbanDirectPlatform() {
   const heroSpotlightProducts = useMemo(() => {
     const homepageSponsored = filteredProducts.filter((p) => {
       const c = sponsoredCampaignByProductId.get(p.id);
+      const tier = (c as (FeaturedCampaign & { placementTier?: string }) | undefined)?.placementTier;
       return (
         c &&
-        (c.placementTier === 'HOMEPAGE_SPONSORED' ||
-          c.placementTier === 'LOCAL_FEATURED')
+        (tier === 'HOMEPAGE_SPONSORED' ||
+          tier === 'LOCAL_FEATURED')
       );
     });
     if (homepageSponsored.length >= 2) {
@@ -614,9 +656,11 @@ export default function UrbanDirectPlatform() {
   };
 
   const renderProductCard = (product: Product) => {
-    const defaultVariant = product.variants[0] || 'Standard';
+    const defaultVariant = product.variants?.[0] || 'Standard';
     const cartEntry = cart.find(
-      (c) => c.product.id === product.id && c.variant === defaultVariant
+      (c) =>
+        (c?.product?.id || c?.productId) === product.id &&
+        (c?.variant || 'Standard') === defaultVariant
     );
     const inStock = product.isAvailable && product.stock > 0;
     const metrics = popularityByProductId[product.id];
@@ -675,9 +719,16 @@ export default function UrbanDirectPlatform() {
                   </span>
                 )}
               </button>
-              <span className="shrink-0 font-mono tabular-nums text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                {product.deliveryMins}m
-              </span>
+              <div className="shrink-0 flex items-center gap-1.5">
+                <StoreRatingBadge
+                  storeId={product.storeId}
+                  size="xs"
+                  showReviewsCount={false}
+                />
+                <span className="font-mono tabular-nums text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                  {product.deliveryMins}m
+                </span>
+              </div>
             </div>
 
             <h3
@@ -696,12 +747,12 @@ export default function UrbanDirectPlatform() {
           </div>
         </div>
 
-        <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-          <div>
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
             <div className="text-sm sm:text-base font-bold font-mono tabular-nums text-slate-900 tracking-tight">
               {formatCurrency(product.price, product.currency)}
             </div>
-            <div className="flex items-center gap-1 text-[10px]">
+            <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px]">
               <span
                 className={`font-semibold ${
                   inStock ? 'text-emerald-700' : 'text-slate-400'
@@ -720,16 +771,16 @@ export default function UrbanDirectPlatform() {
             </div>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0 ml-auto">
             {cartEntry ? (
-              <div className="inline-flex items-center border border-[#003B8E] bg-[#003B8E] text-white rounded-xl shadow-2xs overflow-hidden">
+              <div className="inline-flex items-center border border-[#003B8E] bg-[#003B8E] text-white rounded-xl shadow-2xs overflow-hidden min-h-[38px]">
                 <button
                   type="button"
                   onClick={() =>
                     handleUpdateCartQuantity(product.id, defaultVariant, -1)
                   }
                   aria-label="Decrease quantity"
-                  className="px-2.5 py-1.5 hover:bg-[#002D6E] cursor-pointer transition-colors"
+                  className="px-2.5 py-2 hover:bg-[#002D6E] cursor-pointer transition-colors min-w-[34px] min-h-[38px] inline-flex items-center justify-center"
                 >
                   <Minus className="w-3 h-3" />
                 </button>
@@ -742,7 +793,7 @@ export default function UrbanDirectPlatform() {
                     handleUpdateCartQuantity(product.id, defaultVariant, 1)
                   }
                   aria-label="Increase quantity"
-                  className="px-2.5 py-1.5 hover:bg-[#002D6E] cursor-pointer transition-colors"
+                  className="px-2.5 py-2 hover:bg-[#002D6E] cursor-pointer transition-colors min-w-[34px] min-h-[38px] inline-flex items-center justify-center"
                 >
                   <Plus className="w-3 h-3" />
                 </button>
@@ -754,7 +805,7 @@ export default function UrbanDirectPlatform() {
                 onClick={() =>
                   handleAddToCart(product, defaultVariant, 1, false)
                 }
-                className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-all shadow-2xs active:scale-95 inline-flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer"
+                className="min-h-[38px] px-3.5 py-2 text-xs font-bold text-white bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-all shadow-2xs active:scale-95 inline-flex items-center justify-center gap-1 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add</span>
@@ -770,80 +821,67 @@ export default function UrbanDirectPlatform() {
     <div className="w-full max-w-none min-h-dvh overflow-x-clip flex flex-col bg-[#F8FAFC] text-slate-900">
       {/* =========================================================
           FULL-WIDTH BUYER-FIRST APPLICATION HEADER
-          Official Citykart Logo + Prominent Search + Location + Cart
+          Official Citykart Logo + Proactive Burger Menu + Global Search + Location + Cart
          ========================================================= */}
       <header className="sticky top-0 z-40 w-full max-w-none bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
-        <div className="w-full max-w-none px-4 sm:px-5 lg:px-6 xl:px-7 py-2.5 flex flex-wrap items-center justify-between gap-3 lg:gap-5">
-          {/* LEFT SECTION: Mobile Sidebar Toggle + Official Citykart Logo + Buyer Navigation */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div className="w-full max-w-none px-3 sm:px-5 lg:px-6 xl:px-7 py-2.5 flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-5">
+          {/* ZONE 1: Proactive Burger Menu Trigger + Official Citykart Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+            {/* Proactive Prominent Burger Menu Button (Visible on ALL viewports, >= 44x44px touch target) */}
             <button
+              ref={hamburgerTriggerRef}
               type="button"
+              data-testid="hamburger-menu-trigger"
+              aria-expanded={isMobileSidebarOpen}
+              aria-controls="citykart-hamburger-drawer"
+              aria-haspopup="dialog"
+              aria-label="Open platform navigation menu"
+              title="Open Platform Navigation Menu"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-colors"
-              aria-label="Open navigation menu and categories"
+              className="h-[44px] min-h-[44px] min-w-[44px] px-2.5 sm:px-3.5 py-2 rounded-2xl border-2 border-[#002D6E] bg-gradient-to-r from-[#003B8E] to-[#002D6E] hover:from-[#002D6E] hover:to-[#001F4D] text-white inline-flex items-center gap-1.5 sm:gap-2.5 text-xs sm:text-sm font-extrabold cursor-pointer transition-all shadow-md hover:shadow-lg active:scale-95 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#003B8E] focus-visible:ring-offset-2 shrink-0"
             >
-              <Menu className="w-5 h-5 text-[#003B8E]" />
-              <span className="hidden sm:inline">Menu</span>
+              <span className="w-7 h-7 rounded-xl bg-[#F96302] text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform shrink-0">
+                <Menu className="w-4 h-4 stroke-[2.5]" />
+              </span>
+              <span className="tracking-wide uppercase hidden min-[360px]:inline">Menu</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-blue-200 hidden sm:inline transition-transform duration-200 ${
+                  isMobileSidebarOpen ? 'rotate-180' : ''
+                }`}
+              />
             </button>
 
+            {/* Official Citykart Wordmark & Logo */}
             <button
               type="button"
               onClick={() => {
                 setViewMode('BUYER_HOME');
                 window.scrollTo({top: 0, behavior: 'smooth'});
               }}
-              className="whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-2.5 group"
+              className="whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-2 group min-h-[44px]"
             >
               <Image
                 src="/citykart-logo.png"
                 alt="Citykart.shop official logo"
                 width={42}
                 height={42}
-                className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg object-contain border border-slate-200/80 bg-white shadow-2xs"
+                className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg object-contain border border-slate-200/80 bg-white shadow-2xs shrink-0"
                 priority
               />
               <div className="flex flex-col text-left">
-                <span className="text-lg sm:text-xl font-extrabold tracking-tight leading-none">
+                <span className="text-base sm:text-xl font-extrabold tracking-tight leading-none">
                   <span className="text-[#003B8E]">City</span>
                   <span className="text-[#F96302]">kart</span>
-                  <span className="text-slate-500 font-semibold text-sm">.shop</span>
+                  <span className="text-slate-500 font-semibold text-xs sm:text-sm hidden min-[380px]:inline">.shop</span>
                 </span>
                 <span className="text-[10px] font-medium text-slate-500 tracking-tight hidden sm:inline">
                   Local Stores · Doorstep Delivery
                 </span>
               </div>
             </button>
-
-            <nav
-              aria-label="Buyer navigation"
-              className="hidden xl:flex items-center gap-1.5 text-xs font-semibold text-slate-600 pl-3 border-l border-slate-200"
-            >
-              <button
-                type="button"
-                onClick={() => setViewMode('BUYER_HOME')}
-                className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                  viewMode === 'BUYER_HOME' || viewMode === 'STORE_PAGE'
-                    ? 'text-[#003B8E] font-bold bg-blue-50/90'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                Shop Local
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('MY_ORDERS')}
-                className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                  viewMode === 'MY_ORDERS'
-                    ? 'text-[#003B8E] font-bold bg-blue-50/90'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                My Orders
-              </button>
-            </nav>
           </div>
 
-          {/* CENTER SECTION: Prominent Global Search Field */}
+          {/* ZONE 2: Prominent Global Search Field */}
           <div className="order-3 md:order-2 w-full md:flex-1 md:max-w-xl lg:max-w-2xl">
             <label htmlFor="header-global-search" className="sr-only">
               Search products or local stores
@@ -861,13 +899,13 @@ export default function UrbanDirectPlatform() {
                   }
                 }}
                 placeholder={`Search products, daily essentials, or stores in ${customerLocation.city || 'your city'}...`}
-                className="w-full pl-10 pr-20 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300/90 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 focus:bg-white transition-all shadow-2xs placeholder:text-slate-400 text-slate-900"
+                className="w-full min-h-[44px] pl-10 pr-16 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300/90 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 focus:bg-white transition-all shadow-2xs placeholder:text-slate-400 text-slate-900 font-medium"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 px-2 py-0.5 text-xs font-semibold text-slate-500 hover:text-slate-900 bg-slate-200/70 hover:bg-slate-200 rounded-md cursor-pointer transition-colors"
+                  className="absolute right-2 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-200/80 hover:bg-slate-200 rounded-lg cursor-pointer transition-colors"
                 >
                   Clear
                 </button>
@@ -875,120 +913,31 @@ export default function UrbanDirectPlatform() {
             </div>
           </div>
 
-          {/* RIGHT SECTION: Selected Location + Single "For Sellers" Access Point + Account + Cart */}
-          <div className="order-2 md:order-3 flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* ZONE 3: Selected Location + Cart Drawer Trigger Button */}
+          <div className="order-2 md:order-3 flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Selected Delivery Location Button */}
             <button
               type="button"
               onClick={() => setIsLocationModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-blue-200/80 bg-blue-50/60 hover:bg-blue-50 text-xs text-slate-900 inline-flex items-center gap-1.5 max-w-[165px] sm:max-w-[220px] cursor-pointer transition-colors shadow-2xs"
-              title="Change delivery location"
+              className="min-h-[44px] px-2 sm:px-3 py-1.5 rounded-xl border border-blue-200/80 bg-blue-50/60 hover:bg-blue-50 text-xs text-slate-900 inline-flex items-center gap-1 sm:gap-1.5 max-w-[130px] min-[375px]:max-w-[165px] sm:max-w-[240px] cursor-pointer transition-colors shadow-2xs"
+              title={
+                isBuyerCityLocked
+                  ? `Shopping city locked to ${customerLocation.city} (intra-city delivery only)`
+                  : 'Change delivery location'
+              }
             >
               <MapPin className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
-              <span className="truncate font-semibold">
+              <span className="truncate font-bold">
                 {formattedSelectedCityLabel}
               </span>
-              <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
-            </button>
-
-            {/* Pricing Link for prospective merchants */}
-            <Link
-              href="/pricing"
-              className="hidden md:inline-flex px-2.5 py-1.5 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
-            >
-              Pricing
-            </Link>
-
-            {/* ONE CLEAR SELLER ACCESS BUTTON IN HEADER: "For Sellers" -> /seller */}
-            <Link
-              href="/seller"
-              className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-[#003B8E]/40 text-xs font-semibold text-slate-800 items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
-              title="Manage your store or open a new store on Citykart"
-            >
-              <Store className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
-              <span>For Sellers</span>
-            </Link>
-
-            {/* PROMINENT CITY PARTNER PROGRAM BUTTON: "Become a Partner" -> /partner */}
-            <Link
-              href="/partner"
-              className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-300/90 bg-emerald-50/90 hover:bg-emerald-600 text-emerald-900 hover:text-white text-xs font-bold items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
-              title="Apply to become an exclusive Citykart City Partner (50/50 Net City Revenue Share)"
-            >
-              <Handshake className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {isMounted && authenticatedUser?.isPartner
-                  ? 'Partner Console'
-                  : 'Become a Partner'}
-              </span>
-            </Link>
-
-            {/* Platform Owner Super Admin Console Link (Shown only to server-verified +918329306616 super_admin) */}
-            {isMounted &&
-              authenticatedUser?.phoneE164 === '+918329306616' &&
-              (authenticatedUser?.role === 'super_admin' ||
-                authenticatedUser?.isAdmin === true) && (
-                <Link
-                  href="/admin"
-                  className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl border border-[#003B8E]/30 bg-blue-50/90 hover:bg-[#003B8E] text-[#003B8E] hover:text-white text-xs font-bold items-center gap-1.5 whitespace-nowrap shrink-0 transition-all shadow-2xs"
-                  title="Open Citykart Platform Owner Super Admin Console"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                  <span>Super Admin</span>
-                </Link>
-              )}
-
-            {/* Mobile OTP Account / Sign-in Control */}
-            {isMounted && authenticatedUser ? (
-              <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs shadow-2xs">
-                <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <button
-                  type="button"
-                  onClick={() =>
-                    openOtpAuthModal({
-                      defaultJourney: 'BUYER',
-                      authContextMode: 'BUYER_SIGN_IN',
-                    })
-                  }
-                  className="font-semibold text-slate-900 hover:text-[#003B8E] hover:underline truncate max-w-[110px] cursor-pointer"
-                  title={`${authenticatedUser.fullName} (${authenticatedUser.phoneE164})`}
-                >
-                  {authenticatedUser.fullName}
-                </button>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
+              {isBuyerCityLocked ? (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-100 text-[#003B8E] text-[9px] font-extrabold shrink-0">
+                  <Lock className="w-2.5 h-2.5" />
+                  <span className="hidden sm:inline">Locked</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={handleSignOutOtpSession}
-                  className="text-slate-500 hover:text-slate-900 underline cursor-pointer"
-                >
-                  Sign out
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  openOtpAuthModal({
-                    defaultJourney: 'BUYER',
-                    authContextMode: 'BUYER_SIGN_IN',
-                  })
-                }
-                className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-              >
-                <Phone className="w-3.5 h-3.5 text-[#003B8E]" />
-                <span className="hidden sm:inline">Sign in</span>
-              </button>
-            )}
-
-            {/* Compact Buyer Orders Link on Medium Screens where XL nav is hidden */}
-            <button
-              type="button"
-              onClick={() => setViewMode('MY_ORDERS')}
-              className="hidden sm:inline xl:hidden px-2.5 py-1.5 text-xs font-semibold text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer"
-            >
-              Orders
+              ) : (
+                <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
+              )}
             </button>
 
             {/* High-Intent Cart Button */}
@@ -998,9 +947,9 @@ export default function UrbanDirectPlatform() {
                 setDrawerInitialStep('cart');
                 setIsDrawerOpen(true);
               }}
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#F96302] hover:bg-[#E05500] rounded-xl transition-all inline-flex items-center gap-2 whitespace-nowrap shrink-0 shadow-xs active:scale-95 cursor-pointer"
+              className="min-h-[44px] px-2.5 sm:px-3.5 py-1.5 text-xs font-bold text-white bg-[#F96302] hover:bg-[#E05500] rounded-xl transition-all inline-flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 shadow-xs active:scale-95 cursor-pointer"
             >
-              <ShoppingBag className="w-3.5 h-3.5" />
+              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
               <span>Cart ({totalCartItems})</span>
               <span aria-hidden="true" className="hidden sm:inline text-orange-200">
                 ·
@@ -1014,206 +963,40 @@ export default function UrbanDirectPlatform() {
       </header>
 
       {/* =========================================================
-          MOBILE / TABLET SLIDE-OVER SIDEBAR DRAWER (< lg)
+          PREMIUM ACCESSIBLE HAMBURGER NAVIGATION DRAWER
+          (Available across all screen sizes, role-aware & keyboard-accessible)
          ========================================================= */}
-      <AnimatePresence>
-        {isMobileSidebarOpen && (
-          <div className="fixed inset-0 z-50 md:hidden flex">
-            <motion.div
-              initial={{opacity: 0}}
-              animate={{opacity: 1}}
-              exit={{opacity: 0}}
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
-              aria-hidden="true"
-            />
-            <motion.div
-              initial={{x: '-100%'}}
-              animate={{x: 0}}
-              exit={{x: '-100%'}}
-              transition={{type: 'spring', damping: 28, stiffness: 280}}
-              className="relative z-10 w-[310px] max-w-[88vw] h-full bg-[#F8FAFC] p-4 overflow-y-auto shadow-2xl space-y-4"
-            >
-              {/* User Account / Profile Summary Card inside Mobile Drawer */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#003B8E] flex items-center justify-center font-bold text-xs">
-                      {isMounted && authenticatedUser ? authenticatedUser.fullName.charAt(0).toUpperCase() : 'CK'}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 truncate max-w-[150px]">
-                        {isMounted && authenticatedUser ? authenticatedUser.fullName : 'Guest Visitor'}
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-500">
-                        {isMounted && authenticatedUser ? authenticatedUser.phoneE164 : 'Sign in for full access'}
-                      </div>
-                    </div>
-                  </div>
-                  {isMounted && authenticatedUser ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleSignOutOtpSession();
-                        setIsMobileSidebarOpen(false);
-                      }}
-                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                    >
-                      Sign out
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMobileSidebarOpen(false);
-                        openOtpAuthModal({
-                          defaultJourney: 'BUYER',
-                          authContextMode: 'BUYER_SIGN_IN',
-                        });
-                      }}
-                      className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-lg cursor-pointer"
-                    >
-                      Sign in
-                    </button>
-                  )}
-                </div>
-              </div>
+      <HamburgerNavigationDrawer
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
+        triggerRef={hamburgerTriggerRef}
+        isMounted={isMounted}
+        authenticatedUser={authenticatedUser}
+        hasSellerRole={hasSellerRole}
+        userOwnedStores={userOwnedStores}
+        viewMode={viewMode}
+        onSelectViewMode={(mode) => {
+          setViewMode(mode);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        ordersCount={orders.length}
+        totalCartItems={totalCartItems}
+        totalCartValue={totalCartValue}
+        formattedSelectedCityLabel={formattedSelectedCityLabel}
+        onOpenLocationModal={() => setIsLocationModalOpen(true)}
+        onOpenCartDrawer={() => {
+          setDrawerInitialStep('cart');
+          setIsDrawerOpen(true);
+        }}
+        onOpenSignInModal={() =>
+          openOtpAuthModal({
+            defaultJourney: 'BUYER',
+            authContextMode: 'BUYER_SIGN_IN',
+          })
+        }
+        onSignOut={handleSignOutOtpSession}
+      />
 
-              {/* Core Account & Order Links */}
-              <div className="pb-3 border-b border-slate-200 space-y-1.5">
-                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">
-                  Core Account &amp; Orders
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode('BUYER_HOME');
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                    viewMode === 'BUYER_HOME' || viewMode === 'STORE_PAGE'
-                      ? 'bg-blue-50 text-[#003B8E] font-bold border border-blue-200/60'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <ShoppingBag className="w-3.5 h-3.5 text-[#003B8E]" />
-                    <span>Shop Local Storefront</span>
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode('MY_ORDERS');
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
-                    viewMode === 'MY_ORDERS'
-                      ? 'bg-blue-50 text-[#003B8E] font-bold border border-blue-200/60'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Truck className="w-3.5 h-3.5 text-[#003B8E]" />
-                    <span>My Orders &amp; Tracking</span>
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-
-                {isMounted &&
-                  authenticatedUser?.phoneE164 === '+918329306616' &&
-                  (authenticatedUser?.role === 'super_admin' ||
-                    authenticatedUser?.isAdmin === true) && (
-                    <Link
-                      href="/admin"
-                      onClick={() => setIsMobileSidebarOpen(false)}
-                      className="w-full py-2.5 px-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs font-bold text-[#003B8E] hover:bg-blue-100 flex items-center justify-between"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-[#003B8E]" />
-                        <span>Super Admin Console</span>
-                      </span>
-                      <ArrowRight className="w-3.5 h-3.5 text-[#003B8E]" />
-                    </Link>
-                  )}
-              </div>
-
-              {/* Store & Partner Management Links */}
-              <div className="pt-2 pb-3 border-b border-slate-200 space-y-2">
-                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">
-                  Store &amp; Partner Management
-                </div>
-                <Link
-                  href="/pricing"
-                  onClick={() => setIsMobileSidebarOpen(false)}
-                  className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100 flex items-center justify-between"
-                >
-                  <span>Merchant Plans &amp; Pricing</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-                </Link>
-                <Link
-                  href="/seller"
-                  onClick={() => setIsMobileSidebarOpen(false)}
-                  className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100 flex items-center justify-between"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Store className="w-4 h-4 text-[#003B8E]" />
-                    <span>For Sellers &amp; Store Studio</span>
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-                </Link>
-                <Link
-                  href="/partner"
-                  onClick={() => setIsMobileSidebarOpen(false)}
-                  className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 hover:bg-emerald-100 flex items-center justify-between"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Handshake className="w-4 h-4 text-emerald-700" />
-                    <span>
-                      {isMounted && authenticatedUser?.isPartner
-                        ? 'City Partner Console'
-                        : 'Become a Partner (50/50 Share)'}
-                    </span>
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
-                </Link>
-              </div>
-
-              {/* Categories & Location Filter Sidebar */}
-              <BuyerLeftSidebar
-                hasSelectedCity={hasSelectedCity}
-                customerLocation={customerLocation}
-                formattedLocationFull={formattedLocationFull}
-                categories={categories}
-                selectedCategory={selectedCategory}
-                categoryStoreCounts={categoryStoreCounts}
-                categoryProductCounts={categoryProductCounts}
-                eligibleStoresInCity={eligibleStoresInCity}
-                totalCityProductsCount={totalCityProductsCount}
-                selectedStoreFilterId={selectedStoreFilterId}
-                onlyDeliverableToMe={onlyDeliverableToMe}
-                inStockOnly={inStockOnly}
-                sortBy={sortBy}
-                onOpenLocationModal={() => setIsLocationModalOpen(true)}
-                onQuickSelectCity={handleConfirmBuyerLocation}
-                onSelectCategory={(cat) => {
-                  setSelectedCategory(cat);
-                  if (viewMode !== 'BUYER_HOME' && viewMode !== 'STORE_PAGE') {
-                    setViewMode('BUYER_HOME');
-                  }
-                }}
-                onSelectStoreFilter={setSelectedStoreFilterId}
-                onToggleOnlyDeliverableToMe={setOnlyDeliverableToMe}
-                onToggleInStockOnly={setInStockOnly}
-                onChangeSortBy={setSortBy}
-                onResetAllFilters={resetCityFilters}
-                onCloseMobileDrawer={() => setIsMobileSidebarOpen(false)}
-              />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <main className="flex-1 w-full max-w-none">
         {/* =========================================================
@@ -1343,30 +1126,31 @@ export default function UrbanDirectPlatform() {
                     <span>Delivery address</span>
                   </div>
                   <div className="text-slate-800 font-semibold">
-                    {activeOrder.customer.fullName} ·{' '}
+                    {activeOrder.customer?.fullName || 'Unknown Customer'} ·{' '}
                     <span className="font-mono">
-                      {activeOrder.customer.phone}
+                      {activeOrder.customer?.phone || 'N/A'}
                     </span>
                   </div>
                   <div className="text-slate-600">
-                    {activeOrder.customer.address},{' '}
-                    {activeOrder.customer.locality}, {activeOrder.customer.city}
-                    , {activeOrder.customer.country} —{' '}
-                    {activeOrder.customer.postalCode}
+                    {activeOrder.customer?.address || 'No address'},{' '}
+                    {activeOrder.customer?.locality || 'N/A'}, {activeOrder.customer?.city || 'N/A'}
+                    , {activeOrder.customer?.country || 'N/A'} —{' '}
+                    {activeOrder.customer?.postalCode || 'N/A'}
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <div className="font-bold text-slate-900 flex items-center gap-1.5">
                     <QrCode className="w-3.5 h-3.5 text-[#003B8E]" />
-                    <span>Payment on delivery</span>
+                    <span>Pay on Delivery</span>
                   </div>
                   <div className="text-slate-700">
-                    {activeOrder.paymentMethod === 'UPI_ON_DELIVERY'
-                      ? `UPI / QR code on delivery (${activeOrder.upiId || 'Scan QR at door'})`
-                      : activeOrder.paymentMethod === 'CASH_ON_DELIVERY'
-                        ? 'Cash on delivery'
-                        : 'Card tap on delivery'}
+                    {activeOrder.paymentStatus === 'PAID'
+                      ? activeOrder.paymentCollectionMethod === 'UPI_ON_DELIVERY' ||
+                        activeOrder.paymentMethod === 'UPI_ON_DELIVERY'
+                        ? 'Paid via UPI on Delivery'
+                        : 'Paid via Cash on Delivery'
+                      : 'Pay by Cash or UPI when your order arrives.'}
                   </div>
                 </div>
 
@@ -1375,22 +1159,73 @@ export default function UrbanDirectPlatform() {
                     <Clock className="w-3.5 h-3.5 text-[#003B8E]" />
                     <span>Items ordered</span>
                   </div>
-                  {activeOrder.items.map((item) => (
-                    <div
-                      key={`${item.product.id}-${item.variant}`}
-                      className="flex justify-between text-slate-700"
-                    >
-                      <span>
-                        {item.quantity}× {item.product.name}
-                      </span>
-                      <span className="font-mono tabular-nums font-medium">
-                        {formatCurrency(
-                          item.product.price * item.quantity,
-                          item.product.currency
-                        )}
-                      </span>
-                    </div>
-                  ))}
+                  {(activeOrder?.items || []).map((item, idx) => {
+                    const itemName =
+                      item?.product?.name ||
+                      item?.productName ||
+                      (item as { title?: string; name?: string })?.name ||
+                      (item as { title?: string })?.title ||
+                      'Ordered Item';
+                    const itemPrice =
+                      item?.product?.price ?? item?.price ?? 0;
+                    const itemCurrency =
+                      item?.product?.currency || 'INR';
+                    const itemQty = item?.quantity || 1;
+                    const itemKey = `${item?.product?.id || item?.productId || idx}-${item?.variant || 'default'}`;
+                    return (
+                      <div
+                        key={itemKey}
+                        className="flex justify-between text-slate-700"
+                      >
+                        <span>
+                          {itemQty}× {itemName}
+                        </span>
+                        <span className="font-mono tabular-nums font-medium">
+                          {formatCurrency(
+                            itemPrice * itemQty,
+                            itemCurrency
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Store Star Rating Widget (Unlocks when order is DELIVERED) */}
+              <div className="pt-4 border-t border-slate-200">
+                <OrderStoreRatingWidget order={activeOrder} />
+              </div>
+
+              {/* Order Card Action Buttons (>= 44x44px touch targets) */}
+              <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-500">
+                  Fulfilled by <strong className="text-slate-800">{activeOrder.storeName}</strong>
+                </div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {activeOrder.orderStatus !== 'DELIVERED' &&
+                    activeOrder.orderStatus !== 'CANCELLED' &&
+                    activeOrder.orderStatus !== 'REJECTED' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleCancelOrder(activeOrder.id, 'Cancelled by customer');
+                          showToast(`Order #${activeOrder.id} has been cancelled.`);
+                        }}
+                        className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Cancel Order</span>
+                      </button>
+                    )}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenStorePage(activeOrder.storeId)}
+                    className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white text-[#003B8E] hover:bg-slate-100 border border-slate-200 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Store className="w-4 h-4" />
+                    <span>Visit Store</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1411,6 +1246,7 @@ export default function UrbanDirectPlatform() {
             >
               <BuyerLeftSidebar
                 hasSelectedCity={hasSelectedCity}
+                isCityLocked={isBuyerCityLocked}
                 customerLocation={customerLocation}
                 formattedLocationFull={formattedLocationFull}
                 categories={categories}
@@ -1444,29 +1280,40 @@ export default function UrbanDirectPlatform() {
 
             {/* RIGHT CONTENT AREA: Occupies all remaining horizontal space */}
             <div className="flex-1 min-w-0 space-y-6">
-              {/* Mobile/Tablet Quick Filter Bar (< lg) */}
-              <div className="flex lg:hidden flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-white border border-slate-200 text-xs shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setIsLocationModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 font-semibold text-slate-900 cursor-pointer"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
-                  <span>{formattedLocationFull}</span>
-                  <span className="underline text-[#003B8E] ml-1">Change</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#003B8E] text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>
-                    {selectedCategory === 'All Categories'
-                      ? 'Categories & Filters'
-                      : selectedCategory}
-                  </span>
-                </button>
+              {/* Mobile/Tablet Unified Categories & Local Filters Bar (< lg) */}
+              <div className="lg:hidden">
+                <BuyerLeftSidebar
+                  hasSelectedCity={hasSelectedCity}
+                  isCityLocked={isBuyerCityLocked}
+                  customerLocation={customerLocation}
+                  formattedLocationFull={formattedLocationFull}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  categoryStoreCounts={categoryStoreCounts}
+                  categoryProductCounts={categoryProductCounts}
+                  eligibleStoresInCity={eligibleStoresInCity}
+                  totalCityProductsCount={totalCityProductsCount}
+                  selectedStoreFilterId={selectedStoreFilterId}
+                  onlyDeliverableToMe={onlyDeliverableToMe}
+                  inStockOnly={inStockOnly}
+                  sortBy={sortBy}
+                  onOpenLocationModal={() => setIsLocationModalOpen(true)}
+                  onQuickSelectCity={handleConfirmBuyerLocation}
+                  onSelectCategory={(cat) => {
+                    setSelectedCategory(cat);
+                  }}
+                  onSelectStoreFilter={(storeId) => {
+                    setSelectedStoreFilterId(storeId);
+                    if (viewMode === 'STORE_PAGE' && storeId !== 'ALL') {
+                      handleOpenStorePage(storeId);
+                    }
+                  }}
+                  onVisitStorePage={handleOpenStorePage}
+                  onToggleOnlyDeliverableToMe={setOnlyDeliverableToMe}
+                  onToggleInStockOnly={setInStockOnly}
+                  onChangeSortBy={setSortBy}
+                  onResetAllFilters={resetCityFilters}
+                />
               </div>
 
               {/* DEDICATED STORE VIEW INSIDE RIGHT CONTENT AREA */}
@@ -1517,9 +1364,17 @@ export default function UrbanDirectPlatform() {
                             )}
                           </div>
 
-                          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-                            {activeViewedStore.name}
-                          </h1>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                              {activeViewedStore.name}
+                            </h1>
+                            <StoreRatingBadge
+                              storeId={activeViewedStore.id}
+                              fallbackRating={activeViewedStore.rating}
+                              fallbackReviewsCount={activeViewedStore.reviewsCount}
+                              size="md"
+                            />
+                          </div>
 
                           <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
                             {activeViewedStore.specialty} · Address:{' '}
@@ -1610,7 +1465,7 @@ export default function UrbanDirectPlatform() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1750px]:grid-cols-6 gap-3.5 sm:gap-4 lg:gap-5">
+                      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1750px]:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
                         {activeViewedStoreProducts.map((product) =>
                           renderProductCard(product)
                         )}
@@ -1673,13 +1528,15 @@ export default function UrbanDirectPlatform() {
                       .)
                     </p>
                     <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setIsLocationModalOpen(true)}
-                        className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-semibold cursor-pointer"
-                      >
-                        Try another nearby city
-                      </button>
+                      {!isBuyerCityLocked && (
+                        <button
+                          type="button"
+                          onClick={() => setIsLocationModalOpen(true)}
+                          className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-semibold cursor-pointer"
+                        >
+                          Try another nearby city
+                        </button>
+                      )}
                       {onlyDeliverableToMe && (
                         <button
                           type="button"
@@ -1742,14 +1599,26 @@ export default function UrbanDirectPlatform() {
                                 <span>Explore Local Catalog</span>
                                 <ArrowRight className="w-4 h-4" />
                               </a>
-                              <button
-                                type="button"
-                                onClick={() => setIsLocationModalOpen(true)}
-                                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <MapPin className="w-3.5 h-3.5 text-orange-300" />
-                                <span>Switch City</span>
-                              </button>
+                              {isBuyerCityLocked ? (
+                                <span
+                                  title="Buyer city is locked after login for hyperlocal intra-city delivery"
+                                  className="px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-blue-100 text-xs font-semibold inline-flex items-center gap-1.5"
+                                >
+                                  <Lock className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                                  <span>
+                                    City Locked · {customerLocation.city} Delivery Only
+                                  </span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsLocationModalOpen(true)}
+                                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <MapPin className="w-3.5 h-3.5 text-orange-300" />
+                                  <span>Switch City</span>
+                                </button>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-4 text-xs text-blue-100 font-mono tabular-nums">
@@ -1832,10 +1701,16 @@ export default function UrbanDirectPlatform() {
                                 key={st.id}
                                 type="button"
                                 onClick={() => handleOpenStorePage(st.id)}
-                                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#003B8E] text-[11px] font-semibold text-slate-700 hover:text-[#003B8E] shrink-0 transition-colors cursor-pointer inline-flex items-center gap-1"
+                                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#003B8E] text-[11px] font-semibold text-slate-700 hover:text-[#003B8E] shrink-0 transition-colors cursor-pointer inline-flex items-center gap-1.5"
                               >
                                 <Store className="w-3 h-3 text-[#003B8E]" />
                                 <span className="truncate max-w-[130px]">{st.name}</span>
+                                <StoreRatingBadge
+                                  storeId={st.id}
+                                  fallbackRating={st.rating}
+                                  size="xs"
+                                  showReviewsCount={false}
+                                />
                               </button>
                             ))}
                           </div>
@@ -1979,14 +1854,78 @@ export default function UrbanDirectPlatform() {
                             key={st.id}
                             type="button"
                             onClick={() => handleOpenStorePage(st.id)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#003B8E] font-semibold text-slate-800 hover:text-[#003B8E] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 hover:border-[#003B8E] font-semibold text-slate-800 hover:text-[#003B8E] transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                           >
                             <span>{st.name}</span>
+                            <StoreRatingBadge
+                              storeId={st.id}
+                              fallbackRating={st.rating}
+                              size="xs"
+                              showReviewsCount={false}
+                            />
                             <ArrowRight className="w-3 h-3 text-slate-400" />
                           </button>
                         ))}
                       </div>
                     </div>
+                  )}
+
+                  {/* Neighborhood Store Cards Strip with Average Star Ratings */}
+                  {filteredStores.length > 0 && (
+                    <section aria-label="Local Stores in Your City" className="space-y-2.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                          <Store className="w-3.5 h-3.5 text-[#003B8E]" />
+                          <span>Local Stores in {customerLocation.city}</span>
+                        </span>
+                        <span className="text-slate-500 font-mono tabular-nums text-[11px]">
+                          {filteredStores.length} verified {filteredStores.length === 1 ? 'store' : 'stores'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {filteredStores.slice(0, 4).map((st) => (
+                          <div
+                            key={st.id}
+                            onClick={() => handleOpenStorePage(st.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleOpenStorePage(st.id);
+                              }
+                            }}
+                            className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-[#003B8E]/50 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-slate-500 truncate">
+                                  {st.neighborhood} · {st.category}
+                                </span>
+                                <StoreRatingBadge
+                                  storeId={st.id}
+                                  fallbackRating={st.rating}
+                                  fallbackReviewsCount={st.reviewsCount}
+                                  size="xs"
+                                />
+                              </div>
+                              <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate mt-1">
+                                {st.name}
+                              </h3>
+                            </div>
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                              <span className="font-mono tabular-nums">
+                                ~{st.avgDispatchMins} mins dispatch
+                              </span>
+                              <span className="font-semibold text-[#003B8E] inline-flex items-center gap-0.5">
+                                <span>Visit</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   )}
 
                   {/* =========================================================
@@ -2014,13 +1953,15 @@ export default function UrbanDirectPlatform() {
                           >
                             Show all products in {customerLocation.city}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsLocationModalOpen(true)}
-                            className="px-4 py-2 text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl cursor-pointer transition-colors"
-                          >
-                            Change location
-                          </button>
+                          {!isBuyerCityLocked && (
+                            <button
+                              type="button"
+                              onClick={() => setIsLocationModalOpen(true)}
+                              className="px-4 py-2 text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl cursor-pointer transition-colors"
+                            >
+                              Change location
+                            </button>
+                          )}
                         </div>
                       </div>
                     </section>
@@ -2047,7 +1988,7 @@ export default function UrbanDirectPlatform() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1750px]:grid-cols-6 gap-3.5 sm:gap-4 lg:gap-5">
+                      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1750px]:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
                         {filteredProducts.map((product) =>
                           renderProductCard(product)
                         )}
@@ -2220,6 +2161,7 @@ export default function UrbanDirectPlatform() {
         key={`${shouldShowLocationModal}-${customerLocation.city}-${customerLocation.country}`}
         isOpen={shouldShowLocationModal}
         canClose={hasSelectedCity}
+        isCityLocked={isBuyerCityLocked}
         currentLocation={customerLocation}
         stores={stores}
         onConfirmLocation={handleConfirmBuyerLocation}

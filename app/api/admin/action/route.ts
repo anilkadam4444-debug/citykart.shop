@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import {
   db,
+  IS_PREVIEW_DUMMY_FIREBASE,
 } from '@/lib/firebase';
 import {
   removeNandedDemoCatalogFromFirestore,
@@ -232,22 +233,24 @@ export async function POST(req: NextRequest) {
         updatedAt: nowIso,
       });
 
-      try {
-        const snap = await getDoc(doc(db, 'stores', storeId));
-        if (snap.exists()) {
-          await setDoc(
-            doc(db, 'stores', storeId),
-            {
-              isActive: !isSuspending,
-              isSuspended: isSuspending,
-              suspensionReason: isSuspending ? reason : '',
-              suspendedAt: isSuspending ? nowIso : '',
-            },
-            { merge: true }
-          );
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const snap = await getDoc(doc(db, 'stores', storeId));
+          if (snap.exists()) {
+            await setDoc(
+              doc(db, 'stores', storeId),
+              {
+                isActive: !isSuspending,
+                isSuspended: isSuspending,
+                suspensionReason: isSuspending ? reason : '',
+                suspendedAt: isSuspending ? nowIso : '',
+              },
+              { merge: true }
+            );
+          }
+        } catch {
+          // Fallback handled via serverStoreOverridesRegistry
         }
-      } catch {
-        // Fallback handled via serverStoreOverridesRegistry
       }
 
       const audit = await recordAdminAuditLog({
@@ -300,20 +303,22 @@ export async function POST(req: NextRequest) {
         updatedAt: nowIso,
       });
 
-      try {
-        const snap = await getDoc(doc(db, 'stores', storeId));
-        if (snap.exists()) {
-          await setDoc(
-            doc(db, 'stores', storeId),
-            {
-              locationVerified: true,
-              verificationStatus: 'VERIFIED',
-            },
-            { merge: true }
-          );
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const snap = await getDoc(doc(db, 'stores', storeId));
+          if (snap.exists()) {
+            await setDoc(
+              doc(db, 'stores', storeId),
+              {
+                locationVerified: true,
+                verificationStatus: 'VERIFIED',
+              },
+              { merge: true }
+            );
+          }
+        } catch {
+          // Ignore Firestore fallback
         }
-      } catch {
-        // Ignore Firestore fallback
       }
 
       const audit = await recordAdminAuditLog({
@@ -373,13 +378,15 @@ export async function POST(req: NextRequest) {
       }
 
       let storeRecord: LocalStore | null = null;
-      try {
-        const snap = await getDoc(doc(db, 'stores', storeId));
-        if (snap.exists()) {
-          storeRecord = snap.data() as LocalStore;
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const snap = await getDoc(doc(db, 'stores', storeId));
+          if (snap.exists()) {
+            storeRecord = snap.data() as LocalStore;
+          }
+        } catch {
+          // Ignore
         }
-      } catch {
-        // Ignore
       }
       if (!storeRecord) {
         storeRecord = INITIAL_STORES.find((s) => s.id === storeId) || null;
@@ -406,34 +413,36 @@ export async function POST(req: NextRequest) {
       }
 
       let productsDeletedCount = 0;
-      try {
-        const productsQ = query(
-          collection(db, 'products'),
-          where('storeId', '==', storeId)
-        );
-        const productsSnap = await getDocs(productsQ);
-        const docsToDelete = productsSnap.docs;
-        const CHUNK_SIZE = 400;
-        for (let i = 0; i < docsToDelete.length; i += CHUNK_SIZE) {
-          const chunk = docsToDelete.slice(i, i + CHUNK_SIZE);
-          const batch = writeBatch(db);
-          for (const d of chunk) {
-            batch.delete(d.ref);
-            productsDeletedCount++;
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const productsQ = query(
+            collection(db, 'products'),
+            where('storeId', '==', storeId)
+          );
+          const productsSnap = await getDocs(productsQ);
+          const docsToDelete = productsSnap.docs;
+          const CHUNK_SIZE = 400;
+          for (let i = 0; i < docsToDelete.length; i += CHUNK_SIZE) {
+            const chunk = docsToDelete.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            for (const d of chunk) {
+              batch.delete(d.ref);
+              productsDeletedCount++;
+            }
+            await batch.commit();
           }
-          await batch.commit();
+          const storeBatch = writeBatch(db);
+          storeBatch.delete(doc(db, 'stores', storeId));
+          await storeBatch.commit();
+        } catch {
+          // Fallback tombstone below guarantees removal
         }
-        const storeBatch = writeBatch(db);
-        storeBatch.delete(doc(db, 'stores', storeId));
-        await storeBatch.commit();
-      } catch {
-        // Fallback tombstone below guarantees removal
       }
 
       await recordStoreDeletedServer(storeId, {
         storeName: storeRecord.name,
         deletedByUid: adminUid,
-        deletedByPhone: authCheck.phoneE164,
+        deletedByPhone: authCheck.phoneE164 || undefined,
         reason,
       });
 
@@ -565,32 +574,24 @@ export async function POST(req: NextRequest) {
         updatedAt: nowIso,
       });
 
-      try {
-        const snap = await getDoc(doc(db, 'products', productId));
-        if (snap.exists()) {
-          await setDoc(
-            doc(db, 'products', productId),
-            {
-              adminUnpublished: isUnpublishing,
-              isAvailable: !isUnpublishing,
-              unpublishReason: isUnpublishing ? reason : '',
-              unpublishedAt: isUnpublishing ? nowIso : '',
-            },
-            { merge: true }
-          );
-        } else {
-          const staticProd = INITIAL_PRODUCTS.find((p) => p.id === productId);
-          if (staticProd) {
-            const updatedProd: Product = {
-              ...staticProd,
-              adminUnpublished: isUnpublishing,
-              isAvailable: !isUnpublishing,
-            };
-            void updatedProd;
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const snap = await getDoc(doc(db, 'products', productId));
+          if (snap.exists()) {
+            await setDoc(
+              doc(db, 'products', productId),
+              {
+                adminUnpublished: isUnpublishing,
+                isAvailable: !isUnpublishing,
+                unpublishReason: isUnpublishing ? reason : '',
+                unpublishedAt: isUnpublishing ? nowIso : '',
+              },
+              { merge: true }
+            );
           }
+        } catch {
+          // Handled via serverProductOverridesRegistry
         }
-      } catch {
-        // Handled via serverProductOverridesRegistry
       }
 
       const audit = await recordAdminAuditLog({
@@ -692,20 +693,22 @@ export async function POST(req: NextRequest) {
         serverOrdersRegistry.set(orderId, updatedOrder);
       }
 
-      try {
-        const snap = await getDoc(doc(db, 'orders', orderId));
-        if (snap.exists()) {
-          const data = snap.data() as OrderRecord;
-          await setDoc(
-            doc(db, 'orders', orderId),
-            {
-              adminNotes: [...(data.adminNotes || []), noteEntry],
-            },
-            { merge: true }
-          );
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const snap = await getDoc(doc(db, 'orders', orderId));
+          if (snap.exists()) {
+            const data = snap.data() as OrderRecord;
+            await setDoc(
+              doc(db, 'orders', orderId),
+              {
+                adminNotes: [...(data.adminNotes || []), noteEntry],
+              },
+              { merge: true }
+            );
+          }
+        } catch {
+          // Ignore Firestore write fallback
         }
-      } catch {
-        // Ignore Firestore write fallback
       }
 
       const audit = await recordAdminAuditLog({

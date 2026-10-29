@@ -511,18 +511,27 @@ export function validatePhoneNumberForCountry(
   country: CountryCallingRecord
 ): {isValid: boolean; digitsOnly: string; e164: string; error?: string} {
   const digitsOnly = subscriberNumber.replace(/\D/g, '').replace(/^0+/, '');
-  if (!digitsOnly) {
-    return {
-      isValid: false,
-      digitsOnly: '',
-      e164: '',
-      error: 'Please enter your mobile number.',
-    };
+  console.log('Validation Debug:', { subscriberNumber, digitsOnly, countryDialCode: country.dialCode });
+
+  // If the number starts with the country dial code, remove it for validation
+  const dialDigits = country.dialCode.replace(/\D/g, '');
+  let cleanedDigits = digitsOnly;
+  if (digitsOnly.startsWith(dialDigits)) {
+    cleanedDigits = digitsOnly.slice(dialDigits.length);
+  } else if (digitsOnly.startsWith(dialDigits.slice(1))) {
+    cleanedDigits = digitsOnly.slice(dialDigits.slice(1).length);
   }
 
+  // Use the length that matches criteria better, fallback to digitsOnly if stripped length is invalid
+  const finalDigits = (cleanedDigits.length >= country.minDigits && cleanedDigits.length <= country.maxDigits) 
+    ? cleanedDigits 
+    : digitsOnly;
+
+  console.log('Validation Debug Final:', { finalDigits, min: country.minDigits, max: country.maxDigits });
+
   if (
-    digitsOnly.length < country.minDigits ||
-    digitsOnly.length > country.maxDigits
+    finalDigits.length < country.minDigits ||
+    finalDigits.length > country.maxDigits
   ) {
     const lengthDesc =
       country.minDigits === country.maxDigits
@@ -530,17 +539,16 @@ export function validatePhoneNumberForCountry(
         : `${country.minDigits} to ${country.maxDigits} digits`;
     return {
       isValid: false,
-      digitsOnly,
+      digitsOnly: finalDigits,
       e164: '',
-      error: `Please enter a valid mobile number for ${country.name} (${lengthDesc}).`,
+      error: `Please enter a valid mobile number for ${country.name} (must be ${lengthDesc}).`,
     };
   }
 
-  const dialDigits = country.dialCode.replace(/\D/g, '');
   return {
     isValid: true,
-    digitsOnly,
-    e164: `+${dialDigits}${digitsOnly}`,
+    digitsOnly: finalDigits,
+    e164: `+${dialDigits}${finalDigits}`,
   };
 }
 

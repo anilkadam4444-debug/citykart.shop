@@ -27,9 +27,12 @@ import {
   Copy,
   Check,
   ShieldCheck,
+  QrCode,
 } from 'lucide-react';
 import { useUrbanDirect } from '@/components/urbandirect-provider';
-import { OrderRecord, OrderStatus } from '@/lib/catalog-data';
+import { formatPaymentMethodLabel, OrderRecord, OrderStatus } from '@/lib/catalog-data';
+import { UpiQrCodeCard } from '@/components/upi-qr-code-card';
+import { OrderStoreRatingWidget, StoreRatingBadge } from '@/components/store-star-rating';
 
 export default function BuyerOrdersPage() {
   const {
@@ -53,6 +56,7 @@ export default function BuyerOrdersPage() {
   const [regeneratingPinOrderId, setRegeneratingPinOrderId] = useState<string | null>(null);
   const [pinErrorByOrder, setPinErrorByOrder] = useState<Record<string, string>>({});
   const [copiedPinOrderId, setCopiedPinOrderId] = useState<string | null>(null);
+  const [activeUpiQrOrderId, setActiveUpiQrOrderId] = useState<string | null>(null);
 
   const handleFetchBuyerPin = async (orderId: string) => {
     setLoadingPinOrderId(orderId);
@@ -127,56 +131,56 @@ export default function BuyerOrdersPage() {
     switch (status) {
       case 'NEW':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-            <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-            Order Placed
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03]">
+            <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse transition-transform duration-300" />
+            <span>Order Placed</span>
           </span>
         );
       case 'CONFIRMED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#003B8E] border border-blue-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#003B8E]" />
-            Store Confirmed
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#003B8E] border border-blue-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03]">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#003B8E] transition-transform duration-300" />
+            <span>Store Confirmed</span>
           </span>
         );
       case 'PREPARING':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
-            <Package className="w-3.5 h-3.5 text-indigo-600 animate-bounce" />
-            Being Prepared
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03]">
+            <Package className="w-3.5 h-3.5 text-indigo-600 animate-[bounce_2s_infinite] transition-transform duration-300" />
+            <span>Being Prepared</span>
           </span>
         );
       case 'OUT_FOR_DELIVERY':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-[#F96302] border border-orange-200">
-            <Truck className="w-3.5 h-3.5 text-[#F96302] animate-pulse" />
-            Out for Delivery
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-[#F96302] border border-orange-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03] ring-2 ring-orange-100/60 animate-pulse">
+            <Truck className="w-3.5 h-3.5 text-[#F96302] transition-transform duration-300" />
+            <span>Out for Delivery</span>
           </span>
         );
       case 'DELIVERED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            Delivered
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03]">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 transition-transform duration-300" />
+            <span>Delivered</span>
           </span>
         );
       case 'CANCELLED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200">
-            <XCircle className="w-3.5 h-3.5 text-red-600" />
-            Cancelled
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03]">
+            <XCircle className="w-3.5 h-3.5 text-red-600 transition-transform duration-300" />
+            <span>Cancelled</span>
           </span>
         );
       case 'REJECTED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-            Rejected by Store
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200/90 shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03]">
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 transition-transform duration-300" />
+            <span>Rejected by Store</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 transition-all duration-500 ease-out">
             {status}
           </span>
         );
@@ -187,17 +191,17 @@ export default function BuyerOrdersPage() {
     const status = order.orderStatus || 'NEW';
     if (status === 'CANCELLED' || status === 'REJECTED') {
       return (
-        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+        <div className="p-3.5 bg-red-50/90 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5 transition-all duration-500 ease-out animate-in fade-in">
           <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-          <div>
+          <div className="space-y-0.5">
             <p className="font-bold">
               {status === 'CANCELLED' ? 'Order Cancelled' : 'Order Rejected by Store'}
             </p>
             {order.cancellationReason && (
-              <p className="mt-0.5">Reason: {order.cancellationReason}</p>
+              <p className="text-[11px] text-red-600/90">Reason: {order.cancellationReason}</p>
             )}
             {order.rejectionReason && (
-              <p className="mt-0.5">Reason: {order.rejectionReason}</p>
+              <p className="text-[11px] text-red-600/90">Reason: {order.rejectionReason}</p>
             )}
           </div>
         </div>
@@ -205,23 +209,28 @@ export default function BuyerOrdersPage() {
     }
 
     const steps = [
-      { id: 'NEW', label: 'Order Placed' },
-      { id: 'CONFIRMED', label: 'Confirmed' },
-      { id: 'PREPARING', label: 'Preparing' },
-      { id: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' },
-      { id: 'DELIVERED', label: 'Delivered' },
+      { id: 'NEW', label: 'Order Placed', shortLabel: 'Placed' },
+      { id: 'CONFIRMED', label: 'Confirmed', shortLabel: 'Confirmed' },
+      { id: 'PREPARING', label: 'Preparing', shortLabel: 'Preparing' },
+      { id: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', shortLabel: 'On the way' },
+      { id: 'DELIVERED', label: 'Delivered', shortLabel: 'Delivered' },
     ];
 
     const currentIdx = steps.findIndex((s) => s.id === status);
 
     return (
-      <div className="py-2">
-        <div className="flex items-center justify-between relative">
-          <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-200 -translate-y-1/2 z-0" />
+      <div className="py-2.5">
+        <div className="flex items-center justify-between relative px-2 sm:px-3">
+          {/* Background Track Line */}
+          <div className="absolute top-1/2 left-3 right-3 h-1.5 bg-slate-200/80 rounded-full -translate-y-1/2 z-0" />
+
+          {/* Animated Filled Progress Line */}
           <div
-            className="absolute top-1/2 left-0 h-1 bg-[#003B8E] -translate-y-1/2 z-0 transition-all duration-300"
+            className="absolute top-1/2 left-3 h-1.5 bg-linear-to-r from-[#003B8E] via-blue-600 to-[#F96302] rounded-full -translate-y-1/2 z-0 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-2xs"
             style={{
-              width: `${Math.max(0, (currentIdx / (steps.length - 1)) * 100)}%`,
+              width: currentIdx < 0
+                ? '0%'
+                : `calc(${Math.min(100, Math.max(0, (currentIdx / (steps.length - 1)) * 100))}% - 6px)`,
             }}
           />
 
@@ -230,22 +239,32 @@ export default function BuyerOrdersPage() {
             const isCurrent = idx === currentIdx;
 
             return (
-              <div key={step.id} className="relative z-10 flex flex-col items-center">
+              <div key={step.id} className="relative z-10 flex flex-col items-center group">
                 <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                    isDone
-                      ? 'bg-[#003B8E] text-white shadow-sm'
-                      : 'bg-slate-200 text-slate-500'
-                  } ${isCurrent ? 'ring-4 ring-blue-100 scale-110' : ''}`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform ${
+                    isCurrent
+                      ? 'bg-[#003B8E] text-white scale-120 ring-4 ring-blue-200/90 shadow-md shadow-blue-500/25 ring-offset-1 ring-offset-white'
+                      : isDone
+                      ? 'bg-[#003B8E] text-white shadow-xs scale-100 ring-2 ring-blue-50'
+                      : 'bg-white text-slate-400 border border-slate-300 scale-95 hover:border-slate-400'
+                  }`}
+                  title={`${step.label} (${isCurrent ? 'Current stage' : isDone ? 'Completed' : 'Upcoming'})`}
                 >
-                  {isDone ? '✓' : idx + 1}
+                  <span className="transition-transform duration-300">
+                    {isDone ? '✓' : idx + 1}
+                  </span>
                 </div>
                 <span
-                  className={`text-[10px] mt-1 font-medium hidden sm:block ${
-                    isCurrent ? 'text-[#003B8E] font-bold' : isDone ? 'text-slate-700' : 'text-slate-400'
+                  className={`text-[10px] sm:text-[11px] mt-1.5 font-medium transition-all duration-500 ease-out tracking-tight text-center ${
+                    isCurrent
+                      ? 'text-[#003B8E] font-extrabold scale-105'
+                      : isDone
+                      ? 'text-slate-800 font-semibold'
+                      : 'text-slate-400'
                   }`}
                 >
-                  {step.label}
+                  <span className="hidden sm:inline">{step.label}</span>
+                  <span className="sm:hidden">{step.shortLabel}</span>
                 </span>
               </div>
             );
@@ -270,35 +289,35 @@ export default function BuyerOrdersPage() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-16">
       {/* Top Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-3.5 sm:px-4 h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <Link
               href="/"
-              className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
+              className="min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center transition-colors shrink-0"
               title="Back to Catalog"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div>
-              <h1 className="text-lg font-extrabold tracking-tight text-slate-900">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 truncate">
                 My Orders
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 truncate">
                 Track live status, view store contacts, or manage orders
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {!authenticatedUser ? (
               <button
                 onClick={() => openOtpAuthModal({ defaultJourney: 'BUYER' })}
-                className="text-xs font-bold px-3.5 py-2 rounded-xl bg-[#003B8E] text-white hover:bg-[#002D6E] transition-colors cursor-pointer"
+                className="min-h-[40px] text-xs font-bold px-3.5 py-2 rounded-xl bg-[#003B8E] text-white hover:bg-[#002D6E] transition-colors cursor-pointer"
               >
                 Sign In
               </button>
             ) : (
-              <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+              <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 truncate max-w-[130px] sm:max-w-none">
                 {authenticatedUser.fullName || authenticatedUser.maskedPhone}
               </span>
             )}
@@ -307,9 +326,9 @@ export default function BuyerOrdersPage() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-3.5 sm:px-4 py-6 space-y-6">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           {[
             { id: 'ALL', label: `All Orders (${orders.length})` },
             {
@@ -340,7 +359,7 @@ export default function BuyerOrdersPage() {
             <button
               key={tab.id}
               onClick={() => setFilterStatus(tab.id as typeof filterStatus)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer tabular-nums ${
+              className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer tabular-nums ${
                 filterStatus === tab.id
                   ? 'bg-[#003B8E] text-white shadow-xs'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
@@ -422,9 +441,15 @@ export default function BuyerOrdersPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 pt-0.5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-900 pt-0.5">
                         <Store className="w-3.5 h-3.5 text-[#003B8E]" />
                         <span>{order.storeName}</span>
+                        <StoreRatingBadge
+                          storeId={order.storeId}
+                          fallbackRating={matchedStore?.rating}
+                          fallbackReviewsCount={matchedStore?.reviewsCount}
+                          size="xs"
+                        />
                       </div>
                     </div>
 
@@ -439,7 +464,7 @@ export default function BuyerOrdersPage() {
                         onClick={() =>
                           setExpandedOrderId(isExpanded ? null : order.id)
                         }
-                        className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         {isExpanded ? (
                           <>
@@ -536,7 +561,7 @@ export default function BuyerOrdersPage() {
                                       [order.id]: !isPinRevealed,
                                     }))
                                   }
-                                  className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                                  className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 inline-flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
                                   {isPinRevealed ? (
                                     <>
@@ -563,7 +588,7 @@ export default function BuyerOrdersPage() {
                                       2000
                                     );
                                   }}
-                                  className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 inline-flex items-center gap-1 cursor-pointer"
+                                  className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-700 inline-flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
                                   {copiedPinOrderId === order.id ? (
                                     <>
@@ -583,7 +608,7 @@ export default function BuyerOrdersPage() {
                                 type="button"
                                 disabled={loadingPinOrderId === order.id}
                                 onClick={() => void handleFetchBuyerPin(order.id)}
-                                className="px-3 py-1.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                                className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>
@@ -598,7 +623,7 @@ export default function BuyerOrdersPage() {
                               type="button"
                               disabled={regeneratingPinOrderId === order.id}
                               onClick={() => void handleRegeneratePinClick(order.id)}
-                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-[#003B8E] border border-blue-200 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                              className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white hover:bg-blue-50 text-[#003B8E] border border-blue-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <RefreshCw
                                 className={`w-3.5 h-3.5 ${
@@ -630,8 +655,8 @@ export default function BuyerOrdersPage() {
                         </div>
 
                         {activePin && (
-                          <div className="p-2.5 rounded-xl bg-white/90 border border-blue-200/80 text-[11px] text-slate-700 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2 font-bold text-[#003B8E]">
+                          <div className="p-2.5 rounded-xl bg-white/90 border border-blue-200/80 text-[11px] text-slate-700 space-y-1.5 overflow-hidden">
+                            <div className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#003B8E]">
                               <span>Unified Order &amp; Delivery PIN Notification (Push + SMS)</span>
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-[#003B8E] border border-blue-200">
                                 Single Combined Alert
@@ -645,7 +670,7 @@ export default function BuyerOrdersPage() {
                                 Seller Mobile: {vaultEntry?.unifiedNotification?.sellerPhone || order.sellerPhone || matchedStore?.phone || '+919820000000'}
                               </span>
                             </div>
-                            <p className="font-mono text-[11px] text-slate-600 leading-relaxed">
+                            <p className="font-mono text-[11px] text-slate-600 leading-relaxed break-words">
                               {isPinRevealed
                                 ? vaultEntry?.unifiedNotification?.smsText ||
                                   `Citykart: Order #${order.id} placed successfully with ${order.storeName} for Rs.${order.total}. Est. Delivery: ~${order.estimatedMins || matchedStore?.avgDispatchMins || 25} mins. Seller Mobile: ${order.sellerPhone || matchedStore?.phone || '+919820000000'}. Your Delivery PIN is ${activePin}. SAFETY: Share this PIN with the delivery partner ONLY after receiving your order. Never share in advance. PIN confirms delivery only, not payment.`
@@ -703,6 +728,11 @@ export default function BuyerOrdersPage() {
                     </div>
                   </div>
 
+                  {/* Store Star Rating Widget (Active when order is DELIVERED, or quick-deliver trigger) */}
+                  <div className="px-4 sm:px-5 pb-4">
+                    <OrderStoreRatingWidget order={order} compact />
+                  </div>
+
                   {/* Expanded Order Details */}
                   {isExpanded && (
                     <div className="p-4 sm:p-5 bg-slate-50/70 border-t border-slate-200 space-y-5 text-xs">
@@ -730,21 +760,18 @@ export default function BuyerOrdersPage() {
                         </div>
 
                         {/* Payment & Store Contact */}
-                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2.5">
                           <div className="font-bold text-slate-800 flex items-center gap-1.5">
                             <CreditCard className="w-3.5 h-3.5 text-[#003B8E]" />
                             Payment &amp; Fulfillment Status
                           </div>
                           <div className="flex items-center justify-between text-slate-700">
-                            <span>Payment Method:</span>
+                            <span>Payment Option:</span>
                             <span className="font-bold text-slate-900">
-                              {order.paymentMethod === 'UPI_ON_DELIVERY'
-                                ? 'UPI on Delivery'
-                                : order.paymentMethod === 'CASH_ON_DELIVERY'
-                                ? 'Cash on Delivery (COD)'
-                                : order.paymentMethod === 'TAP_ON_DELIVERY'
-                                ? 'Card Tap on Delivery'
-                                : order.paymentMethod}
+                              {formatPaymentMethodLabel(
+                                order.paymentMethod,
+                                order.paymentCollectionMethod
+                              )}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-slate-700">
@@ -759,20 +786,68 @@ export default function BuyerOrdersPage() {
                               }`}
                             >
                               {order.paymentStatus === 'PAID'
-                                ? 'Paid on Delivery'
+                                ? order.paymentCollectionMethod === 'UPI_ON_DELIVERY'
+                                  ? 'Paid via UPI on Delivery'
+                                  : order.paymentCollectionMethod === 'CASH_ON_DELIVERY'
+                                  ? 'Paid via Cash on Delivery'
+                                  : 'Paid on Delivery'
                                 : order.paymentStatus === 'DISPUTED'
                                 ? 'Disputed'
-                                : 'Pending on Delivery'}
+                                : 'Pay by Cash or UPI on Delivery'}
                             </span>
                           </div>
-                          {order.upiId && (
-                            <div className="flex items-center justify-between text-slate-700">
-                              <span>UPI ID:</span>
-                              <span className="font-mono text-[#003B8E] font-bold">
-                                {order.upiId}
+                          {order.paymentVerifiedAt && order.paymentStatus === 'PAID' && (
+                            <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                              <span>Verified At:</span>
+                              <span className="font-mono font-semibold text-emerald-800">
+                                {new Date(order.paymentVerifiedAt).toLocaleString()}
                               </span>
                             </div>
                           )}
+                          {order.paymentReferenceNote && (
+                            <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                              <span>Payment Ref:</span>
+                              <span className="font-mono font-semibold text-slate-800">
+                                {order.paymentReferenceNote}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Delivery-Stage Dynamic UPI QR Toggle for Unpaid Active Orders */}
+                          {(() => {
+                            const isCancelled = order.orderStatus === 'CANCELLED' || order.orderStatus === 'REJECTED';
+                            return !isCancelled && order.paymentStatus !== 'PAID' ? (
+                              <div className="pt-2 border-t border-slate-100 space-y-2.5">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-[11px] text-slate-600">
+                                  Pay in cash or scan the exact-amount UPI QR when your order arrives.
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setActiveUpiQrOrderId((prev) =>
+                                      prev === order.id ? null : order.id
+                                    )
+                                  }
+                                  className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-[#003B8E] hover:bg-[#002d6e] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <QrCode className="w-3.5 h-3.5" />
+                                  {activeUpiQrOrderId === order.id
+                                    ? 'Hide UPI QR Code'
+                                    : 'Pay by UPI (Show QR)'}
+                                </button>
+                              </div>
+
+                              {activeUpiQrOrderId === order.id && (
+                                <UpiQrCodeCard
+                                  order={order}
+                                  store={matchedStore}
+                                  compact
+                                />
+                              )}
+                            </div>
+                          ) : null;
+                          })()}
 
                           <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                             <span className="text-slate-600">Store Contact:</span>
@@ -805,10 +880,10 @@ export default function BuyerOrdersPage() {
                               : `₹${order.deliveryFee}`}
                           </span>
                         </div>
-                        {order.discount > 0 && (
+                        {(order.discount || 0) > 0 && (
                           <div className="flex justify-between text-emerald-600 font-medium">
                             <span>Discount</span>
-                            <span className="font-mono tabular-nums">-₹{order.discount}</span>
+                            <span className="font-mono tabular-nums">-₹{order.discount || 0}</span>
                           </div>
                         )}
                         <div className="flex justify-between font-extrabold text-sm text-slate-900 pt-1.5 border-t border-slate-200">
@@ -824,29 +899,47 @@ export default function BuyerOrdersPage() {
                             Status Audit History
                           </div>
                           <div className="space-y-1.5 divide-y divide-slate-100">
-                            {order.statusHistory.map((hist, hIdx) => (
-                              <div
-                                key={hIdx}
-                                className="pt-1.5 flex items-start justify-between text-[11px]"
-                              >
-                                <div>
-                                  <span className="font-bold text-slate-800">
-                                    {hist.status}
-                                  </span>
-                                  {hist.note && (
-                                    <span className="text-slate-500 ml-1.5">
-                                      — {hist.note}
-                                    </span>
-                                  )}
+                            {order.statusHistory.map((hist, hIdx) => {
+                              const dotColor =
+                                hist.status === 'DELIVERED'
+                                  ? 'bg-emerald-500'
+                                  : hist.status === 'OUT_FOR_DELIVERY'
+                                  ? 'bg-[#F96302]'
+                                  : hist.status === 'PREPARING'
+                                  ? 'bg-indigo-500'
+                                  : hist.status === 'CONFIRMED'
+                                  ? 'bg-[#003B8E]'
+                                  : hist.status === 'NEW'
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500';
+
+                              return (
+                                <div
+                                  key={hIdx}
+                                  className="pt-1.5 flex items-start justify-between text-[11px] transition-all duration-300 ease-out hover:bg-slate-50/80 px-2 py-1 rounded-md"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor} transition-transform duration-300 hover:scale-125`} />
+                                    <div>
+                                      <span className="font-bold text-slate-800">
+                                        {hist.status}
+                                      </span>
+                                      {hist.note && (
+                                        <span className="text-slate-500 ml-1.5">
+                                          — {hist.note}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-slate-400 font-mono tabular-nums text-[10px] shrink-0 ml-2">
+                                    {new Date(hist.timestamp).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </div>
                                 </div>
-                                <div className="text-slate-400 font-mono tabular-nums text-[10px] shrink-0">
-                                  {new Date(hist.timestamp).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -863,19 +956,19 @@ export default function BuyerOrdersPage() {
                       {canCancel && (
                         <button
                           onClick={() => setCancellingOrderId(order.id)}
-                          className="px-3 py-1.5 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          className="px-4 py-2.5 min-h-[44px] rounded-xl bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
-                          <XCircle className="w-3.5 h-3.5" />
-                          Cancel Order
+                          <XCircle className="w-4 h-4" />
+                          <span>Cancel Order</span>
                         </button>
                       )}
 
                       <Link
                         href={`/stores/${order.storeId}`}
-                        className="px-3 py-1.5 rounded-xl bg-white text-[#003B8E] hover:bg-slate-100 border border-slate-200 text-xs font-bold transition-colors flex items-center gap-1"
+                        className="px-4 py-2.5 min-h-[44px] rounded-xl bg-white text-[#003B8E] hover:bg-slate-100 border border-slate-200 text-xs font-bold transition-colors inline-flex items-center gap-1.5"
                       >
-                        <Store className="w-3.5 h-3.5" />
-                        Visit Store
+                        <Store className="w-4 h-4" />
+                        <span>Visit Store</span>
                       </Link>
                     </div>
                   </div>
@@ -921,14 +1014,14 @@ export default function BuyerOrdersPage() {
                   setCancelReason('');
                 }}
                 disabled={isSubmittingCancel}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
+                className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
               >
                 Keep Order
               </button>
               <button
                 onClick={handleConfirmCancel}
                 disabled={isSubmittingCancel}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 min-h-[44px] min-w-[44px] rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {isSubmittingCancel ? (
                   <>

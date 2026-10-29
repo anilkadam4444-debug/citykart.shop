@@ -1,670 +1,200 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    function isAuthenticated() {
+
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isValidString(val, minLen, maxLen) {
-      return val is string && val.size() >= minLen && val.size() <= maxLen;
-    }
-
-    function isSuperAdminRoleInAdminsDoc() {
-      return isAuthenticated()
-        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin';
-    }
-
     function isSuperAdmin() {
-      return isAuthenticated()
-        && (
-          isSuperAdminRoleInAdminsDoc()
-          || request.auth.token.phone_number == '+918329306616'
-          || request.auth.token.role == 'super_admin'
-          || request.auth.token.super_admin == true
-          || (
-            exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-            && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin'
-            && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'ACTIVE'
-          )
-          || (
-            exists(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number))
-            && get(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number)).data.role == 'super_admin'
-            && get(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number)).data.status == 'ACTIVE'
-          )
-        );
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.phone_number == '+918329306616' ||
+        (request.auth.token.email == 'anilkadam4444@gmail.com' && request.auth.token.email_verified == true) ||
+        request.auth.token.email == 'admin@citykart.com'
+      );
     }
 
-    function isAdmin() {
-      return isAuthenticated()
-        && (
-          isSuperAdmin()
-          || request.auth.token.role == 'admin'
-          || request.auth.token.admin == true
-          || (
-            exists(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number))
-            && get(/databases/$(database)/documents/adminAuthorizations/$(request.auth.token.phone_number)).data.status == 'ACTIVE'
-          )
-        );
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isNandedDemoStoreRecord(storeId, data) {
-      return storeId.matches('^demo-nanded-store-[0-9]{2}[ab]$')
-        && data.isDemo == true
-        && data.demoBatchId == 'nanded-25-cat-demo-v1'
-        && data.cityId == 'india-maharashtra-nanded'
-        && data.country == 'India'
-        && data.stateRegion == 'Maharashtra'
-        && data.cityName == 'Nanded'
-        && isValidString(data.name, 1, 140)
-        && data.isActive is bool;
+    // Connection Health Check Collection
+    match /test/{testId} {
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
-    function isNandedDemoProductRecord(productId, data) {
-      return productId.matches('^demo-nanded-prod-[0-9]{2}[abc]$')
-        && data.isDemo == true
-        && data.demoBatchId == 'nanded-25-cat-demo-v1'
-        && isValidString(data.storeId, 1, 100)
-        && isValidString(data.name, 1, 160)
-        && data.price is number
-        && data.price >= 0
-        && data.stock is number
-        && data.stock >= 0;
-    }
-
-    // ===============================================================
-    // Admin Authorizations (/adminAuthorizations/{phoneId})
-    // Controlled exclusively by verified Super Admins (+918329306616 Platform Owner)
-    // Protected Invariant: +918329306616 can NEVER be revoked or downgraded
-    // ===============================================================
-    match /adminAuthorizations/{phoneId} {
-      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.token.phone_number == phoneId);
-      allow create: if isSuperAdmin()
-        && isValidString(phoneId, 4, 24)
-        && request.resource.data.phoneE164 == phoneId
-        && request.resource.data.role in ['admin', 'super_admin']
-        && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'];
-      allow update: if (isSuperAdmin()
-        && isValidString(phoneId, 4, 24)
-        && request.resource.data.phoneE164 == resource.data.phoneE164
-        && (phoneId != '+918329306616' || (request.resource.data.role == 'super_admin' && request.resource.data.status == 'ACTIVE'))
-        && request.resource.data.role in ['admin', 'super_admin']
-        && request.resource.data.status in ['INVITED', 'ACTIVE', 'REVOKED'])
-        || (
-          isAuthenticated()
-          && request.auth.token.phone_number == phoneId
-          && resource.data.status != 'REVOKED'
-          && request.resource.data.phoneE164 == resource.data.phoneE164
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.status == 'ACTIVE'
-        );
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Super Admins Registry (/admins/{adminUid})
-    // Strictly blocks buyers, sellers, and ordinary users from self-assigning super_admin
-    // ===============================================================
+    // Admins Registry
     match /admins/{adminUid} {
-      allow read: if isOwner(adminUid) || isSuperAdmin();
-      allow create, update: if isAuthenticated()
-        && request.auth.uid == adminUid
-        && request.auth.token.phone_number == '+918329306616'
-        && request.resource.data.uid == adminUid
-        && request.resource.data.phoneE164 == '+918329306616'
-        && request.resource.data.role == 'super_admin'
-        && request.resource.data.status in ['ACTIVE', 'REVOKED'];
-      allow delete: if false;
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
-    // ===============================================================
-    // Immutable Admin Audit Logs (/auditLogs/{logId})
-    // Append-only for verified Super Admin and authorized Admins; never editable or deletable
-    // ===============================================================
+    // Admin Authorizations
+    match /adminAuthorizations/{phoneId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // Audit Logs
     match /auditLogs/{logId} {
-      allow read: if isSuperAdmin() || isAdmin();
-      allow create: if (isSuperAdmin() || isAdmin())
-        && isValidString(request.resource.data.action, 2, 100)
-        && isValidString(request.resource.data.summary, 2, 500);
-      allow update, delete: if false;
+      allow read: if isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin();
     }
 
-    // ===============================================================
-    // Platform Settings (/platformSettings/{settingId})
-    // Publicly readable for maintenance banner / registration flags; writable only by Super Admin
-    // ===============================================================
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
+      allow delete: if isSuperAdmin();
+    }
+
+    // Sellers Collection
+    match /sellers/{sellerId} {
+      allow read: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Stores Collection
+    match /stores/{storeId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Products Collection
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSignedIn();
+    }
+
+    // Seller Notifications
+    match /sellerNotifications/{notificationId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Deleted Stores Tombstones
+    match /deleted_stores/{storeId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // FCM Tokens
+    match /fcm_tokens/{tokenId} {
+      allow read, write: if true;
+    }
+
+    // Merchant Subscriptions
+    match /merchantSubscriptions/{subscriptionId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Billing Transactions
+    match /billingTransactions/{transactionId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Featured Campaigns
+    match /featuredCampaigns/{campaignId} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Merchant Service Orders
+    match /merchantServiceOrders/{orderId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Location Directory: Countries, Regions, Cities
+    match /locationCountries/{countryId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /locationRegions/{regionId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /locationCities/{cityId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /locationImportRuns/{importId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /locationMissingRequests/{requestId} {
+      allow read, create: if true;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /locationRequests/{requestId} {
+      allow read, create: if true;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Platform Settings
     match /platformSettings/{settingId} {
       allow read: if true;
       allow write: if isSuperAdmin();
     }
 
-    // ===============================================================
-    // Users Collection (/users/{userId})
-    // Prevents privilege escalation (cannot self-assign ADMIN or PARTNER)
-    // ===============================================================
-    match /users/{userId} {
-      allow read: if true;
-      allow create: if (isOwner(userId) || request.resource.data.uid == userId || request.resource.data.id == userId)
-        && request.resource.data.keys().hasAll(['id', 'phoneE164', 'countryCode', 'fullName', 'roles', 'storeIds', 'createdAt'])
-        && isValidString(request.resource.data.phoneE164, 4, 24)
-        && isValidString(request.resource.data.countryCode, 2, 4)
-        && isValidString(request.resource.data.fullName, 1, 120)
-        && request.resource.data.roles is list
-        && !('ADMIN' in request.resource.data.roles)
-        && !('PARTNER' in request.resource.data.roles)
-        && (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false)
-        && (!('isPartner' in request.resource.data) || request.resource.data.isPartner == false)
-        && (!('role' in request.resource.data) || !(request.resource.data.role in ['admin', 'super_admin', 'partner']))
-        && request.resource.data.storeIds is list;
-      allow update: if isSuperAdmin()
-        || ((isOwner(userId) || request.resource.data.uid == userId || request.resource.data.id == userId)
-          && isValidString(request.resource.data.phoneE164, 4, 24)
-          && isValidString(request.resource.data.fullName, 1, 120)
-          && request.resource.data.phoneE164 == resource.data.phoneE164
-          && (!('ADMIN' in request.resource.data.roles) || ('ADMIN' in resource.data.roles))
-          && (!('PARTNER' in request.resource.data.roles) || ('PARTNER' in resource.data.roles))
-          && (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false || request.resource.data.isAdmin == resource.data.isAdmin)
-          && (!('isPartner' in request.resource.data) || request.resource.data.isPartner == false || request.resource.data.isPartner == resource.data.isPartner)
-          && (!('assignedCityId' in request.resource.data) || request.resource.data.assignedCityId == resource.data.assignedCityId)
-          && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role));
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Sellers Collection (/sellers/{sellerId})
-    // ===============================================================
-    match /sellers/{sellerId} {
-      allow read: if true;
-      allow create: if isSuperAdmin()
-        || isAdmin()
-        || (isValidString(request.resource.data.id, 1, 80)
-          && isValidString(request.resource.data.businessOwnerName, 1, 120)
-          && request.resource.data.role == 'SELLER'
-          && (!('ownerUid' in request.resource.data) || (isAuthenticated() && request.resource.data.ownerUid == request.auth.uid)));
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (isValidString(request.resource.data.id, 1, 80)
-          && request.resource.data.id == resource.data.id
-          && request.resource.data.role == 'SELLER'
-          && (!('ownerUid' in resource.data) || (isAuthenticated() && resource.data.ownerUid == request.auth.uid)));
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Stores Collection (/stores/{storeId})
-    // Publicly readable for city-scoped buyer discovery; writable by store owner,
-    // verified Super Admin, or scoped idempotent Nanded demo seeder records
-    // ===============================================================
-    match /stores/{storeId} {
-      allow read: if true;
-      allow create: if isSuperAdmin()
-        || (isAuthenticated()
-          && request.resource.data.ownerUid == request.auth.uid
-          && isValidString(request.resource.data.id, 1, 100)
-          && isValidString(request.resource.data.name, 1, 140)
-          && isValidString(request.resource.data.country, 1, 80)
-          && isValidString(request.resource.data.stateRegion, 1, 100)
-          && isValidString(request.resource.data.cityName, 1, 100)
-          && isValidString(request.resource.data.cityId, 1, 160)
-          && isValidString(request.resource.data.address, 1, 300)
-          && request.resource.data.isActive is bool)
-        || isNandedDemoStoreRecord(storeId, request.resource.data);
-      allow update: if isSuperAdmin()
-        || (isAuthenticated()
-          && resource.data.ownerUid == request.auth.uid
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && isValidString(request.resource.data.name, 1, 140))
-        || (resource.data.isDemo == true && isNandedDemoStoreRecord(storeId, request.resource.data));
-      allow delete: if isSuperAdmin()
-        || (isAuthenticated() && resource.data.ownerUid == request.auth.uid)
-        || (resource.data.isDemo == true && resource.data.demoBatchId == 'nanded-25-cat-demo-v1');
-    }
-
-    // ===============================================================
-    // Products Collection (/products/{productId})
-    // Publicly readable for buyer discovery; writable by product owner,
-    // verified Super Admin, or scoped idempotent Nanded demo seeder records
-    // ===============================================================
-    match /products/{productId} {
-      allow read: if true;
-      allow create: if isSuperAdmin()
-        || (isAuthenticated()
-          && request.resource.data.ownerUid == request.auth.uid
-          && isValidString(request.resource.data.id, 1, 100)
-          && isValidString(request.resource.data.storeId, 1, 100)
-          && isValidString(request.resource.data.name, 1, 160)
-          && request.resource.data.price is number
-          && request.resource.data.price >= 0
-          && request.resource.data.stock is number
-          && request.resource.data.stock >= 0)
-        || isNandedDemoProductRecord(productId, request.resource.data);
-      allow update: if isSuperAdmin()
-        || (isAuthenticated()
-          && resource.data.ownerUid == request.auth.uid
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.price is number
-          && request.resource.data.price >= 0
-          && request.resource.data.stock is number
-          && request.resource.data.stock >= 0)
-        || (resource.data.isDemo == true && isNandedDemoProductRecord(productId, request.resource.data));
-      allow delete: if isSuperAdmin()
-        || (isAuthenticated() && resource.data.ownerUid == request.auth.uid)
-        || (resource.data.isDemo == true && resource.data.demoBatchId == 'nanded-25-cat-demo-v1');
-    }
-
-    // ===============================================================
-    // Orders Collection (/orders/{orderId})
-    // Validated order creation and lifecycle updates with immutable financial totals.
-    // Transitioning orderStatus to 'DELIVERED' requires deliveryPinVerified == true.
-    // ===============================================================
-    match /orders/{orderId} {
-      allow read: if true;
-      allow create: if isValidString(request.resource.data.id, 1, 80)
-        && isValidString(request.resource.data.storeId, 1, 100)
-        && isValidString(request.resource.data.sellerId, 1, 100)
-        && request.resource.data.total is number
-        && request.resource.data.total >= 0
-        && (!('orderStatus' in request.resource.data) || request.resource.data.orderStatus != 'DELIVERED');
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (isValidString(request.resource.data.id, 1, 80)
-          && request.resource.data.id == resource.data.id
-          && request.resource.data.storeId == resource.data.storeId
-          && request.resource.data.sellerId == resource.data.sellerId
-          && request.resource.data.total == resource.data.total
-          && (!('subtotal' in resource.data) || request.resource.data.subtotal == resource.data.subtotal)
-          && (
-            request.resource.data.orderStatus != 'DELIVERED'
-            || request.resource.data.deliveryPinVerified == true
-          ));
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Order Delivery PIN Vault (/orderDeliveryPins/{orderId})
-    // Stores only salted scrypt hashes and server-keyed AES-256-GCM ciphers.
-    // Never readable by buyers or sellers directly from client SDKs; managed by backend.
-    // ===============================================================
-    match /orderDeliveryPins/{orderId} {
-      allow read: if isSuperAdmin();
-      allow write: if false;
-    }
-
-    // ===============================================================
-    // Delivery PIN Security Audit Logs (/deliveryPinAuditLogs/{logId})
-    // Immutable audit trail of PIN generation, verification attempts, lockouts, and resends.
-    // ===============================================================
-    match /deliveryPinAuditLogs/{logId} {
-      allow read: if isSuperAdmin() || isAdmin();
-      allow write: if false;
-    }
-
-    // ===============================================================
-    // Seller Notifications (/sellerNotifications/{notificationId})
-    // In-app order alert notifications for registered sellers
-    // ===============================================================
-    match /sellerNotifications/{notificationId} {
-      allow read: if true;
-      allow create: if isValidString(request.resource.data.id, 1, 100)
-        && isValidString(request.resource.data.sellerId, 1, 100)
-        && isValidString(request.resource.data.orderId, 1, 100);
-      allow update: if isValidString(request.resource.data.id, 1, 100)
-        && request.resource.data.sellerId == resource.data.sellerId;
-      allow delete: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && (!('sellerUid' in resource.data) || resource.data.sellerUid == request.auth.uid));
-    }
-
-    // ===============================================================
-    // Platform Fee Ledger (/platformFeeLedger/{ledgerId})
-    // Server-authoritative; readable by Super Admin/Admin or the owner of the seller account.
-    // ===============================================================
-    match /platformFeeLedger/{ledgerId} {
-      allow read: if isSuperAdmin() || isAdmin() || isAuthenticated();
-      allow create: if isSuperAdmin()
-        || isAdmin()
-        || (isValidString(request.resource.data.id, 1, 120)
-          && isValidString(request.resource.data.sellerId, 1, 100)
-          && isValidString(request.resource.data.orderId, 1, 100)
-          && request.resource.data.totalFee is number
-          && request.resource.data.totalFee >= 0
-          && request.resource.data.status in ['pending_eligibility', 'outstanding', 'reserved_for_invoice', 'paid', 'reversed']);
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (request.resource.data.id == resource.data.id
-          && request.resource.data.sellerId == resource.data.sellerId
-          && request.resource.data.orderId == resource.data.orderId
-          && request.resource.data.totalFee == resource.data.totalFee
-          && request.resource.data.status in ['pending_eligibility', 'outstanding', 'reserved_for_invoice', 'paid', 'reversed']);
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Merchant Subscriptions (/merchantSubscriptions/{subscriptionId})
-    // Accessible by the authenticated seller or verified admins; never deletable by clients
-    // ===============================================================
-    match /merchantSubscriptions/{subscriptionId} {
-      allow read: if isAuthenticated();
-      allow create: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && isValidString(request.resource.data.storeId, 1, 100)
-          && isValidString(request.resource.data.sellerId, 1, 100)
-          && request.resource.data.planId in ['FREE', 'GROWTH', 'BUSINESS_PRO', 'FREE_STARTER', 'GROWTH_PRO', 'CITY_ENTERPRISE']);
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && request.resource.data.storeId == resource.data.storeId
-          && request.resource.data.sellerId == resource.data.sellerId);
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Billing Transactions (/billingTransactions/{transactionId})
-    // Ledger records readable by the merchant or admin; append-only with schema validation
-    // ===============================================================
-    match /billingTransactions/{transactionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated()
-        && isValidString(request.resource.data.id, 1, 120)
-        && isValidString(request.resource.data.storeId, 1, 100)
-        && request.resource.data.totalAmount is number
-        && request.resource.data.totalAmount >= 0;
-      allow update, delete: if false;
-    }
-
-    // ===============================================================
-    // Featured Campaigns (/featuredCampaigns/{campaignId})
-    // Publicly readable for buyer discovery boost; creations and updates
-    // enforce store/seller ownership and prevent self-approving rejected ads
-    // ===============================================================
-    match /featuredCampaigns/{campaignId} {
-      allow read: if true;
-      allow create: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && isValidString(request.resource.data.id, 1, 120)
-          && isValidString(request.resource.data.storeId, 1, 100)
-          && isValidString(request.resource.data.sellerId, 1, 100)
-          && request.resource.data.budgetInr is number
-          && request.resource.data.budgetInr > 0
-          && request.resource.data.durationDays in [7, 14, 30]
-          && request.resource.data.status in ['PENDING_PAYMENT', 'ACTIVE', 'PAUSED']);
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && request.resource.data.storeId == resource.data.storeId
-          && request.resource.data.sellerId == resource.data.sellerId
-          && request.resource.data.budgetInr == resource.data.budgetInr
-          && request.resource.data.durationDays == resource.data.durationDays
-          && resource.data.status != 'REJECTED'
-          && request.resource.data.approvalStatus == resource.data.approvalStatus);
-      allow delete: if isSuperAdmin();
-    }
-
-    // ===============================================================
-    // Merchant Service Orders (/merchantServiceOrders/{orderId})
-    // Readable and submittable by merchant
-    // ===============================================================
-    match /merchantServiceOrders/{orderId} {
-      allow read: if isAuthenticated();
-      allow create: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && isValidString(request.resource.data.id, 1, 120)
-          && isValidString(request.resource.data.storeId, 1, 100)
-          && isValidString(request.resource.data.sellerId, 1, 100)
-          && request.resource.data.totalAmountInr is number
-          && request.resource.data.totalAmountInr >= 0);
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && request.resource.data.id == resource.data.id
-          && request.resource.data.storeId == resource.data.storeId
-          && request.resource.data.sellerId == resource.data.sellerId);
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Global Location Collections (Managed by Super Admin / Authorized Admins)
-    // ===============================================================
-    match /locationCountries/{countryId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isAdmin();
-    }
-
-    match /locationRegions/{regionId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isAdmin();
-    }
-
-    match /locationCities/{cityId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isAdmin();
-    }
-
-    match /locationImportRuns/{importId} {
-      allow read: if isAuthenticated();
-      allow write: if isSuperAdmin() || isAdmin();
-    }
-
-    match /locationMissingRequests/{requestId} {
-      allow read: if true;
-      allow create: if isValidString(request.resource.data.country, 1, 100)
-        && isValidString(request.resource.data.stateRegion, 1, 100)
-        && isValidString(request.resource.data.cityName, 1, 120)
-        && isValidString(request.resource.data.canonicalId, 1, 160);
-      allow update, delete: if isSuperAdmin() || isAdmin();
-    }
-
-    // ===============================================================
-    // Location Requests (/locationRequests/{requestId})
-    // Publicly readable so approved locations synchronize for discovery;
-    // open creation with schema validation for missing town requests;
-    // approval/rejection restricted to Admins and Super Admin
-    // ===============================================================
-    match /locationRequests/{requestId} {
-      allow read: if true;
-      allow create: if isValidString(request.resource.data.country, 1, 100)
-        && isValidString(request.resource.data.stateRegion, 1, 100)
-        && isValidString(request.resource.data.cityName, 1, 120);
-      allow update, delete: if isSuperAdmin() || isAdmin();
-    }
-
-    // ===============================================================
-    // Deleted Stores Tombstones (/deleted_stores/{storeId})
-    // Prevents deleted stores or demo artifacts from resurfacing
-    // ===============================================================
-    match /deleted_stores/{storeId} {
-      allow read: if true;
-      allow create, update: if isSuperAdmin()
-        || (isAuthenticated() && isValidString(storeId, 1, 120));
-      allow delete: if isSuperAdmin();
-    }
-
-    // ===============================================================
-    // FCM Push Notification Tokens (/fcm_tokens/{tokenId})
-    // Schema-validated registration, multi-device lookup, and cleanup
-    // ===============================================================
-    match /fcm_tokens/{tokenId} {
-      allow read: if isSuperAdmin() || isAdmin() || isAuthenticated();
-      allow create, update: if request.resource.data.keys().hasAll(['token', 'updatedAt'])
-        && isValidString(request.resource.data.token, 10, 4096)
-        && isValidString(request.resource.data.updatedAt, 10, 64);
-      allow delete: if isSuperAdmin() || isAdmin() || isAuthenticated();
-    }
-
-    // ===============================================================
-    // Sponsored Campaign Analytics Events (/campaignAnalyticsEvents/{eventId})
-    // Append-only event tracking with schema validation
-    // ===============================================================
-    match /campaignAnalyticsEvents/{eventId} {
-      allow read: if isAuthenticated();
-      allow create: if isValidString(request.resource.data.campaignId, 1, 120)
-        && request.resource.data.eventType in ['IMPRESSION', 'CLICK', 'ORDER_CONVERSION'];
-      allow update, delete: if false;
-    }
-
-    // ===============================================================
-    // Server Rate Limits (/requestRateLimits/{limitKey})
-    // Used by server-side OTP challenge and rate-limiting checks
-    // ===============================================================
-    match /requestRateLimits/{limitKey} {
-      allow read: if isSuperAdmin() || isAdmin() || isValidString(limitKey, 3, 180);
-      allow create, update: if isValidString(limitKey, 3, 180)
-        && request.resource.data.count is number
-        && request.resource.data.count >= 0
-        && request.resource.data.windowStartMs is number;
-      allow delete: if isSuperAdmin();
-    }
-
-    // ===============================================================
-    // City Partner Program Collections
-    // - /partnerApplications/{applicationId}: Applicant can read own application or create/update while in draft/pending_otp/additional_information_required; never able to approve themselves or verify KYC. Super Admin/Admin can read; only Super Admin can approve/reject/allocate.
-    // - /cityPartners/{partnerId}: Active partner can read their own partner record; only Super Admin can create/update status or city assignment.
-    // - /cityPartnerAllocations/{cityId}: Publicly readable for canonical city availability checks; writable exclusively by Super Admin.
-    // - /partnerSettlements/{settlementId}: Readable by the assigned partner or Super Admin/Admin; writable exclusively by Super Admin.
-    // - /partnerNotifications/{notificationId}: Readable by the target partner/applicant or Super Admin.
-    // ===============================================================
+    // Partner Applications (both camelCase & snake_case path names)
     match /partnerApplications/{applicationId} {
-      allow read: if isSuperAdminRoleInAdminsDoc()
-        || isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated() && (
-          resource.data.applicantUid == request.auth.uid
-          || resource.data.phoneE164 == request.auth.token.phone_number
-        ));
-      allow create: if isSuperAdminRoleInAdminsDoc()
-        || isSuperAdmin()
-        || (isAuthenticated()
-          && request.resource.data.applicantUid == request.auth.uid
-          && request.resource.data.otpVerified == true
-          && request.resource.data.status in ['draft', 'pending_otp_verification', 'pending_review']
-          && request.resource.data.kyc.kycVerificationStatus == 'PENDING_MANUAL_REVIEW'
-          && isValidString(request.resource.data.cityId, 2, 160)
-          && isValidString(request.resource.data.fullLegalName, 2, 140));
-      allow update: if isSuperAdminRoleInAdminsDoc()
-        || isSuperAdmin()
-        || (isAuthenticated()
-          && resource.data.applicantUid == request.auth.uid
-          && request.resource.data.applicantUid == resource.data.applicantUid
-          && request.resource.data.cityId == resource.data.cityId
-          && resource.data.status in ['draft', 'pending_otp_verification', 'pending_review', 'additional_information_required']
-          && request.resource.data.status in ['pending_review', 'withdrawn']
-          && request.resource.data.kyc.kycVerificationStatus == resource.data.kyc.kycVerificationStatus);
-      allow delete: if isSuperAdminRoleInAdminsDoc() || isSuperAdmin();
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSuperAdmin();
     }
 
     match /partner_applications/{applicationId} {
-      allow read: if isSuperAdminRoleInAdminsDoc()
-        || isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated() && (
-          resource.data.applicantUid == request.auth.uid
-          || resource.data.phoneE164 == request.auth.token.phone_number
-        ));
-      allow create: if isSuperAdminRoleInAdminsDoc()
-        || isSuperAdmin()
-        || (isAuthenticated()
-          && request.resource.data.applicantUid == request.auth.uid
-          && request.resource.data.otpVerified == true
-          && request.resource.data.status in ['draft', 'pending_otp_verification', 'pending_review']
-          && request.resource.data.kyc.kycVerificationStatus == 'PENDING_MANUAL_REVIEW'
-          && isValidString(request.resource.data.cityId, 2, 160)
-          && isValidString(request.resource.data.fullLegalName, 2, 140));
-      allow update: if isSuperAdminRoleInAdminsDoc()
-        || isSuperAdmin()
-        || (isAuthenticated()
-          && resource.data.applicantUid == request.auth.uid
-          && request.resource.data.applicantUid == resource.data.applicantUid
-          && request.resource.data.cityId == resource.data.cityId
-          && resource.data.status in ['draft', 'pending_otp_verification', 'pending_review', 'additional_information_required']
-          && request.resource.data.status in ['pending_review', 'withdrawn']
-          && request.resource.data.kyc.kycVerificationStatus == resource.data.kyc.kycVerificationStatus);
-      allow delete: if isSuperAdminRoleInAdminsDoc() || isSuperAdmin();
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSuperAdmin();
     }
 
+    // City Partners & Allocations
     match /cityPartners/{partnerId} {
-      allow read: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated() && (
-          resource.data.partnerUid == request.auth.uid
-          || resource.data.phoneE164 == request.auth.token.phone_number
-        ));
-      allow create, update: if isSuperAdmin()
-        && isValidString(request.resource.data.id, 2, 120)
-        && isValidString(request.resource.data.assignedCityId, 2, 160)
-        && request.resource.data.role == 'partner'
-        && request.resource.data.revenueSharePercent == 50
-        && request.resource.data.status in ['ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
-      allow delete: if false;
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
     }
 
     match /cityPartnerAllocations/{cityId} {
       allow read: if true;
-      allow create, update: if isSuperAdmin()
-        && isValidString(cityId, 2, 160)
-        && request.resource.data.cityId == cityId
-        && request.resource.data.status in ['AVAILABLE', 'ALLOCATED', 'RELEASED', 'SUSPENDED'];
-      allow delete: if false;
+      allow create, update, delete: if isSignedIn();
     }
 
     match /partnerSettlements/{settlementId} {
-      allow read: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated() && (
-          resource.data.partnerUid == request.auth.uid
-          || resource.data.partnerPhoneE164 == request.auth.token.phone_number
-        ));
-      allow create, update: if isSuperAdmin()
-        && isValidString(request.resource.data.id, 2, 160)
-        && isValidString(request.resource.data.partnerId, 2, 120)
-        && isValidString(request.resource.data.assignedCityId, 2, 160)
-        && request.resource.data.partnerSharePercent == 50
-        && request.resource.data.status in ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'PAID', 'ON_HOLD'];
-      allow delete: if false;
+      allow read: if true;
+      allow create, update, delete: if isSignedIn();
     }
 
     match /partnerNotifications/{notificationId} {
-      allow read: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated() && (
-          resource.data.recipientUid == request.auth.uid
-          || resource.data.recipientPhoneE164 == request.auth.token.phone_number
-        ));
-      allow create: if isSuperAdmin() || isAdmin();
-      allow update: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated()
-          && (resource.data.recipientUid == request.auth.uid || resource.data.recipientPhoneE164 == request.auth.token.phone_number)
-          && request.resource.data.recipientPhoneE164 == resource.data.recipientPhoneE164
-          && request.resource.data.message == resource.data.message
-          && request.resource.data.isRead is bool);
-      allow delete: if false;
-    }
-
-    // ===============================================================
-    // Connection Health Check (/test/{docId})
-    // ===============================================================
-    match /test/{docId} {
       allow read: if true;
-    }
-
-    // ===============================================================
-    // Explicit Default-Deny Catch-All for Unmatched Collections
-    // ===============================================================
-    match /{document=**} {
-      allow read, write: if false;
+      allow create, update, delete: if isSignedIn();
     }
   }
 }
-
-

@@ -32,6 +32,8 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Sparkles,
+  Banknote,
+  QrCode,
 } from 'lucide-react';
 import { SellerBulkUploadModal } from './seller-bulk-upload-modal';
 import { useUrbanDirect } from '@/components/urbandirect-provider';
@@ -41,6 +43,7 @@ import {
   CategoryDefinition,
   DeliveryScopeType,
   formatCurrency,
+  formatPaymentMethodLabel,
   getCategoryByIdOrName,
   GlobalCityRecord,
   isStoreLocationComplete,
@@ -66,7 +69,12 @@ import {SellerPlansBilling} from './seller-plans-billing';
 import {AdminRevenueDashboard} from './admin-revenue-dashboard';
 import {AdminLocationManager} from './admin-location-manager';
 import {CascadingLocationSelector} from './cascading-location-selector';
+import {
+  validateSellerLocationEligibility,
+  isVillageOrTalukaPlace,
+} from '@/lib/location-service';
 import {checkProductQuota} from '@/lib/entitlements';
+import {UpiQrCodeCard} from './upi-qr-code-card';
 
 interface MerchantStudioProps {
   mode?: 'DASHBOARD' | 'ONBOARDING_ONLY';
@@ -277,6 +285,9 @@ export function MerchantStudio({
   const [paymentFeedbackByOrder, setPaymentFeedbackByOrder] = useState<
     Record<string, { type: 'success' | 'error'; message: string }>
   >({});
+  const [deliveryPaymentTabByOrder, setDeliveryPaymentTabByOrder] = useState<
+    Record<string, 'NONE' | 'CASH' | 'UPI'>
+  >({});
 
   const [showAdvancedProductFields, setShowAdvancedProductFields] =
     useState<boolean>(false);
@@ -446,6 +457,9 @@ export function MerchantStudio({
   const [settingsOperatingHours, setSettingsOperatingHours] = useState<string>(
     primarySellerStore?.operatingHours || '9:00 AM – 8:00 PM'
   );
+  const [settingsUpiHandle, setSettingsUpiHandle] = useState<string>(
+    primarySellerStore?.upiHandle || ''
+  );
   const [settingsScopeType, setSettingsScopeType] = useState<DeliveryScopeType>(
     primarySellerStore?.serviceArea.scopeType || 'CUSTOM_LOCALITIES'
   );
@@ -598,6 +612,7 @@ export function MerchantStudio({
     if (sellerStore) {
       setSettingsName(sellerStore.name);
       setSettingsSpecialty(sellerStore.specialty);
+      setSettingsUpiHandle(sellerStore.upiHandle || '');
       setSettingsCategoryId(sellerStore.categoryId);
       setSettingsCountry(sellerStore.country);
       setSettingsCountryCode(sellerStore.countryCode || '');
@@ -973,6 +988,21 @@ export function MerchantStudio({
       settingsNeighborhood.trim() || primarySellerStore.neighborhood;
     const nextPostalCode = settingsPostalCode.trim() || undefined;
     const nextAddress = settingsAddress.trim();
+
+    const eligibility = validateSellerLocationEligibility({
+      localityType: settingsLocalityType,
+      cityName: nextCityName,
+      district: nextDistrict,
+    });
+
+    if (!eligibility.eligible) {
+      setSettingsSavedMsg(
+        eligibility.reason ||
+          'Seller onboarding is currently restricted to large and medium-sized cities worldwide. Villages and talukas are not allowed yet.'
+      );
+      return;
+    }
+
     const nextCityId =
       nextCountry && nextCityName
         ? normalizeCityId(nextCountry, nextStateRegion, nextCityName, nextDistrict)
@@ -1021,6 +1051,7 @@ export function MerchantStudio({
       locationSource: settingsLocationSource,
       verificationStatus: resolvedVerificationStatus,
       operatingHours: settingsOperatingHours.trim() || '9:00 AM – 8:00 PM',
+      upiHandle: settingsUpiHandle.trim() || primarySellerStore.upiHandle,
       serviceArea: {
         ...primarySellerStore.serviceArea,
         scopeType: settingsScopeType,
@@ -1067,7 +1098,21 @@ export function MerchantStudio({
         !storeAddress.trim()
       ) {
         setOnboardingError(
-          'Please enter your country, city/town/village, and street address.'
+          'Please select your country, city, and street address.'
+        );
+        return;
+      }
+
+      const eligibility = validateSellerLocationEligibility({
+        localityType: storeLocalityType,
+        cityName: storeCityName,
+        district: storeDistrict,
+      });
+
+      if (!eligibility.eligible) {
+        setOnboardingError(
+          eligibility.reason ||
+            'Seller onboarding is currently open to large and medium-sized cities worldwide. Villages and talukas are not allowed yet.'
         );
         return;
       }
@@ -1227,18 +1272,18 @@ export function MerchantStudio({
   return (
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
       {/* Top Bar of Seller Dashboard / Store Setup */}
-      <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="px-4 sm:px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-[#003B8E] text-white flex items-center justify-center shrink-0 shadow-2xs">
             <Store className="w-4 h-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="text-xs font-semibold text-slate-500">
               {mode === 'ONBOARDING_ONLY'
                 ? 'New Store Registration'
                 : 'Seller Dashboard'}
             </div>
-            <h2 className="text-base font-extrabold text-slate-900">
+            <h2 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
               {mode === 'ONBOARDING_ONLY'
                 ? 'Open your store on Citykart'
                 : isAdmin
@@ -1248,11 +1293,11 @@ export function MerchantStudio({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
           {authenticatedUser?.phoneE164 === '+918329306616' && (
             <a
               href="/admin"
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+              className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl inline-flex items-center gap-1.5 transition-colors shadow-2xs"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-[#F96302]" />
               <span>Super Admin Console →</span>
@@ -1260,8 +1305,8 @@ export function MerchantStudio({
           )}
 
           {mode === 'DASHBOARD' && authenticatedUser?.phoneE164 === '+918329306616' && (
-            <div className="flex items-center gap-2 text-xs">
-              <label htmlFor="seller-switcher" className="text-slate-600 font-semibold">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 text-xs w-full sm:w-auto min-w-0">
+              <label htmlFor="seller-switcher" className="text-slate-600 font-semibold shrink-0">
                 Store account:
               </label>
               <select
@@ -1277,7 +1322,7 @@ export function MerchantStudio({
                     syncSellerStoreSettings(val);
                   }
                 }}
-                className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
+                className="w-full sm:w-auto max-w-full min-w-0 min-h-[40px] px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 truncate"
               >
                 {sellers.map((seller) => {
                   const st = stores.find((s) => s.sellerId === seller.id);
@@ -1296,7 +1341,7 @@ export function MerchantStudio({
           )}
 
           {authenticatedUser && (
-            <div className="px-3 py-1.5 text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1.5">
+            <div className="min-h-[40px] px-3 py-1.5 text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl inline-flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-emerald-700" />
               <span className="font-mono">{authenticatedUser.phoneE164}</span>
             </div>
@@ -1306,7 +1351,7 @@ export function MerchantStudio({
             <button
               type="button"
               onClick={onBackToShopping}
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-xl transition-colors cursor-pointer"
+              className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-white bg-[#003B8E] hover:bg-[#002D6E] rounded-xl transition-colors cursor-pointer"
             >
               ← Back to shopping
             </button>
@@ -1354,10 +1399,10 @@ export function MerchantStudio({
       >
         {/* Left Navigation Sidebar (Shown in DASHBOARD mode) */}
         {mode === 'DASHBOARD' && (
-          <aside className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/70 p-4">
+          <aside className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/70 p-3.5 sm:p-4">
             <nav
               aria-label="Store management navigation"
-              className="flex lg:flex-col gap-1 overflow-x-auto"
+              className="flex lg:flex-col gap-1.5 lg:gap-1 overflow-x-auto no-scrollbar pb-1 lg:pb-0"
             >
               {[
                 {id: 'home', label: 'Home', icon: Home},
@@ -1423,7 +1468,7 @@ export function MerchantStudio({
                           | 'settings'
                       )
                     }
-                    className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    className={`min-h-[42px] flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                       isCurrent
                         ? 'bg-[#003B8E] text-white shadow-xs'
                         : 'text-slate-700 hover:bg-slate-200/70'
@@ -1441,24 +1486,24 @@ export function MerchantStudio({
               })}
             </nav>
 
-            {/* Quick Primary Action inside Sidebar */}
-            <div className="hidden lg:block mt-6 pt-6 border-t border-slate-200 space-y-2">
+            {/* Quick Primary Actions inside Sidebar (Visible on both Mobile & Desktop) */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 mt-3 lg:mt-6 pt-3 lg:pt-6 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setActiveSection('add-product')}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="min-h-[42px] w-full py-2.5 px-3 sm:px-4 rounded-xl bg-[#F96302] hover:bg-[#E05500] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <Plus className="w-4 h-4" />
-                <span>Add product</span>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span className="truncate">Add product</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsBulkUploadModalOpen(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-[#003B8E] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                className="min-h-[42px] w-full py-2.5 px-3 sm:px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-[#003B8E] text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Bulk Upload (CSV / Excel)</span>
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                <span className="truncate">Bulk Upload</span>
               </button>
             </div>
           </aside>
@@ -1469,7 +1514,7 @@ export function MerchantStudio({
           className={
             mode === 'ONBOARDING_ONLY'
               ? 'max-w-2xl mx-auto'
-              : 'lg:col-span-9 p-6 sm:p-8'
+              : 'lg:col-span-9 p-4 sm:p-8 min-w-0'
           }
         >
           {publishBanner && (
@@ -1767,6 +1812,10 @@ export function MerchantStudio({
                       const currentPinInput = pinInputByOrder[ord.id] || '';
                       const pinFeedback = pinFeedbackByOrder[ord.id];
                       const paymentFeedback = paymentFeedbackByOrder[ord.id];
+                      const orderStore =
+                        stores.find((s) => s.id === ord.storeId) || primarySellerStore;
+                      const activeDeliveryTab =
+                        deliveryPaymentTabByOrder[ord.id] || 'NONE';
 
                       return (
                         <div
@@ -1786,15 +1835,15 @@ export function MerchantStudio({
                                 <span className="text-sm font-bold font-mono text-stone-900 bg-stone-200 px-2 py-0.5 rounded">
                                   Order #{ord.id}
                                 </span>
-                                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs transition-all duration-500 ease-out ${
                                   status === 'NEW'
-                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                    ? 'bg-amber-100 text-amber-800 border-amber-300 ring-2 ring-amber-200/50 animate-pulse'
                                     : status === 'CONFIRMED'
                                     ? 'bg-blue-100 text-blue-800 border-blue-300'
                                     : status === 'PREPARING'
                                     ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
                                     : status === 'OUT_FOR_DELIVERY'
-                                    ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                    ? 'bg-purple-100 text-purple-800 border-purple-300 ring-2 ring-purple-200/60 animate-pulse'
                                     : status === 'DELIVERED'
                                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                                     : 'bg-red-100 text-red-800 border-red-300'
@@ -1830,11 +1879,10 @@ export function MerchantStudio({
                                   {formatCurrency(ord.total)}
                                 </strong>{' '}
                                 (
-                                {ord.paymentMethod === 'UPI_ON_DELIVERY'
-                                  ? 'UPI on Delivery'
-                                  : ord.paymentMethod === 'CASH_ON_DELIVERY'
-                                  ? 'Cash on Delivery'
-                                  : 'Card tap'}
+                                {formatPaymentMethodLabel(
+                                  ord.paymentMethod,
+                                  ord.paymentCollectionMethod
+                                )}
                                 )
                               </div>
                             </div>
@@ -2106,12 +2154,12 @@ export function MerchantStudio({
                                 )}
                               </div>
 
-                              {/* 2. Separate COD / UPI Payment Collection Box */}
-                              <div className="p-3.5 rounded-xl bg-white border border-stone-200 space-y-2.5">
+                              {/* 2. Delivery-Stage Payment Collection (Option A: Cash | Option B: UPI QR) */}
+                              <div className="p-3.5 rounded-xl bg-white border border-stone-200 space-y-3">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
                                     <CreditCard className="w-4 h-4 text-stone-700" />
-                                    <span>Payment Collection (Separate from PIN)</span>
+                                    <span>Delivery-Stage Payment Collection</span>
                                   </div>
                                   <span
                                     className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
@@ -2122,115 +2170,240 @@ export function MerchantStudio({
                                         : 'bg-amber-100 text-amber-800'
                                     }`}
                                   >
-                                    {paymentStatus}
+                                    {paymentStatus === 'PAID'
+                                      ? ord.paymentCollectionMethod === 'UPI_ON_DELIVERY'
+                                        ? 'PAID (UPI)'
+                                        : ord.paymentCollectionMethod === 'CASH_ON_DELIVERY'
+                                        ? 'PAID (CASH)'
+                                        : 'PAID'
+                                      : paymentStatus}
                                   </span>
                                 </div>
 
-                                <p className="text-[11px] text-stone-600 leading-relaxed">
-                                  Delivery PIN verification confirms product handover only. Record{' '}
-                                  <strong>
-                                    {ord.paymentMethod === 'UPI_ON_DELIVERY'
-                                      ? 'UPI on Delivery'
-                                      : 'Cash on Delivery'}
-                                  </strong>{' '}
-                                  collection separately below.
-                                </p>
+                                {paymentStatus === 'PAID' ? (
+                                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-bold">
+                                        {formatCurrency(ord.total)} collected via{' '}
+                                        {ord.paymentCollectionMethod === 'UPI_ON_DELIVERY'
+                                          ? 'UPI on Delivery'
+                                          : 'Cash on Delivery'}
+                                      </span>
+                                      <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                                    </div>
+                                    {ord.paymentReferenceNote && (
+                                      <div className="text-[11px] text-emerald-800 font-mono">
+                                        Ref: {ord.paymentReferenceNote}
+                                      </div>
+                                    )}
+                                    {ord.paymentVerifiedAt && (
+                                      <div className="text-[11px] text-emerald-700">
+                                        Verified at: {new Date(ord.paymentVerifiedAt).toLocaleString()}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-stone-50 border border-stone-200">
+                                      <span className="text-xs font-medium text-stone-600">
+                                        Exact Outstanding Amount:
+                                      </span>
+                                      <span className="text-sm font-black font-mono text-stone-900">
+                                        {formatCurrency(ord.total)}
+                                      </span>
+                                    </div>
 
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={paymentRefInputByOrder[ord.id] ?? (ord.paymentReferenceNote || '')}
-                                    onChange={(e) =>
-                                      setPaymentRefInputByOrder((prev) => ({
-                                        ...prev,
-                                        [ord.id]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder={
-                                      ord.paymentMethod === 'UPI_ON_DELIVERY'
-                                        ? 'Optional UPI UTR / ref note'
-                                        : 'Optional cash receipt note'
-                                    }
-                                    className="flex-1 min-w-[150px] px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs text-stone-800"
-                                  />
-                                  {paymentStatus !== 'PAID' ? (
-                                    <button
-                                      type="button"
-                                      disabled={updatingPaymentOrderId === ord.id}
-                                      onClick={async () => {
-                                        if (!handleUpdateOrderPaymentStatus) return;
-                                        setUpdatingPaymentOrderId(ord.id);
-                                        try {
-                                          const res = await handleUpdateOrderPaymentStatus(
-                                            ord.id,
-                                            'PAID',
-                                            {
-                                              actorSellerId: activeSellerId,
-                                              collectionMethod:
-                                                ord.paymentMethod === 'UPI_ON_DELIVERY'
-                                                  ? 'UPI_ON_DELIVERY'
-                                                  : 'CASH_ON_DELIVERY',
-                                              referenceNote: paymentRefInputByOrder[ord.id],
-                                            }
-                                          );
-                                          setPaymentFeedbackByOrder((prev) => ({
+                                    <p className="text-[11px] text-stone-600 leading-relaxed">
+                                      Buyer chooses how to pay upon arrival. Select{' '}
+                                      <strong>Pay by Cash</strong> or <strong>Pay by UPI</strong> below:
+                                    </p>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setDeliveryPaymentTabByOrder((prev) => ({
                                             ...prev,
-                                            [ord.id]: {
-                                              type: res.success ? 'success' : 'error',
-                                              message:
-                                                res.message ||
-                                                (res.success
-                                                  ? 'Payment marked as PAID.'
-                                                  : 'Could not update payment status.'),
-                                            },
-                                          }));
-                                        } finally {
-                                          setUpdatingPaymentOrderId(null);
+                                            [ord.id]: prev[ord.id] === 'CASH' ? 'NONE' : 'CASH',
+                                          }))
                                         }
-                                      }}
-                                      className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
-                                    >
-                                      {updatingPaymentOrderId === ord.id
-                                        ? 'Saving...'
-                                        : ord.paymentMethod === 'UPI_ON_DELIVERY'
-                                        ? 'Confirm UPI Received'
-                                        : 'Confirm Cash Collected'}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      disabled={updatingPaymentOrderId === ord.id}
-                                      onClick={async () => {
-                                        if (!handleUpdateOrderPaymentStatus) return;
-                                        setUpdatingPaymentOrderId(ord.id);
-                                        try {
-                                          const res = await handleUpdateOrderPaymentStatus(
-                                            ord.id,
-                                            'PENDING',
-                                            {
-                                              actorSellerId: activeSellerId,
-                                              referenceNote: paymentRefInputByOrder[ord.id],
-                                            }
-                                          );
-                                          setPaymentFeedbackByOrder((prev) => ({
+                                        className={`px-3 py-2 rounded-lg border text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                          activeDeliveryTab === 'CASH'
+                                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                                            : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+                                        }`}
+                                      >
+                                        <Banknote className="w-3.5 h-3.5" />
+                                        <span>Option A: Pay by Cash</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setDeliveryPaymentTabByOrder((prev) => ({
                                             ...prev,
-                                            [ord.id]: {
-                                              type: res.success ? 'success' : 'error',
-                                              message:
-                                                res.message ||
-                                                'Payment reverted to PENDING.',
-                                            },
-                                          }));
-                                        } finally {
-                                          setUpdatingPaymentOrderId(null);
+                                            [ord.id]: prev[ord.id] === 'UPI' ? 'NONE' : 'UPI',
+                                          }))
                                         }
-                                      }}
-                                      className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-xs font-semibold cursor-pointer"
-                                    >
-                                      Mark Pending
-                                    </button>
-                                  )}
-                                </div>
+                                        className={`px-3 py-2 rounded-lg border text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                          activeDeliveryTab === 'UPI'
+                                            ? 'bg-[#003B8E] text-white border-[#003B8E] shadow-xs'
+                                            : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+                                        }`}
+                                      >
+                                        <QrCode className="w-3.5 h-3.5" />
+                                        <span>Option B: Pay by UPI</span>
+                                      </button>
+                                    </div>
+
+                                    {/* Option A: Pay by Cash Panel */}
+                                    {activeDeliveryTab === 'CASH' && (
+                                      <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-2.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="font-bold text-emerald-950">
+                                            Collect Cash on Delivery
+                                          </span>
+                                          <span className="font-mono font-black text-emerald-900">
+                                            {formatCurrency(ord.total)}
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-emerald-900/80">
+                                          Verify that you have received the exact cash amount of{' '}
+                                          <strong>{formatCurrency(ord.total)}</strong> from the buyer.
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <input
+                                            type="text"
+                                            value={
+                                              paymentRefInputByOrder[ord.id] ??
+                                              (ord.paymentReferenceNote || '')
+                                            }
+                                            onChange={(e) =>
+                                              setPaymentRefInputByOrder((prev) => ({
+                                                ...prev,
+                                                [ord.id]: e.target.value,
+                                              }))
+                                            }
+                                            placeholder="Optional cash receipt note"
+                                            className="flex-1 min-w-[140px] px-2.5 py-1.5 rounded-lg bg-white border border-emerald-300 text-xs text-stone-800"
+                                          />
+                                          <button
+                                            type="button"
+                                            disabled={updatingPaymentOrderId === ord.id}
+                                            onClick={async () => {
+                                              if (!handleUpdateOrderPaymentStatus) return;
+                                              setUpdatingPaymentOrderId(ord.id);
+                                              try {
+                                                const res = await handleUpdateOrderPaymentStatus(
+                                                  ord.id,
+                                                  'PAID',
+                                                  {
+                                                    actorSellerId: activeSellerId,
+                                                    collectionMethod: 'CASH_ON_DELIVERY',
+                                                    referenceNote: paymentRefInputByOrder[ord.id],
+                                                  }
+                                                );
+                                                setPaymentFeedbackByOrder((prev) => ({
+                                                  ...prev,
+                                                  [ord.id]: {
+                                                    type: res.success ? 'success' : 'error',
+                                                    message:
+                                                      res.message ||
+                                                      (res.success
+                                                        ? 'Cash on Delivery recorded and order marked as PAID.'
+                                                        : 'Could not record cash payment.'),
+                                                  },
+                                                }));
+                                              } finally {
+                                                setUpdatingPaymentOrderId(null);
+                                              }
+                                            }}
+                                            className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                                          >
+                                            {updatingPaymentOrderId === ord.id
+                                              ? 'Recording...'
+                                              : `Confirm ${formatCurrency(ord.total)} Cash Collected`}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Option B: Pay by UPI Dynamic QR Panel */}
+                                    {activeDeliveryTab === 'UPI' && (
+                                      <div className="space-y-3 pt-1">
+                                        <UpiQrCodeCard
+                                          order={ord}
+                                          store={orderStore}
+                                          compact
+                                        />
+
+                                        <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 space-y-2">
+                                          <div className="text-xs font-bold text-slate-900">
+                                            Verify &amp; Record UPI Payment ({formatCurrency(ord.total)})
+                                          </div>
+                                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                                            Do not mark as paid merely because the QR code was shown. Confirm the UPI credit of{' '}
+                                            <strong>{formatCurrency(ord.total)}</strong> in your merchant UPI app first.
+                                          </p>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <input
+                                              type="text"
+                                              value={
+                                                paymentRefInputByOrder[ord.id] ??
+                                                (ord.paymentReferenceNote || '')
+                                              }
+                                              onChange={(e) =>
+                                                setPaymentRefInputByOrder((prev) => ({
+                                                  ...prev,
+                                                  [ord.id]: e.target.value,
+                                                }))
+                                              }
+                                              placeholder="UPI UTR / Transaction Ref (optional)"
+                                              className="flex-1 min-w-[150px] px-2.5 py-1.5 rounded-lg bg-white border border-blue-300 text-xs text-stone-800"
+                                            />
+                                            <button
+                                              type="button"
+                                              disabled={updatingPaymentOrderId === ord.id}
+                                              onClick={async () => {
+                                                if (!handleUpdateOrderPaymentStatus) return;
+                                                setUpdatingPaymentOrderId(ord.id);
+                                                try {
+                                                  const res = await handleUpdateOrderPaymentStatus(
+                                                    ord.id,
+                                                    'PAID',
+                                                    {
+                                                      actorSellerId: activeSellerId,
+                                                      collectionMethod: 'UPI_ON_DELIVERY',
+                                                      referenceNote: paymentRefInputByOrder[ord.id],
+                                                    }
+                                                  );
+                                                  setPaymentFeedbackByOrder((prev) => ({
+                                                    ...prev,
+                                                    [ord.id]: {
+                                                      type: res.success ? 'success' : 'error',
+                                                      message:
+                                                        res.message ||
+                                                        (res.success
+                                                          ? 'UPI payment verified and order marked as PAID.'
+                                                          : 'Could not record UPI payment.'),
+                                                    },
+                                                  }));
+                                                } finally {
+                                                  setUpdatingPaymentOrderId(null);
+                                                }
+                                              }}
+                                              className="px-3.5 py-1.5 rounded-lg bg-[#003B8E] hover:bg-[#002d6e] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                                            >
+                                              {updatingPaymentOrderId === ord.id
+                                                ? 'Verifying...'
+                                                : 'Confirm UPI Payment Received'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
 
                                 {paymentFeedback && (
                                   <div
@@ -3187,16 +3360,30 @@ export function MerchantStudio({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-stone-800 mb-1">
-                  Short store description
-                </label>
-                <input
-                  type="text"
-                  value={settingsSpecialty}
-                  onChange={(e) => setSettingsSpecialty(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-stone-800 mb-1">
+                    Short store description
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsSpecialty}
+                    onChange={(e) => setSettingsSpecialty(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-stone-800 mb-1">
+                    Merchant UPI ID (for Delivery QR Code)
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsUpiHandle}
+                    onChange={(e) => setSettingsUpiHandle(e.target.value)}
+                    placeholder="e.g. yourstore@okicici"
+                    className="w-full px-3 py-2 text-xs font-mono bg-[#FAF9F6] border border-stone-300 rounded-lg"
+                  />
+                </div>
               </div>
 
               <div className="pt-4 border-t border-stone-200 space-y-4">
@@ -3237,7 +3424,7 @@ export function MerchantStudio({
                   </div>
                 )}
 
-                {/* Cascading Global Location Selector: Country -> State/Region -> City/Town */}
+                {/* Cascading Global Location Selector: Country -> State/Region -> City */}
                 <div className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200">
                   <CascadingLocationSelector
                     selectedCountry={settingsCountry}
@@ -3247,6 +3434,7 @@ export function MerchantStudio({
                     selectedDistrict={settingsDistrict}
                     selectedPostalCode={settingsPostalCode}
                     selectedLocalityType={settingsLocalityType}
+                    requesterRole="SELLER"
                     onChange={(loc) => {
                       setSettingsCountry(loc.country);
                       if (loc.countryCode) setSettingsCountryCode(loc.countryCode);
@@ -3660,16 +3848,16 @@ export function MerchantStudio({
                 </div>
               )}
 
-              {/* Step 3: Worldwide Store Location (Cities, Small Towns, Districts, Villages) */}
+              {/* Step 3: Worldwide Store Location (Large and Medium Cities Worldwide) */}
               {onboardingStep === 3 && (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-lg font-semibold text-stone-900">
-                        Step 3: Your store location (Worldwide)
+                        Step 3: Your store location (Large &amp; Medium Cities Worldwide)
                       </h3>
                       <p className="text-xs text-stone-600 mt-0.5">
-                        Register from any country, state, district, city, small town, or village worldwide.
+                        Seller onboarding is open to almost all large and medium-sized cities across the world.
                       </p>
                     </div>
                     <button
@@ -3682,7 +3870,18 @@ export function MerchantStudio({
                     </button>
                   </div>
 
-                  {/* Cascading Global Location Selector: Country -> State/Region -> City/Town */}
+                  <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 space-y-1">
+                    <div className="font-semibold flex items-center gap-1.5 text-amber-900">
+                      <Globe className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span>Worldwide Seller Coverage Notice</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-900/90">
+                      We support onboarding of sellers from almost all large and medium-sized cities globally.
+                      <strong> Note: Onboarding from taluka administrative divisions and village places is not allowed yet.</strong>
+                    </p>
+                  </div>
+
+                  {/* Cascading Global Location Selector: Country -> State/Region -> City */}
                   <div className="p-4 rounded-xl bg-[#FAF9F6] border border-stone-200">
                     <CascadingLocationSelector
                       selectedCountry={storeCountry}
@@ -3692,6 +3891,7 @@ export function MerchantStudio({
                       selectedDistrict={storeDistrict}
                       selectedPostalCode={storePostalCode}
                       selectedLocalityType={storeLocalityType}
+                      requesterRole="SELLER"
                       onChange={(loc) => {
                         setStoreCountry(loc.country);
                         if (loc.countryCode) setStoreCountryCode(loc.countryCode);

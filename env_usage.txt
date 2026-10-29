@@ -1,0 +1,20 @@
+app/api/billing/create-checkout/route.ts:17:  const keyId = process.env.RAZORPAY_KEY_ID;
+app/api/billing/create-checkout/route.ts:18:  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+app/api/billing/webhook/route.ts:22:    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+app/api/billing/campaigns/route.ts:403:        process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
+app/api/billing/campaigns/route.ts:918:      const secret = process.env.RAZORPAY_KEY_SECRET;
+app/api/billing/campaigns/route.ts:1294:    const keyId = process.env.RAZORPAY_KEY_ID;
+app/api/billing/campaigns/route.ts:1295:    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+app/api/billing/verify-payment/route.ts:106:    const secret = process.env.RAZORPAY_KEY_SECRET;
+app/api/admin/dashboard/route.ts:356:        process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+app/api/admin/dashboard/route.ts:359:        process.env.FIREBASE_WEB_PUSH_CERTIFICATE_KEY ||
+app/api/admin/dashboard/route.ts:360:          process.env.FIREBASE_VAPID_KEY
+app/api/admin/dashboard/route.ts:363:        process.env.FIREBASE_WEB_PUSH_CERTIFICATE_KEY ||
+app/api/admin/dashboard/route.ts:364:          process.env.FIREBASE_VAPID_KEY
+app/api/admin/bootstrap/route.ts:36:      secure: process.env.NODE_ENV === 'production',
+app/api/auth/otp/route.ts:111:        secure: process.env.NODE_ENV === 'production',
+app/api/auth/otp/route.ts:148:        secure: process.env.NODE_ENV === 'production',
+lib/server-fcm.ts:33:      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+lib/firebase-admin.ts:20:  const saKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+lib/firebase-admin.ts:33:  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+lib/firebase-admin.ts:34:  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;

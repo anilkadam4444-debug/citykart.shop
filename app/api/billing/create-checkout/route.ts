@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
 import { INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
+import { serverStoresRegistry } from '@/lib/stores-registry';
 import { SubscriptionTierId } from '@/lib/revenue-model';
 import {
   getAuthoritativeSubscriptionPlansAsync,
@@ -56,8 +57,10 @@ export async function POST(req: NextRequest) {
     }
 
     let targetStore: LocalStore | null =
-      INITIAL_STORES.find((s) => s.id === storeId) || null;
-    if (!targetStore) {
+      INITIAL_STORES.find((s) => s.id === storeId) ||
+      serverStoresRegistry.get(storeId) ||
+      null;
+    if (!targetStore && !IS_PREVIEW_DUMMY_FIREBASE) {
       try {
         const snap = await getDoc(doc(db, 'stores', storeId));
         if (snap.exists()) {

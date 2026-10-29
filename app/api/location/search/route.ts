@@ -3,6 +3,7 @@ import {
   GLOBAL_CITY_DIRECTORY,
   normalizeCityId,
 } from '@/lib/catalog-data';
+import {isVillageOrTalukaPlace} from '@/lib/location-service';
 
 export interface PlaceSuggestion {
   placeId: string;
@@ -19,12 +20,14 @@ export interface PlaceSuggestion {
     lng: number;
   };
   source: 'VERIFIED_DIRECTORY' | 'GEOCODED';
+  eligibleForSeller?: boolean;
 }
 
 export async function GET(req: NextRequest) {
   const {searchParams} = new URL(req.url);
   const q = (searchParams.get('q') || '').trim();
   const countryFilter = (searchParams.get('country') || '').trim().toLowerCase();
+  const forSeller = searchParams.get('forSeller') === 'true' || searchParams.get('role') === 'SELLER';
 
   if (!q) {
     return NextResponse.json({suggestions: []});
@@ -34,13 +37,17 @@ export async function GET(req: NextRequest) {
   const results: PlaceSuggestion[] = [];
   const seenIds = new Set<string>();
 
-  // 1. Search built-in global directory of cities, districts, towns, and villages
+  // 1. Search built-in global directory of cities, districts, towns
   for (const item of GLOBAL_CITY_DIRECTORY) {
     if (
       countryFilter &&
       item.country.toLowerCase() !== countryFilter &&
       item.countryCode.toLowerCase() !== countryFilter
     ) {
+      continue;
+    }
+
+    if (forSeller && (item.localityType === 'VILLAGE' || isVillageOrTalukaPlace(item.localityType, item.cityName, item.district))) {
       continue;
     }
 
@@ -120,6 +127,10 @@ export async function GET(req: NextRequest) {
                 : addr.city
                   ? 'CITY'
                   : 'LOCALITY';
+
+          if (forSeller && (localityType === 'VILLAGE' || isVillageOrTalukaPlace(localityType, localityName, district))) {
+            continue;
+          }
 
           const lat = Number(row.lat);
           const lng = Number(row.lon);

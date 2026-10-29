@@ -14,18 +14,30 @@ import {
   Store,
   ShoppingBag,
   Info,
+  MapPin,
+  Lock,
 } from 'lucide-react';
 import {
   CountryCallingRecord,
   INTERNATIONAL_COUNTRIES,
   validatePhoneNumberForCountry,
 } from '@/lib/countries-data';
-import {SellerProfile, UserAccount} from '@/lib/catalog-data';
+import {
+  CustomerShoppingLocation,
+  normalizeCityId,
+  SellerProfile,
+  UserAccount,
+} from '@/lib/catalog-data';
+import {
+  CascadingLocationSelector,
+  SelectedLocationPayload,
+} from './cascading-location-selector';
 import {
   auth,
   ConfirmationResult,
   FIREBASE_PROJECT_ID,
   RecaptchaVerifier,
+  saveClientSessionToken,
   signInWithPhoneNumber,
   syncUserAccountToFirestore,
   testFirestoreConnection,
@@ -41,6 +53,7 @@ interface MobileOtpAuthModalProps {
   isOpen: boolean;
   defaultJourney?: 'BUYER' | 'SELLER';
   authContextMode?: OtpAuthContextMode;
+  currentLocation?: CustomerShoppingLocation;
   unmigratedSellers?: SellerProfile[];
   onAuthenticated: (
     user: UserAccount,
@@ -114,10 +127,20 @@ function formatFirebasePhoneAuthError(err: unknown): {
   };
 }
 
+const LOGIN_QUICK_CITIES = [
+  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Nanded', locality: 'Vazirabad', postalCode: '431601' },
+  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Pune', locality: 'Kothrud', postalCode: '411038' },
+  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Mumbai', locality: 'Bandra West', postalCode: '400050' },
+  { country: 'United Kingdom', countryCode: 'GB', stateRegion: 'England', city: 'London', locality: 'Shoreditch', postalCode: 'E1 6JE' },
+  { country: 'Japan', countryCode: 'JP', stateRegion: 'Tokyo Metropolis', city: 'Tokyo', locality: 'Shibuya', postalCode: '150-0002' },
+  { country: 'United States', countryCode: 'US', stateRegion: 'New York', city: 'New York', locality: 'SoHo', postalCode: '10012' },
+];
+
 export function MobileOtpAuthModal({
   isOpen,
   defaultJourney = 'BUYER',
   authContextMode = 'BUYER_SIGN_IN',
+  currentLocation,
   unmigratedSellers = [],
   onAuthenticated,
   onClose,
@@ -131,6 +154,27 @@ export function MobileOtpAuthModal({
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] =
     useState<boolean>(false);
   const [countrySearch, setCountrySearch] = useState<string>('');
+
+  // Hyperlocal City Lock Selection during Login
+  const [loginCitySelection, setLoginCitySelection] =
+    useState<SelectedLocationPayload>({
+      country: currentLocation?.country || 'India',
+      countryCode: currentLocation?.countryCode || 'IN',
+      stateRegion: currentLocation?.stateRegion || 'Maharashtra',
+      district: currentLocation?.district || 'Nanded',
+      localityType: currentLocation?.localityType || 'CITY',
+      city: currentLocation?.city || 'Nanded',
+      cityId:
+        currentLocation?.cityId ||
+        normalizeCityId(
+          currentLocation?.country || 'India',
+          currentLocation?.stateRegion || 'Maharashtra',
+          currentLocation?.city || 'Nanded'
+        ),
+      locality: currentLocation?.locality || 'Vazirabad',
+      postalCode: currentLocation?.postalCode || '431601',
+    });
+  const [showFullCityPicker, setShowFullCityPicker] = useState<boolean>(false);
 
   // Phone & Firebase ConfirmationResult state
   const [mobileNumber, setMobileNumber] = useState<string>('');
@@ -162,8 +206,27 @@ export function MobileOtpAuthModal({
   useEffect(() => {
     if (isOpen) {
       void testFirestoreConnection();
+      if (currentLocation?.city) {
+        setLoginCitySelection({
+          country: currentLocation.country || 'India',
+          countryCode: currentLocation.countryCode || 'IN',
+          stateRegion: currentLocation.stateRegion || 'Maharashtra',
+          district: currentLocation.district,
+          localityType: currentLocation.localityType || 'CITY',
+          city: currentLocation.city,
+          cityId:
+            currentLocation.cityId ||
+            normalizeCityId(
+              currentLocation.country || 'India',
+              currentLocation.stateRegion || 'Maharashtra',
+              currentLocation.city
+            ),
+          locality: currentLocation.locality || '',
+          postalCode: currentLocation.postalCode || '',
+        });
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, currentLocation]);
 
   useEffect(() => {
     if (resendSeconds <= 0) return;
@@ -350,6 +413,23 @@ export function MobileOtpAuthModal({
           `firebase-phone-${phoneE164.replace(/[^0-9]/g, '')}`;
       }
 
+      const lockedLocPayload = {
+        country: loginCitySelection.country.trim() || 'India',
+        countryCode: loginCitySelection.countryCode || 'IN',
+        stateRegion: loginCitySelection.stateRegion.trim() || 'Maharashtra',
+        district: loginCitySelection.district,
+        city: loginCitySelection.city.trim() || 'Nanded',
+        cityId:
+          loginCitySelection.cityId ||
+          normalizeCityId(
+            loginCitySelection.country || 'India',
+            loginCitySelection.stateRegion || 'Maharashtra',
+            loginCitySelection.city || 'Nanded'
+          ),
+        locality: (loginCitySelection.locality || '').trim(),
+        postalCode: loginCitySelection.postalCode,
+      };
+
       const response = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -360,6 +440,7 @@ export function MobileOtpAuthModal({
           maskedPhone,
           firebaseUid,
           idToken,
+          lockedLocation: lockedLocPayload,
         }),
       });
 
@@ -374,7 +455,26 @@ export function MobileOtpAuthModal({
       }
 
       if (data.status === 'AUTHENTICATED_EXISTING' && data.user) {
-        const existingUser = data.user as UserAccount;
+        if (data.sessionToken) {
+          saveClientSessionToken(String(data.sessionToken));
+        }
+        const existingUser: UserAccount = {
+          ...(data.user as UserAccount),
+          lockedCity: (data.user as UserAccount).lockedCity || lockedLocPayload.city,
+          lockedCityId: (data.user as UserAccount).lockedCityId || lockedLocPayload.cityId,
+          lockedStateRegion:
+            (data.user as UserAccount).lockedStateRegion || lockedLocPayload.stateRegion,
+          lockedCountry:
+            (data.user as UserAccount).lockedCountry || lockedLocPayload.country,
+          lockedCountryCode:
+            (data.user as UserAccount).lockedCountryCode || lockedLocPayload.countryCode,
+          lockedLocality:
+            (data.user as UserAccount).lockedLocality ?? lockedLocPayload.locality,
+          lockedPostalCode:
+            (data.user as UserAccount).lockedPostalCode ?? lockedLocPayload.postalCode,
+          cityLockedAt:
+            (data.user as UserAccount).cityLockedAt || new Date().toISOString(),
+        };
         await syncUserAccountToFirestore(existingUser);
         const targetJourney = existingUser.roles.includes('SELLER')
           ? defaultJourney
@@ -409,6 +509,28 @@ export function MobileOtpAuthModal({
       return;
     }
 
+    if (!loginCitySelection.city.trim()) {
+      setErrorMsg('Please select your city to lock your hyperlocal shopping location.');
+      return;
+    }
+
+    const lockedLocPayload = {
+      country: loginCitySelection.country.trim() || 'India',
+      countryCode: loginCitySelection.countryCode || 'IN',
+      stateRegion: loginCitySelection.stateRegion.trim() || 'Maharashtra',
+      district: loginCitySelection.district,
+      city: loginCitySelection.city.trim() || 'Nanded',
+      cityId:
+        loginCitySelection.cityId ||
+        normalizeCityId(
+          loginCitySelection.country || 'India',
+          loginCitySelection.stateRegion || 'Maharashtra',
+          loginCitySelection.city || 'Nanded'
+        ),
+      locality: (loginCitySelection.locality || '').trim(),
+      postalCode: loginCitySelection.postalCode,
+    };
+
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/auth/otp', {
@@ -420,6 +542,7 @@ export function MobileOtpAuthModal({
           fullName: effectiveName,
           journey: migrateSellerId ? 'SELLER' : journey,
           migrateSellerId: migrateSellerId || undefined,
+          lockedLocation: lockedLocPayload,
         }),
       });
 
@@ -432,7 +555,26 @@ export function MobileOtpAuthModal({
         return;
       }
 
-      const createdUser = data.user as UserAccount;
+      if (data.sessionToken) {
+        saveClientSessionToken(String(data.sessionToken));
+      }
+      const createdUser: UserAccount = {
+        ...(data.user as UserAccount),
+        lockedCity: (data.user as UserAccount).lockedCity || lockedLocPayload.city,
+        lockedCityId: (data.user as UserAccount).lockedCityId || lockedLocPayload.cityId,
+        lockedStateRegion:
+          (data.user as UserAccount).lockedStateRegion || lockedLocPayload.stateRegion,
+        lockedCountry:
+          (data.user as UserAccount).lockedCountry || lockedLocPayload.country,
+        lockedCountryCode:
+          (data.user as UserAccount).lockedCountryCode || lockedLocPayload.countryCode,
+        lockedLocality:
+          (data.user as UserAccount).lockedLocality ?? lockedLocPayload.locality,
+        lockedPostalCode:
+          (data.user as UserAccount).lockedPostalCode ?? lockedLocPayload.postalCode,
+        cityLockedAt:
+          (data.user as UserAccount).cityLockedAt || new Date().toISOString(),
+      };
       await syncUserAccountToFirestore(createdUser);
 
       setIsSubmitting(false);
@@ -454,18 +596,18 @@ export function MobileOtpAuthModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="otp-auth-heading"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-8">
+      <div className="relative w-full max-w-md max-h-[92dvh] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-auto">
         {/* Invisible Firebase RecaptchaVerifier mount container */}
         <div id="firebase-recaptcha-container" aria-hidden="true" />
 
         {/* Modal Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-200 bg-slate-50/70 flex items-start justify-between gap-4">
-          <div className="space-y-1">
+        <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-200 bg-slate-50/70 flex items-start justify-between gap-3 shrink-0">
+          <div className="space-y-1 min-w-0">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#003B8E]">
-              <Phone className="w-3.5 h-3.5" />
-              <span>
+              <Phone className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">
                 Firebase Phone Auth ({FIREBASE_PROJECT_ID})
               </span>
             </div>
@@ -474,7 +616,7 @@ export function MobileOtpAuthModal({
               <>
                 <h2
                   id="otp-auth-heading"
-                  className="text-xl font-bold text-slate-900 tracking-tight"
+                  className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight"
                 >
                   {authContextMode === 'SELLER_SIGN_IN'
                     ? 'Sign in to your store'
@@ -496,7 +638,7 @@ export function MobileOtpAuthModal({
               <>
                 <h2
                   id="otp-auth-heading"
-                  className="text-xl font-bold text-slate-900 tracking-tight"
+                  className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight"
                 >
                   Verify your mobile number
                 </h2>
@@ -514,7 +656,7 @@ export function MobileOtpAuthModal({
               <>
                 <h2
                   id="otp-auth-heading"
-                  className="text-xl font-bold text-slate-900 tracking-tight"
+                  className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight"
                 >
                   Complete your account
                 </h2>
@@ -533,13 +675,13 @@ export function MobileOtpAuthModal({
             type="button"
             onClick={onClose}
             aria-label="Close sign in dialog"
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors cursor-pointer"
+            className="min-w-[44px] min-h-[44px] rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto overscroll-contain flex-1">
           {errorMsg && (
             <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-900 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
@@ -703,9 +845,121 @@ export function MobileOtpAuthModal({
                 </div>
               </div>
 
+              {/* Hyperlocal City Lock Selection During Login */}
+              <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/90 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#003B8E] text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                        <span>Hyperlocal City Lock</span>
+                        <span className="px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900">
+                          Locked on Login
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-snug mt-0.5">
+                        Citykart is a hyperlocal intra-city marketplace. Your selected city will be locked for this session and product delivery is strictly within{' '}
+                        <strong className="text-[#003B8E]">
+                          {loginCitySelection.city}
+                        </strong>{' '}
+                        only.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selected City Summary Row */}
+                <div className="p-2.5 rounded-lg bg-white border border-blue-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="w-3.5 h-3.5 text-[#F96302] shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 truncate">
+                        {loginCitySelection.city}
+                        {loginCitySelection.locality
+                          ? ` · ${loginCitySelection.locality}`
+                          : ''}
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        {loginCitySelection.stateRegion},{' '}
+                        {loginCitySelection.country}
+                        {loginCitySelection.postalCode
+                          ? ` (${loginCitySelection.postalCode})`
+                          : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFullCityPicker((prev) => !prev)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-bold text-[#003B8E] shrink-0 cursor-pointer transition-colors"
+                  >
+                    {showFullCityPicker ? 'Done' : 'Choose City'}
+                  </button>
+                </div>
+
+                {/* Quick City Chips */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {LOGIN_QUICK_CITIES.map((qc) => {
+                    const isSelected =
+                      loginCitySelection.city.toLowerCase() ===
+                        qc.city.toLowerCase() &&
+                      loginCitySelection.country.toLowerCase() ===
+                        qc.country.toLowerCase();
+                    return (
+                      <button
+                        key={`${qc.country}-${qc.city}`}
+                        type="button"
+                        onClick={() => {
+                          setLoginCitySelection({
+                            country: qc.country,
+                            countryCode: qc.countryCode,
+                            stateRegion: qc.stateRegion,
+                            city: qc.city,
+                            cityId: normalizeCityId(
+                              qc.country,
+                              qc.stateRegion,
+                              qc.city
+                            ),
+                            locality: qc.locality,
+                            postalCode: qc.postalCode,
+                            localityType: 'CITY',
+                          });
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#003B8E] border-[#003B8E] text-white'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-[#003B8E]'
+                        }`}
+                      >
+                        {qc.city}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {showFullCityPicker && (
+                  <div className="p-3 rounded-xl bg-white border border-slate-200">
+                    <CascadingLocationSelector
+                      selectedCountry={loginCitySelection.country}
+                      selectedStateRegion={loginCitySelection.stateRegion}
+                      selectedCity={loginCitySelection.city}
+                      selectedLocality={loginCitySelection.locality}
+                      selectedDistrict={loginCitySelection.district}
+                      selectedPostalCode={loginCitySelection.postalCode}
+                      selectedLocalityType={loginCitySelection.localityType}
+                      onChange={(payload) => setLoginCitySelection(payload)}
+                      allowLocalityInput={true}
+                      showMissingLocationButton={false}
+                    />
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !loginCitySelection.city.trim()}
                 className="w-full py-3 px-4 rounded-xl bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-400 text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
                 {isSubmitting ? (
@@ -777,6 +1031,24 @@ export function MobileOtpAuthModal({
           {/* STEP 2: OTP VERIFICATION SCREEN */}
           {step === 'VERIFY_OTP' && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Lock className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
+                  <span className="text-slate-700 truncate">
+                    Locking delivery city to{' '}
+                    <strong className="font-extrabold text-[#003B8E]">
+                      {loginCitySelection.city}
+                    </strong>
+                    {loginCitySelection.locality
+                      ? ` (${loginCitySelection.locality})`
+                      : ''}
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-white border border-blue-200 text-[10px] font-bold text-[#003B8E] shrink-0">
+                  Intra-City Only
+                </span>
+              </div>
+
               <div className="space-y-1.5">
                 <label
                   htmlFor="otp-code-input"
@@ -876,6 +1148,23 @@ export function MobileOtpAuthModal({
                   placeholder="Example: Priya Sharma"
                   className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:bg-white transition-colors"
                 />
+              </div>
+
+              <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Lock className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-900 truncate">
+                      Locked Hyperlocal City: {loginCitySelection.city}
+                    </div>
+                    <div className="text-[11px] text-slate-600 truncate">
+                      Delivery of products will be strictly within {loginCitySelection.city} only.
+                    </div>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-white border border-blue-200 text-[10px] font-bold text-[#003B8E] shrink-0">
+                  Locked
+                </span>
               </div>
 
               <div className="space-y-2">

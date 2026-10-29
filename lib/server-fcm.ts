@@ -10,7 +10,7 @@ import {
   getFcmTokensForRecipient,
   removeInvalidFcmToken,
 } from './fcm-registry';
-import {db} from './firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from './firebase';
 import {doc, setDoc} from 'firebase/firestore';
 import {
   buildUnifiedBuyerOrderAndPinNotification,
@@ -108,37 +108,41 @@ export async function sendNewOrderPushNotifications(
 
   const unifiedSellerNotif = buildUnifiedSellerOrderNotification({ order });
 
-  try {
-    const notifId = `notif-${order.id}`;
-    await setDoc(
-      doc(db, 'sellerNotifications', notifId),
-      {
-        id: notifId,
-        sellerId: order.sellerId,
-        sellerUid: order.sellerUid || order.sellerId,
-        storeId: order.storeId,
-        orderId: order.id,
-        title: unifiedSellerNotif.title,
-        message: unifiedSellerNotif.body,
-        smsText: unifiedSellerNotif.smsText,
-        buyerFullName: unifiedSellerNotif.buyerFullName,
-        buyerPhone: unifiedSellerNotif.buyerPhone,
-        buyerFullAddress: unifiedSellerNotif.buyerFullAddress,
-        ...(unifiedSellerNotif.deliveryNotes
-          ? { deliveryNotes: unifiedSellerNotif.deliveryNotes }
-          : {}),
-        createdAt: order.createdAtIso || new Date().toISOString(),
-        isRead: false,
-        type: 'NEW_ORDER',
-      },
-      {merge: true}
-    );
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      const notifId = `notif-${order.id}`;
+      await setDoc(
+        doc(db, 'sellerNotifications', notifId),
+        {
+          id: notifId,
+          sellerId: order.sellerId,
+          sellerUid: order.sellerUid || order.sellerId,
+          storeId: order.storeId,
+          orderId: order.id,
+          title: unifiedSellerNotif.title,
+          message: unifiedSellerNotif.body,
+          smsText: unifiedSellerNotif.smsText,
+          buyerFullName: unifiedSellerNotif.buyerFullName,
+          buyerPhone: unifiedSellerNotif.buyerPhone,
+          buyerFullAddress: unifiedSellerNotif.buyerFullAddress,
+          ...(unifiedSellerNotif.deliveryNotes
+            ? { deliveryNotes: unifiedSellerNotif.deliveryNotes }
+            : {}),
+          createdAt: order.createdAtIso || new Date().toISOString(),
+          isRead: false,
+          type: 'NEW_ORDER',
+        },
+        {merge: true}
+      );
+      inAppPersisted = true;
+    } catch (err) {
+      console.warn(
+        '[Server FCM] Could not persist sellerNotification to Firestore:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
+  } else {
     inAppPersisted = true;
-  } catch (err) {
-    console.warn(
-      '[Server FCM] Could not persist sellerNotification to Firestore:',
-      err instanceof Error ? err.message : String(err)
-    );
   }
 
   const [sellerTokens, buyerTokens] = await Promise.all([

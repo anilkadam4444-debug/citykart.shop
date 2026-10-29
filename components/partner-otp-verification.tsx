@@ -34,6 +34,7 @@ import {
   ConfirmationResult,
   FIREBASE_PROJECT_ID,
   RecaptchaVerifier,
+  saveClientSessionToken,
   signInWithPhoneNumber,
   syncUserAccountToFirestore,
   testFirestoreConnection,
@@ -281,7 +282,7 @@ export function PartnerOtpVerification() {
       });
       const validateData = await validateRes.json();
 
-      if (!validateRes.ok || !validateData.success) {
+      if (!validateRes.ok || !validateData.ok) {
         setErrorMsg(validateData.error || 'Could not validate phone number.');
         setIsSubmitting(false);
         return;
@@ -474,7 +475,7 @@ export function PartnerOtpVerification() {
       });
       const resolveData = await resolveRes.json();
 
-      if (!resolveRes.ok || !resolveData.success) {
+      if (!resolveRes.ok || !(resolveData.ok || resolveData.success)) {
         setErrorMsg(
           resolveData.error || 'Verification failed. Please try again.'
         );
@@ -485,6 +486,9 @@ export function PartnerOtpVerification() {
       let resolvedUser: UserAccount | null = null;
 
       if (!resolveData.isNewUser && resolveData.user) {
+        if (resolveData.sessionToken) {
+          saveClientSessionToken(String(resolveData.sessionToken));
+        }
         resolvedUser = resolveData.user as UserAccount;
       } else {
         // Complete partner applicant phone verification WITHOUT routing to Buyer or Store Owner flows
@@ -506,7 +510,7 @@ export function PartnerOtpVerification() {
         });
         const completeData = await completeRes.json();
 
-        if (!completeRes.ok || !completeData.success || !completeData.user) {
+        if (!completeRes.ok || !(completeData.ok || completeData.success) || !completeData.user) {
           setErrorMsg(
             completeData.error ||
               'Could not complete partner phone verification.'
@@ -515,6 +519,9 @@ export function PartnerOtpVerification() {
           return;
         }
 
+        if (completeData.sessionToken) {
+          saveClientSessionToken(String(completeData.sessionToken));
+        }
         resolvedUser = completeData.user as UserAccount;
       }
 
@@ -668,7 +675,7 @@ export function PartnerOtpVerification() {
           data-testid="partner-otp-progress-bar"
           className="mb-6 bg-white border border-slate-200 rounded-xl p-4 shadow-2xs"
         >
-          <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs font-bold text-slate-600 mb-2.5">
             <span className="uppercase tracking-wider text-emerald-700 font-mono">
               City Partner Onboarding Flow
             </span>
@@ -680,9 +687,9 @@ export function PartnerOtpVerification() {
                   : 'Step 2 of 3 · Verify 6-Digit SMS OTP'}
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold">
-              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[11px]">
+              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[11px] shrink-0">
                 1
               </span>
               <span className="truncate">Mobile Number</span>
@@ -695,7 +702,7 @@ export function PartnerOtpVerification() {
               }`}
             >
               <span
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] shrink-0 ${
                   step === 'VERIFY_OTP' || authenticatedUser?.phoneE164
                     ? 'bg-emerald-600 text-white'
                     : 'bg-slate-200 text-slate-600'
@@ -713,7 +720,7 @@ export function PartnerOtpVerification() {
                   : 'bg-slate-50 border-slate-200 text-slate-500'
               }`}
             >
-              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[11px]">
+              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[11px] shrink-0">
                 3
               </span>
               <span className="truncate">City & KYC Application</span>
@@ -840,17 +847,6 @@ export function PartnerOtpVerification() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Applicant Full Legal Name (Optional now, editable in application)
-                  </label>
-                  <input
-                    type="text"
-                    data-testid="partner-otp-applicant-name"
-                    value={applicantName}
-                    onChange={(e) => setApplicantName(e.target.value)}
-                    placeholder="e.g. Rajesh Deshmukh"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
                 </div>
 
                 <div>
@@ -1066,29 +1062,40 @@ export function PartnerOtpVerification() {
                   </div>
                 )}
 
-                {/* Console / Preview Fallback Info */}
-                {isPreviewTestFallback && consoleNotice && (
-                  <div
-                    data-testid="partner-preview-otp-notice"
-                    className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1"
-                  >
+                {/* Preview Test Verification Code Banner (Always available in AI Studio preview) */}
+                <div
+                  data-testid="partner-preview-otp-notice"
+                  className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 font-bold text-amber-950">
                       <Info className="w-4 h-4 text-amber-600 shrink-0" />
                       <span>
-                        Firebase Phone Auth Preview Mode ({FIREBASE_PROJECT_ID})
+                        Preview Mode Instant OTP ({FIREBASE_PROJECT_ID})
                       </span>
                     </div>
-                    <p className="text-[11px] text-amber-800 leading-relaxed">
-                      {consoleNotice}
-                    </p>
-                    <div className="pt-1 flex items-center justify-between text-[11px] font-mono bg-white/80 px-2.5 py-1.5 rounded-lg border border-amber-200/80">
-                      <span>Preview Test Verification Code:</span>
-                      <strong className="text-amber-950 text-xs tracking-widest">
-                        123456
-                      </strong>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOtpCode('123456');
+                        setErrorMsg(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold cursor-pointer transition-colors"
+                    >
+                      Auto-Fill 123456
+                    </button>
                   </div>
-                )}
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    {consoleNotice ||
+                      'If real SMS delivery is not received in the preview sandbox, use the 6-digit test verification code below to verify immediately.'}
+                  </p>
+                  <div className="flex items-center justify-between text-[11px] font-mono bg-white/90 px-3 py-1.5 rounded-lg border border-amber-200/80">
+                    <span>6-Digit Test OTP Code:</span>
+                    <strong className="text-amber-950 text-sm tracking-widest">
+                      123456
+                    </strong>
+                  </div>
+                </div>
 
                 {errorMsg && (
                   <div

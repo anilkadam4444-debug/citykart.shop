@@ -20,6 +20,7 @@ import {
   getCitiesByCountryAndRegion,
   saveMissingLocationRequest,
   MissingLocationRequest,
+  isVillageOrTalukaPlace,
 } from '@/lib/location-service';
 import { CountryDef, RegionDef, DistrictDef, CityDef, normalizeCanonicalLocationId } from '@/lib/global-locations-data';
 
@@ -223,13 +224,15 @@ export function CascadingLocationSelector({
   // Curated instant cities for the selected country, region & optional district
   const instantCities = useMemo(() => {
     if (!selectedCountryCode || !selectedRegionName) return [];
+    const forSeller = requesterRole === 'SELLER';
     return getCitiesByCountryRegionAndDistrict(
       selectedCountryCode,
       selectedRegionName,
       selectedDistrict,
-      citySearch
+      citySearch,
+      forSeller
     );
-  }, [selectedCountryCode, selectedRegionName, selectedDistrict, citySearch]);
+  }, [selectedCountryCode, selectedRegionName, selectedDistrict, citySearch, requesterRole]);
 
   // Load server-side and OpenStreetMap dynamic places asynchronously
   useEffect(() => {
@@ -255,6 +258,9 @@ export function CascadingLocationSelector({
         if (citySearch.trim().length >= 2) {
           params.set('q', citySearch.trim());
         }
+        if (requesterRole === 'SELLER') {
+          params.set('forSeller', 'true');
+        }
         const res = await fetch(`/api/locations/cities?${params.toString()}`, {
           signal: controller.signal,
         });
@@ -277,27 +283,34 @@ export function CascadingLocationSelector({
       isCancelled = true;
       controller.abort();
     };
-  }, [selectedCountryCode, selectedRegionName, selectedDistrict, citySearch]);
+  }, [selectedCountryCode, selectedRegionName, selectedDistrict, citySearch, requesterRole]);
 
   // Combine instant curated and fetched cities cleanly without calling synchronous setState in an effect
   const citiesList = useMemo(() => {
     if (!selectedCountryCode || !selectedRegionName) return [];
+    const isSeller = requesterRole === 'SELLER';
     const seen = new Set<string>();
     const merged: CityDef[] = [];
+
+    const isEligible = (c: CityDef) => {
+      if (!isSeller) return true;
+      return !isVillageOrTalukaPlace(c.localityType, c.cityName, c.district);
+    };
+
     for (const c of instantCities) {
-      if (!seen.has(c.cityId)) {
+      if (!seen.has(c.cityId) && isEligible(c)) {
         seen.add(c.cityId);
         merged.push(c);
       }
     }
     for (const c of remoteCities) {
-      if (!seen.has(c.cityId)) {
+      if (!seen.has(c.cityId) && isEligible(c)) {
         seen.add(c.cityId);
         merged.push(c);
       }
     }
     return merged;
-  }, [selectedCountryCode, selectedRegionName, instantCities, remoteCities]);
+  }, [selectedCountryCode, selectedRegionName, instantCities, remoteCities, requesterRole]);
 
   // Notify parent of location changes
   const emitChange = (updates: Partial<CascadingLocationValue>) => {

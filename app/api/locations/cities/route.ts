@@ -3,6 +3,7 @@ import {
   getCitiesByCountryRegionAndDistrict,
   getCountryByCodeOrName,
   getRegionByCodeOrName,
+  isVillageOrTalukaPlace,
 } from '@/lib/location-service';
 import { normalizeCanonicalLocationId, CityDef } from '@/lib/global-locations-data';
 
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
   const countryParam = searchParams.get('country') || '';
   const regionParam = searchParams.get('region') || '';
   const districtParam = searchParams.get('district') || '';
+  const forSeller = searchParams.get('forSeller') === 'true' || searchParams.get('role') === 'SELLER';
   const q = (searchParams.get('q') || '').trim();
 
   if (!countryParam) {
@@ -26,7 +28,13 @@ export async function GET(req: NextRequest) {
   const regionName = region ? region.name : regionParam;
 
   // 1. Get curated and locally approved cities matching criteria
-  const localResults = getCitiesByCountryRegionAndDistrict(country.code, regionName, districtParam, q);
+  const localResults = getCitiesByCountryRegionAndDistrict(
+    country.code,
+    regionName,
+    districtParam,
+    q,
+    forSeller
+  );
   const seenIds = new Set<string>(localResults.map((c) => c.cityId));
   const finalCities: CityDef[] = [...localResults];
 
@@ -87,6 +95,10 @@ export async function GET(req: NextRequest) {
                 : addr.city
                 ? 'CITY'
                 : 'LOCALITY';
+
+            if (forSeller && (localityType === 'VILLAGE' || isVillageOrTalukaPlace(localityType, locName, district))) {
+              continue;
+            }
 
             const lat = Number(item.lat);
             const lng = Number(item.lon);

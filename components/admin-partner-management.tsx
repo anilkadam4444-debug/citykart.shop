@@ -25,7 +25,7 @@ import {
   UserX,
   X,
 } from 'lucide-react';
-import { auth } from '@/lib/firebase';
+import { buildAuthenticatedHeaders } from '@/lib/firebase';
 import { formatCurrency } from '@/lib/catalog-data';
 import {
   getAllCountries,
@@ -180,11 +180,7 @@ export function AdminPartnerManagement({
 
   const fetchPartnersData = useCallback(async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (auth.currentUser) {
-        const token = await auth.currentUser.getIdToken().catch(() => undefined);
-        if (token) headers.Authorization = `Bearer ${token}`;
-      }
+      const headers = await buildAuthenticatedHeaders();
       const res = await fetch('/api/admin/partners', {
         headers,
         cache: 'no-store',
@@ -219,11 +215,7 @@ export function AdminPartnerManagement({
     setSubmitting(true);
     setActionError(null);
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (auth.currentUser) {
-        const token = await auth.currentUser.getIdToken().catch(() => undefined);
-        if (token) headers.Authorization = `Bearer ${token}`;
-      }
+      const headers = await buildAuthenticatedHeaders();
       const res = await fetch('/api/admin/partners', {
         method: 'POST',
         headers,

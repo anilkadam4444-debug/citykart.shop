@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
 import {
   collection,
   doc,
@@ -11,10 +11,12 @@ import {
 } from 'firebase/firestore';
 import {
   AUTHORITATIVE_STORE_CATEGORIES,
+  INITIAL_PRODUCTS,
   INITIAL_STORES,
   LocalStore,
   Product,
 } from '@/lib/catalog-data';
+import { serverStoresRegistry } from '@/lib/stores-registry';
 import { checkProductQuota } from '@/lib/entitlements';
 import { isStoreDeletedServer } from '@/lib/stores-registry';
 import {
@@ -96,18 +98,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Fetch store from Firestore or catalog to verify store existence & ownership
-    let activeStore: LocalStore | null = null;
-    try {
-      const storeDocSnap = await getDoc(doc(db, 'stores', storeId));
-      if (storeDocSnap.exists()) {
-        activeStore = storeDocSnap.data() as LocalStore;
+    // 1. Fetch store from memory or Firestore to verify store existence & ownership
+    let activeStore: LocalStore | null =
+      INITIAL_STORES.find((s) => s.id === storeId) ||
+      serverStoresRegistry.get(storeId) ||
+      null;
+
+    if (!activeStore && !IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const storeDocSnap = await getDoc(doc(db, 'stores', storeId));
+        if (storeDocSnap.exists()) {
+          activeStore = storeDocSnap.data() as LocalStore;
+        }
+      } catch {
+        // Fallback to static store catalog if offline
       }
-    } catch {
-      // Fallback to static store catalog if offline
-    }
-    if (!activeStore) {
-      activeStore = INITIAL_STORES.find((s) => s.id === storeId) || null;
     }
 
     if (!activeStore) {
@@ -151,22 +156,38 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch existing products in store to evaluate quota and duplicates
-    const productsQ = query(
-      collection(db, 'products'),
-      where('storeId', '==', storeId)
-    );
-    const existingProductsSnap = await getDocs(productsQ);
     const existingProductsList: Product[] = [];
     const existingSkuMap = new Map<string, Product>();
     const existingNameMap = new Map<string, Product>();
 
-    existingProductsSnap.forEach((d) => {
-      const p = d.data() as Product;
-      existingProductsList.push(p);
-      if (p.sku) existingSkuMap.set(p.sku.toLowerCase(), p);
-      if (p.id) existingSkuMap.set(p.id.toLowerCase(), p);
-      if (p.name) existingNameMap.set(p.name.toLowerCase(), p);
-    });
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const productsQ = query(
+          collection(db, 'products'),
+          where('storeId', '==', storeId)
+        );
+        const existingProductsSnap = await getDocs(productsQ);
+        existingProductsSnap.forEach((d) => {
+          const p = d.data() as Product;
+          existingProductsList.push(p);
+          if (p.sku) existingSkuMap.set(p.sku.toLowerCase(), p);
+          if (p.id) existingSkuMap.set(p.id.toLowerCase(), p);
+          if (p.name) existingNameMap.set(p.name.toLowerCase(), p);
+        });
+      } catch {
+        // Fallback to in-memory initial products
+      }
+    }
+
+    if (existingProductsList.length === 0) {
+      const initialStoreProds = INITIAL_PRODUCTS.filter((p) => p.storeId === storeId);
+      for (const p of initialStoreProds) {
+        existingProductsList.push(p);
+        if (p.sku) existingSkuMap.set(p.sku.toLowerCase(), p);
+        if (p.id) existingSkuMap.set(p.id.toLowerCase(), p);
+        if (p.name) existingNameMap.set(p.name.toLowerCase(), p);
+      }
+    }
 
     // 3. Evaluate Subscription Quota
     if (mode === 'ADD_NEW') {
@@ -306,16 +327,22 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Commit Firestore Write Batch in Chunk Sizes <= 400
-    const CHUNK_SIZE = 400;
-    for (let i = 0; i < productsToCommit.length; i += CHUNK_SIZE) {
-      const chunk = productsToCommit.slice(i, i + CHUNK_SIZE);
-      const batch = writeBatch(db);
-      for (const p of chunk) {
-        const docRef = doc(db, 'products', p.id);
-        const cleanedPayload = removeUndefined(p as unknown as Record<string, unknown>);
-        batch.set(docRef, cleanedPayload, { merge: true });
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      const CHUNK_SIZE = 400;
+      for (let i = 0; i < productsToCommit.length; i += CHUNK_SIZE) {
+        const chunk = productsToCommit.slice(i, i + CHUNK_SIZE);
+        try {
+          const batch = writeBatch(db);
+          for (const p of chunk) {
+            const docRef = doc(db, 'products', p.id);
+            const cleanedPayload = removeUndefined(p as unknown as Record<string, unknown>);
+            batch.set(docRef, cleanedPayload, { merge: true });
+          }
+          await batch.commit();
+        } catch (err) {
+          console.warn('[bulk-upload] Firestore batch write fallback notice:', err);
+        }
       }
-      await batch.commit();
     }
 
     return NextResponse.json({

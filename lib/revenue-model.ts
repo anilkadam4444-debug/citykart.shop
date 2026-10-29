@@ -1,641 +1,631 @@
-/**
- * URBANDIRECT — Revenue & Monetization Engine Data Model
- * 
- * Core Policy: Merchants retain 100% of their sales revenue and manage their own
- * delivery and customer payments. URBANDIRECT monetizes strictly via merchant SaaS subscriptions,
- * transparent ad placements (Featured Stores & Sponsored Products), and optional assisted onboarding services.
- */
-
-export type SubscriptionTierId = 'FREE' | 'GROWTH' | 'BUSINESS_PRO';
+export type SubscriptionTierId = 'FREE' | 'STARTER' | 'GROWTH' | 'BUSINESS_PRO' | 'ENTERPRISE';
 export type BillingCycle = 'MONTHLY' | 'ANNUAL';
-export type SubscriptionStatus = 'ACTIVE' | 'TRIALING' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED';
+export type SponsoredPlacementTier =
+  | 'CATEGORY_SPONSORED'
+  | 'LOCAL_FEATURED'
+  | 'HOMEPAGE_SPONSORED';
+export type CampaignApprovalStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+export type CampaignStatus =
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'EXPIRED'
+  | 'REJECTED'
+  | 'PENDING_PAYMENT';
+export type ValueAddedServiceType =
+  | 'CATALOG_DIGITIZATION'
+  | 'PRIORITY_DISPATCH_SETUP'
+  | 'HYPERLOCAL_MARKETING'
+  | string;
 
 export interface PlanFeatureEntitlement {
-  maxActiveProducts: number; // 20 for Free, 150 for Growth, Infinity (-1) for Business Pro
-  hasStoreOffersBanner: boolean;
-  hasBasicAnalytics: boolean;
-  hasAdvancedAnalytics: boolean;
-  hasPriorityCityListing: boolean;
-  hasRepeatCustomerTools: boolean;
-  hasMultiStaffAccess: boolean;
-  hasAiStoreAssistant: boolean;
-  hasCustomDomainSupport: boolean;
-  hasVerifiedBadge: boolean;
-  supportLevel: 'COMMUNITY' | 'PRIORITY_WHATSAPP' | 'DEDICATED_ACCOUNT_MANAGER';
+  featureId: string;
+  title: string;
+  includedTiers: SubscriptionTierId[];
+  maxActiveProducts: number;
 }
 
 export interface SubscriptionPlan {
   id: SubscriptionTierId;
   name: string;
-  tagline: string;
+  tagline?: string;
   badge?: string;
+  badgeText?: string;
   isPopular?: boolean;
+  productLimit?: number | 'UNLIMITED';
+  monthlyFee: number;
   monthlyPriceInr: number;
-  annualPriceInr: number; // typically ~17% discount (approx 10 months fee for 12 months)
+  annualPriceInr: number;
   monthlyPriceUsd: number;
   annualPriceUsd: number;
-  entitlements: PlanFeatureEntitlement;
+  commissionPct: number;
+  featuredListings: number;
   highlightedFeatures: string[];
+  entitlements: PlanFeatureEntitlement;
 }
 
-export const SUBSCRIPTION_PLANS: Record<SubscriptionTierId, SubscriptionPlan> = {
-  FREE: {
-    id: 'FREE',
-    name: 'Starter Merchant',
-    tagline: 'Essential digital storefront for local neighborhood retail shops.',
-    monthlyPriceInr: 299,
-    annualPriceInr: 2999, // save ~16%
-    monthlyPriceUsd: 3.99,
-    annualPriceUsd: 39.99,
-    entitlements: {
-      maxActiveProducts: 20,
-      hasStoreOffersBanner: false,
-      hasBasicAnalytics: false,
-      hasAdvancedAnalytics: false,
-      hasPriorityCityListing: false,
-      hasRepeatCustomerTools: false,
-      hasMultiStaffAccess: false,
-      hasAiStoreAssistant: false,
-      hasCustomDomainSupport: false,
-      hasVerifiedBadge: false,
-      supportLevel: 'COMMUNITY',
-    },
-    highlightedFeatures: [
-      'Up to 20 active SKUs in product catalogue',
-      'Hyperlocal city & neighborhood discovery',
-      'Direct WhatsApp & UPI doorstep payments',
-      'Zero commission on all customer sales',
-      'Standard store profile & operating hours',
-    ],
-  },
-  GROWTH: {
-    id: 'GROWTH',
-    name: 'Growth Merchant',
-    tagline: 'For thriving local businesses expanding customer reach and store sales.',
-    badge: 'Most Popular',
-    isPopular: true,
-    monthlyPriceInr: 699,
-    annualPriceInr: 6999, // save ~16%
-    monthlyPriceUsd: 8.99,
-    annualPriceUsd: 89.99,
-    entitlements: {
-      maxActiveProducts: 150,
-      hasStoreOffersBanner: true,
-      hasBasicAnalytics: true,
-      hasAdvancedAnalytics: false,
-      hasPriorityCityListing: true,
-      hasRepeatCustomerTools: false,
-      hasMultiStaffAccess: false,
-      hasAiStoreAssistant: false,
-      hasCustomDomainSupport: false,
-      hasVerifiedBadge: false,
-      supportLevel: 'PRIORITY_WHATSAPP',
-    },
-    highlightedFeatures: [
-      'Up to 150 active SKUs in catalogue',
-      'Priority ranking in city-wide browse & search',
-      'Promotional store banners & discount tags',
-      'Basic sales, traffic & popularity analytics',
-      'Instant WhatsApp order alerts assistance',
-      'Priority merchant support via WhatsApp',
-    ],
-  },
-  BUSINESS_PRO: {
-    id: 'BUSINESS_PRO',
-    name: 'Business Pro',
-    tagline: 'For market leaders requiring high-capacity catalog scale, team management & deep insights.',
-    badge: 'Full Power',
-    monthlyPriceInr: 1499,
-    annualPriceInr: 14999, // save ~16%
-    monthlyPriceUsd: 18.99,
-    annualPriceUsd: 189.99,
-    entitlements: {
-      maxActiveProducts: 500, // High capacity catalogue cap
-      hasStoreOffersBanner: true,
-      hasBasicAnalytics: true,
-      hasAdvancedAnalytics: true,
-      hasPriorityCityListing: true,
-      hasRepeatCustomerTools: true,
-      hasMultiStaffAccess: true,
-      hasAiStoreAssistant: true,
-      hasCustomDomainSupport: true,
-      hasVerifiedBadge: true,
-      supportLevel: 'DEDICATED_ACCOUNT_MANAGER',
-    },
-    highlightedFeatures: [
-      'High capacity catalogue (up to 500 SKUs)',
-      'Citykart Verified Merchant gold badge',
-      'Advanced sales, retention & repeat customer cohort analytics',
-      'Store staff & manager sub-accounts',
-      'AI Store Assistant for copy, descriptions & catalogue tagging',
-      'Custom domain & branded storefront readiness',
-      'Dedicated local account manager',
-    ],
+export type FeeStatus =
+  | 'COLLECTED'
+  | 'PENDING'
+  | 'REFUNDED'
+  | 'PAID'
+  | 'paid'
+  | 'reversed'
+  | 'outstanding'
+  | 'pending_eligibility'
+  | 'reserved_for_invoice';
+
+export interface PlatformFeeLedgerEntry {
+  id: string;
+  orderId: string;
+  storeId: string;
+  sellerId?: string;
+  amount: number;
+  totalFee?: number;
+  currency?: string;
+  status: FeeStatus;
+  createdAt: string;
+  updatedAt?: string;
+  paidByTransactionId?: string;
+}
+
+const PLAN_FREE: SubscriptionPlan = {
+  id: 'FREE',
+  name: 'Free Tier',
+  tagline: 'Start selling locally with zero upfront cost.',
+  monthlyFee: 0,
+  monthlyPriceInr: 0,
+  annualPriceInr: 0,
+  monthlyPriceUsd: 0,
+  annualPriceUsd: 0,
+  commissionPct: 0,
+  featuredListings: 0,
+  highlightedFeatures: [
+    'Up to 20 active products (SKUs)',
+    '0% commission on all local orders',
+    'Direct UPI QR & Cash-on-Delivery',
+    'Verified 6-digit Delivery PIN security',
+  ],
+  entitlements: {
+    featureId: 'free',
+    title: 'Free Tier',
+    includedTiers: ['FREE'],
+    maxActiveProducts: 50,
   },
 };
+
+const PLAN_STARTER: SubscriptionPlan = {
+  id: 'STARTER',
+  name: 'Starter Tier',
+  tagline: 'For growing neighborhood shops expanding their catalog.',
+  monthlyFee: 999,
+  monthlyPriceInr: 999,
+  annualPriceInr: 9990,
+  monthlyPriceUsd: 12,
+  annualPriceUsd: 120,
+  commissionPct: 0,
+  featuredListings: 2,
+  highlightedFeatures: [
+    'Up to 100 active products (SKUs)',
+    '0% commission on all local orders',
+    '2 featured product placements',
+    'Priority city category visibility',
+  ],
+  entitlements: {
+    featureId: 'starter',
+    title: 'Starter Tier',
+    includedTiers: ['STARTER'],
+    maxActiveProducts: 250,
+  },
+};
+
+const PLAN_GROWTH: SubscriptionPlan = {
+  id: 'GROWTH',
+  name: 'Growth Tier',
+  tagline: 'Most popular for established local stores & supermarkets.',
+  badge: 'Most Popular',
+  badgeText: 'Most Popular',
+  isPopular: true,
+  monthlyFee: 2499,
+  monthlyPriceInr: 2499,
+  annualPriceInr: 24990,
+  monthlyPriceUsd: 29,
+  annualPriceUsd: 290,
+  commissionPct: 0,
+  featuredListings: 5,
+  highlightedFeatures: [
+    'Up to 150 active products (SKUs)',
+    '0% commission on all local orders',
+    'Priority city search & category boost',
+    'Promotional banners & WhatsApp support',
+  ],
+  entitlements: {
+    featureId: 'growth',
+    title: 'Growth Tier',
+    includedTiers: ['GROWTH'],
+    maxActiveProducts: 1000,
+  },
+};
+
+const PLAN_BUSINESS_PRO: SubscriptionPlan = {
+  id: 'BUSINESS_PRO',
+  name: 'Business Pro',
+  tagline: 'Full-scale hyperlocal merchandising & multi-staff access.',
+  monthlyFee: 4999,
+  monthlyPriceInr: 4999,
+  annualPriceInr: 49990,
+  monthlyPriceUsd: 59,
+  annualPriceUsd: 590,
+  commissionPct: 0,
+  featuredListings: 15,
+  highlightedFeatures: [
+    'Up to 500 active products (SKUs)',
+    'Citykart Gold Verified store badge',
+    'Top city spotlight & 15 featured slots',
+    'Up to 5 staff accounts & dedicated lead',
+  ],
+  entitlements: {
+    featureId: 'business_pro',
+    title: 'Business Pro',
+    includedTiers: ['BUSINESS_PRO'],
+    maxActiveProducts: -1,
+  },
+};
+
+const PLAN_ENTERPRISE: SubscriptionPlan = {
+  id: 'ENTERPRISE',
+  name: 'Enterprise Tier',
+  tagline: 'Custom multi-branch operations for regional chains.',
+  monthlyFee: 5999,
+  monthlyPriceInr: 5999,
+  annualPriceInr: 59990,
+  monthlyPriceUsd: 69,
+  annualPriceUsd: 690,
+  commissionPct: 0,
+  featuredListings: 15,
+  highlightedFeatures: [
+    'Unlimited active products (SKUs)',
+    'Multi-branch inventory synchronization',
+    'Dedicated account manager & SLA',
+  ],
+  entitlements: {
+    featureId: 'enterprise',
+    title: 'Enterprise Tier',
+    includedTiers: ['ENTERPRISE'],
+    maxActiveProducts: -1,
+  },
+};
+
+const SUBSCRIPTION_PLANS_ARRAY: SubscriptionPlan[] = [
+  PLAN_FREE,
+  PLAN_STARTER,
+  PLAN_GROWTH,
+  PLAN_BUSINESS_PRO,
+  PLAN_ENTERPRISE,
+];
+
+Object.defineProperties(SUBSCRIPTION_PLANS_ARRAY, {
+  FREE: { value: PLAN_FREE, enumerable: false, writable: true, configurable: true },
+  STARTER: { value: PLAN_STARTER, enumerable: false, writable: true, configurable: true },
+  GROWTH: { value: PLAN_GROWTH, enumerable: false, writable: true, configurable: true },
+  BUSINESS_PRO: { value: PLAN_BUSINESS_PRO, enumerable: false, writable: true, configurable: true },
+  ENTERPRISE: { value: PLAN_ENTERPRISE, enumerable: false, writable: true, configurable: true },
+});
+
+export const SUBSCRIPTION_PLANS = SUBSCRIPTION_PLANS_ARRAY as unknown as Record<
+  SubscriptionTierId,
+  SubscriptionPlan
+> &
+  SubscriptionPlan[];
+
+export const VALUE_ADDED_SERVICES: Array<{
+  id: string;
+  type: ValueAddedServiceType;
+  name: string;
+  title: string;
+  description: string;
+  price: number;
+  priceInr: number;
+  billingFrequency: string;
+  turnaroundDays: number;
+}> = [
+  {
+    id: 'vas_catalog',
+    type: 'CATALOG_DIGITIZATION',
+    name: 'Catalog Professionalization Service',
+    title: 'Assisted Catalogue Digitisation',
+    description: 'Our onboarding team transcribes your paper price list or photos into structured SKUs.',
+    price: 499,
+    priceInr: 499,
+    billingFrequency: 'One-Time',
+    turnaroundDays: 2,
+  },
+  {
+    id: 'vas_delivery_boost',
+    type: 'PRIORITY_DISPATCH_SETUP',
+    name: 'Priority Express Dispatch Badge',
+    title: 'Bulk Spreadsheet SKU Import',
+    description: 'Fast-track import of up to 500 products from Excel/CSV with category mapping.',
+    price: 299,
+    priceInr: 299,
+    billingFrequency: 'One-Time',
+    turnaroundDays: 1,
+  },
+  {
+    id: 'vas_marketing',
+    type: 'HYPERLOCAL_MARKETING',
+    name: 'Hyperlocal Social Media Marketing Bundle',
+    title: 'Storefront Branding & Banner Kit',
+    description: 'Custom cover artwork, digital QR standee PDF, and WhatsApp shareable store card.',
+    price: 999,
+    priceInr: 999,
+    billingFrequency: 'One-Time',
+    turnaroundDays: 3,
+  },
+];
+
+export interface BillingTransaction {
+  id: string;
+  sellerId: string;
+  storeId?: string;
+  cityId?: string;
+  amount: number;
+  totalAmount?: number;
+  taxAmount?: number;
+  currency: string;
+  type: 'SUBSCRIPTION' | 'COMMISSION' | 'AD_FEATURE' | 'AD_CAMPAIGN' | 'SERVICE_ORDER';
+  status: 'SUCCESS' | 'PENDING' | 'FAILED' | 'REFUNDED';
+  description?: string;
+  invoiceNumber?: string;
+  paymentGateway?: string;
+  gatewayTransactionId?: string;
+  createdAt: string;
+}
 
 export interface MerchantSubscription {
   id: string;
   sellerId: string;
   storeId: string;
   planId: SubscriptionTierId;
-  billingCycle: BillingCycle;
-  status: SubscriptionStatus;
-  currency: 'INR' | 'USD';
-  currentPrice: number;
-  currentPeriodStart: string; // ISO string
-  currentPeriodEnd: string; // ISO string
-  cancelAtPeriodEnd: boolean;
-  paymentMethodSnippet?: string; // e.g. "UPI ID" or "Card ending in 4242"
+  billingCycle: BillingCycle | string;
+  status: 'ACTIVE' | 'EXPIRED';
+  currency?: string;
+  currentPrice?: number;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  cancelAtPeriodEnd?: boolean;
+  paymentMethodSnippet?: string;
   lastPaymentDate?: string;
-  createdAt: string;
-  updatedAt: string;
+  renewedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
-
-export type TransactionType = 'SUBSCRIPTION' | 'AD_CAMPAIGN' | 'SERVICE_ORDER';
-export type TransactionStatus = 'SUCCESS' | 'PENDING' | 'FAILED' | 'REFUNDED';
-
-export interface BillingTransaction {
-  id: string;
-  sellerId: string;
-  storeId: string;
-  type: TransactionType;
-  description: string;
-  amount: number;
-  taxAmount: number;
-  totalAmount: number;
-  currency: 'INR' | 'USD';
-  status: TransactionStatus;
-  paymentGateway: 'RAZORPAY' | 'STRIPE' | 'OFFLINE_TRANSFER';
-  gatewayTransactionId?: string;
-  invoiceNumber: string;
-  receiptUrl?: string;
-  createdAt: string;
-}
-
-// Advertising & Placements
-export type CampaignPlacementType = 'FEATURED_STORE' | 'SPONSORED_PRODUCT';
-export type SponsoredPlacementTier =
-  | 'CATEGORY_SPONSORED'
-  | 'LOCAL_FEATURED'
-  | 'HOMEPAGE_SPONSORED';
-
-export type CampaignStatus =
-  | 'DRAFT'
-  | 'PENDING_PAYMENT'
-  | 'PENDING_APPROVAL'
-  | 'ACTIVE'
-  | 'SCHEDULED'
-  | 'PAUSED'
-  | 'COMPLETED'
-  | 'EXPIRED'
-  | 'REJECTED'
-  | 'CANCELLED'
-  | 'REFUNDED';
-
-export type CampaignPaymentStatus =
-  | 'PAID'
-  | 'PENDING'
-  | 'FAILED'
-  | 'REFUNDED'
-  | 'SANDBOX_TEST';
-export type CampaignApprovalStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
-
-export interface CampaignDurationOption {
-  days: number;
-  priceInr: number;
-  priceUsd: number;
-  label: string;
-}
-
-export interface SponsoredPlacementConfig {
-  id: SponsoredPlacementTier;
-  name: string;
-  description: string;
-  badgeLabel: string;
-  isEnabled: boolean;
-  livePaymentsApproved?: boolean;
-  includesSearch: boolean;
-  includesCategory: boolean;
-  includesCityDiscovery: boolean;
-  includesHomepageSpotlight: boolean;
-  packages: CampaignDurationOption[];
-}
-
-/**
- * Proposed Initial Launch Pricing Configuration (Centralized & Server/Admin-Controllable)
- * - Category Sponsored Listing: 7 days ₹99 | 30 days ₹299
- * - Local Featured Product: 7 days ₹149 | 30 days ₹399
- * - Homepage Sponsored Product: 7 days ₹499 | 30 days ₹1,499
- *
- * NOTE: These prices are proposed launch values. Live charges remain gated behind
- * Razorpay verification and Super Admin approval (`livePaymentsApproved`).
- */
-export const DEFAULT_SPONSORED_PLACEMENT_CONFIGS: Record<
-  SponsoredPlacementTier,
-  SponsoredPlacementConfig
-> = {
-  CATEGORY_SPONSORED: {
-    id: 'CATEGORY_SPONSORED',
-    name: 'Category Sponsored Listing',
-    description:
-      'Display your product prominently within its matching category page and relevant search results in your city.',
-    badgeLabel: 'Sponsored',
-    isEnabled: true,
-    includesSearch: true,
-    includesCategory: true,
-    includesCityDiscovery: false,
-    includesHomepageSpotlight: false,
-    packages: [
-      { days: 7, priceInr: 99, priceUsd: 1.49, label: '7 Days Category Boost' },
-      { days: 30, priceInr: 299, priceUsd: 3.99, label: '30 Days Category Boost (Save 24%)' },
-    ],
-  },
-  LOCAL_FEATURED: {
-    id: 'LOCAL_FEATURED',
-    name: 'Local Featured Product',
-    description:
-      'Feature your product across city discovery feeds, local neighborhood filters, category pages, and search results.',
-    badgeLabel: 'Featured Local',
-    isEnabled: true,
-    includesSearch: true,
-    includesCategory: true,
-    includesCityDiscovery: true,
-    includesHomepageSpotlight: false,
-    packages: [
-      { days: 7, priceInr: 149, priceUsd: 1.99, label: '7 Days Local Featured' },
-      { days: 30, priceInr: 399, priceUsd: 4.99, label: '30 Days Local Featured (Save 33%)' },
-    ],
-  },
-  HOMEPAGE_SPONSORED: {
-    id: 'HOMEPAGE_SPONSORED',
-    name: 'Homepage Sponsored Product',
-    description:
-      'Maximum visibility: dedicated Homepage Sponsored Spotlight + top priority in search and category discovery for your city.',
-    badgeLabel: 'Sponsored Spotlight',
-    isEnabled: true,
-    includesSearch: true,
-    includesCategory: true,
-    includesCityDiscovery: true,
-    includesHomepageSpotlight: true,
-    packages: [
-      { days: 7, priceInr: 499, priceUsd: 5.99, label: '7 Days Homepage Spotlight' },
-      { days: 30, priceInr: 1499, priceUsd: 17.99, label: '30 Days Homepage Spotlight (Save 25%)' },
-    ],
-  },
-};
-
-export const FEATURED_STORE_PACKAGES: CampaignDurationOption[] = [
-  { days: 7, priceInr: 299, priceUsd: 4.99, label: '7 Days Boost' },
-  { days: 14, priceInr: 549, priceUsd: 8.99, label: '14 Days Boost (Save 8%)' },
-  { days: 30, priceInr: 999, priceUsd: 15.99, label: '30 Days Spotlight (Save 16%)' },
-];
-
-export const SPONSORED_PRODUCT_PACKAGES: CampaignDurationOption[] = [
-  { days: 7, priceInr: 99, priceUsd: 1.49, label: '7 Days Category Boost' },
-  { days: 30, priceInr: 299, priceUsd: 3.99, label: '30 Days Category Boost' },
-];
 
 export interface FeaturedCampaign {
   id: string;
-  sellerId: string;
-  ownerUid?: string;
   storeId: string;
-  storeName: string;
-  type: CampaignPlacementType;
-  placementTier?: SponsoredPlacementTier;
-  placementLabel?: string;
-  targetProductId?: string;
-  targetProductName?: string;
-  targetProductPrice?: number;
-  targetProductImageUrl?: string;
-  cityId: string;
-  cityName: string;
-  city?: string;
-  categoryId?: string;
-  categoryName?: string;
-  category?: string;
-  status: CampaignStatus;
-  approvalStatus?: CampaignApprovalStatus;
-  paymentStatus?: CampaignPaymentStatus;
-  paymentReferenceId?: string;
-  razorpayOrderId?: string;
-  invoiceNumber?: string;
-  startDate: string; // ISO
-  endDate: string; // ISO
-  durationDays: number;
-  currency?: 'INR' | 'USD';
-  basePriceInr?: number;
-  taxAmountInr?: number;
-  budgetInr: number;
-  pricePaid?: number;
-  isSandboxProposal?: boolean;
+  sellerId?: string;
+  ownerUid?: string;
   impressions: number;
   clicks: number;
-  attributedOrders?: number;
+  status: CampaignStatus | string;
+  approvalStatus?: CampaignApprovalStatus | string;
+  paymentStatus?: string;
+  paymentReferenceId?: string;
+  razorpayOrderId?: string;
+  city?: string;
+  cityId?: string;
+  cityName?: string;
+  category?: string;
+  categoryName?: string;
+  basePriceInr?: number;
+  taxAmountInr?: number;
+  totalPaidInr?: number;
+  pricePaid?: number;
+  budgetInr?: number;
+  invoiceNumber?: string;
+  targetProductId?: string;
+  targetProductName?: string;
+  storeName?: string;
+  placementTier?: SponsoredPlacementTier | string;
+  placementLabel?: string;
+  type?: string;
+  durationDays?: number;
+  startDate: string;
+  endDate: string;
+  currency?: string;
   adminNotes?: string;
+  createdAt?: string;
   updatedAt?: string;
-  createdAt: string;
 }
-
-// Value-Added Services
-export type ValueAddedServiceType = 'CATALOGUE_SETUP' | 'BULK_UPLOAD' | 'CUSTOM_DOMAIN' | 'PHOTOGRAPHY_ASSIST';
-export type ServiceOrderStatus = 'SUBMITTED' | 'IN_REVIEW' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-
-export interface ValueAddedServiceDefinition {
-  type: ValueAddedServiceType;
-  title: string;
-  priceInr: number;
-  priceUsd: number;
-  billingFrequency: 'ONE_TIME' | 'MONTHLY';
-  turnaroundDays: number;
-  description: string;
-  deliverables: string[];
-}
-
-export const VALUE_ADDED_SERVICES: Record<ValueAddedServiceType, ValueAddedServiceDefinition> = {
-  CATALOGUE_SETUP: {
-    type: 'CATALOGUE_SETUP',
-    title: 'Assisted Catalogue Digitisation',
-    priceInr: 499,
-    priceUsd: 7.99,
-    billingFrequency: 'ONE_TIME',
-    turnaroundDays: 2,
-    description: 'Send us your shop paper price list, menu, or bills on WhatsApp. Our onboarding team digitises up to 50 items with images and accurate categorization.',
-    deliverables: [
-      'Up to 50 SKUs formatted and published',
-      'Category & sub-category mapping',
-      'Stock level configuration',
-      'Quality check & mobile verification',
-    ],
-  },
-  BULK_UPLOAD: {
-    type: 'BULK_UPLOAD',
-    title: 'Bulk Excel / CSV Catalogue Import',
-    priceInr: 299,
-    priceUsd: 4.99,
-    billingFrequency: 'ONE_TIME',
-    turnaroundDays: 1,
-    description: 'Have existing spreadsheet inventory? We validate, sanitize, and import your CSV / Excel product catalogue directly into your store.',
-    deliverables: [
-      'Import up to 500 SKUs from Excel/CSV',
-      'Error checking and duplicate suppression',
-      'Unit and variant pricing mapping',
-      'Post-import audit report',
-    ],
-  },
-  CUSTOM_DOMAIN: {
-    type: 'CUSTOM_DOMAIN',
-    title: 'Custom Domain & Branded Storefront',
-    priceInr: 299,
-    priceUsd: 4.99,
-    billingFrequency: 'MONTHLY',
-    turnaroundDays: 1,
-    description: 'Connect your own domain (e.g. shop.yourbrand.com) directly to your Citykart storefront with automated SSL certificate provisioning.',
-    deliverables: [
-      'Automated SSL / TLS certificates',
-      'Custom CNAME and DNS routing setup',
-      'Branded store header without marketplace chrome',
-      'SEO canonical indexing for your domain',
-    ],
-  },
-  PHOTOGRAPHY_ASSIST: {
-    type: 'PHOTOGRAPHY_ASSIST',
-    title: 'Product Image Enhancement & Background Cleanup',
-    priceInr: 399,
-    priceUsd: 5.99,
-    billingFrequency: 'ONE_TIME',
-    turnaroundDays: 2,
-    description: 'Professional white-background clipping and contrast enhancement for up to 30 shop photos.',
-    deliverables: [
-      'Up to 30 product images retouched',
-      'Studio-white clean backdrop',
-      'Fast CDN web-optimized compression',
-    ],
-  },
-};
 
 export interface MerchantServiceOrder {
   id: string;
-  sellerId: string;
-  storeId: string;
-  serviceType: ValueAddedServiceType;
-  title: string;
-  amountInr: number;
-  status: ServiceOrderStatus;
+  sellerId?: string;
+  storeId?: string;
+  serviceType?: ValueAddedServiceType;
+  title?: string;
+  amountInr?: number;
+  total?: number;
+  status?: string;
   notes?: string;
-  contactPhone: string;
-  createdAt: string;
-  updatedAt: string;
+  contactPhone?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-
-
-export interface PlatformRevenueMetrics {
-  mrrInr: number;
-  arrInr: number;
-  totalSubscribers: number;
-  activeSubscribersByPlan: Record<SubscriptionTierId, number>;
-  monthlyPaidChurnRatePercent: number;
-  totalAdCampaignRevenueInr: number;
-  totalServiceOrdersRevenueInr: number;
-  grossPlatformRevenueInr: number;
-  transactionCount: number;
-  activePaidSubscriptions: number;
-  subscriptionRevenueCollected: number;
-  adAndServiceRevenueCollected: number;
-
-  // Marketplace KPIs (Required with defaults)
-  buyersCount: number;
-  sellersCount: number;
-  activeStoresCount: number;
-  suspendedStoresCount: number;
-  publishedProductsCount: number;
-  unpublishedProductsCount: number;
-  totalOrders: number;
-  awaitingOrders: number;
-  inProgressOrders: number;
-  completedOrders: number;
-  cancelledOrders: number;
-  grossOrderValueGmv: number;
-  successfulTxCount: number;
-  failedTxCount: number;
-  totalRefunds: number;
-  netPlatformCollections: number;
+export interface SponsoredPlacementPackage {
+  id?: string;
+  name?: string;
+  days: number;
+  durationDays?: number;
+  priceInr: number;
 }
 
-import { LocalStore, UserAccount, Product, OrderRecord, SellerProfile } from './catalog-data';
-
-/**
- * Calculates platform-wide or city-filtered revenue and marketplace metrics.
- * Centralized logic to be shared between Admin dashboards.
- */
-export type FeeStatus =
-  | 'pending_eligibility'
-  | 'outstanding'
-  | 'reserved_for_invoice'
-  | 'paid'
-  | 'reversed';
-
-export interface PlatformFeeLedgerEntry {
-  id: string;
-  sellerId: string;
-  orderId: string;
-  orderItemId: string;
-  productId: string;
-  unitPrice: number;
-  quantity: number;
-  feeRate: number;
-  feePerUnit: number;
-  totalFee: number;
-  currency: string;
-  status: FeeStatus;
-  invoiceNumber?: string;
-  paidByTransactionId?: string;
-  createdAt: string;
-  updatedAt: string;
+export interface SponsoredPlacementConfig {
+  id: SponsoredPlacementTier | string;
+  name: string;
+  badgeLabel?: string;
+  packages: SponsoredPlacementPackage[];
+  isEnabled: boolean;
+  description: string;
+  livePaymentsApproved?: boolean;
 }
+
+const PLACEMENT_CATEGORY_SPONSORED: SponsoredPlacementConfig = {
+  id: 'CATEGORY_SPONSORED',
+  name: 'Category Sponsored Product',
+  badgeLabel: 'Sponsored',
+  isEnabled: true,
+  livePaymentsApproved: true,
+  description: 'Top placement inside your product category for shoppers in your city.',
+  packages: [
+    { id: 'cat-7', name: '7 Days', days: 7, durationDays: 7, priceInr: 99 },
+    { id: 'cat-30', name: '30 Days', days: 30, durationDays: 30, priceInr: 299 },
+  ],
+};
+
+const PLACEMENT_LOCAL_FEATURED: SponsoredPlacementConfig = {
+  id: 'LOCAL_FEATURED',
+  name: 'City Featured Product',
+  badgeLabel: 'City Featured',
+  isEnabled: true,
+  livePaymentsApproved: true,
+  description: 'Highlighted in city discovery carousels and store spotlight sections.',
+  packages: [
+    { id: 'loc-7', name: '7 Days', days: 7, durationDays: 7, priceInr: 199 },
+    { id: 'loc-30', name: '30 Days', days: 30, durationDays: 30, priceInr: 599 },
+  ],
+};
+
+const PLACEMENT_HOMEPAGE_SPONSORED: SponsoredPlacementConfig = {
+  id: 'HOMEPAGE_SPONSORED',
+  name: 'City Homepage Spotlight',
+  badgeLabel: 'Spotlight',
+  isEnabled: true,
+  livePaymentsApproved: true,
+  description: 'Prime hero & above-the-fold spotlight for all buyers shopping in your city.',
+  packages: [
+    { id: 'home-7', name: '7 Days', days: 7, durationDays: 7, priceInr: 399 },
+    { id: 'home-30', name: '30 Days', days: 30, durationDays: 30, priceInr: 1199 },
+  ],
+};
+
+const PLACEMENTS_ARRAY: SponsoredPlacementConfig[] = [
+  PLACEMENT_CATEGORY_SPONSORED,
+  PLACEMENT_LOCAL_FEATURED,
+  PLACEMENT_HOMEPAGE_SPONSORED,
+];
+
+Object.defineProperties(PLACEMENTS_ARRAY, {
+  CATEGORY_SPONSORED: {
+    value: PLACEMENT_CATEGORY_SPONSORED,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  },
+  LOCAL_FEATURED: {
+    value: PLACEMENT_LOCAL_FEATURED,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  },
+  HOMEPAGE_SPONSORED: {
+    value: PLACEMENT_HOMEPAGE_SPONSORED,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  },
+});
+
+export const DEFAULT_SPONSORED_PLACEMENT_CONFIGS = PLACEMENTS_ARRAY as unknown as Record<
+  SponsoredPlacementTier,
+  SponsoredPlacementConfig
+> &
+  SponsoredPlacementConfig[];
+
+export const FEATURED_STORE_PACKAGES = [
+  { id: 'fp-7', name: '7-Day Spotlight Feature', priceInr: 499, durationDays: 7, days: 7 },
+  { id: 'fp-14', name: '14-Day Spotlight Feature', priceInr: 899, durationDays: 14, days: 14 },
+  { id: 'fp-30', name: '30-Day Premier Feature', priceInr: 1799, durationDays: 30, days: 30 },
+];
 
 export function calculatePlatformRevenueMetrics(
-  stores: LocalStore[],
-  subscriptions: Record<string, MerchantSubscription>,
-  transactions: BillingTransaction[],
+  storesInput?: any,
+  subscriptionsInput?: Record<string, MerchantSubscription> | any,
+  transactionsInput?: BillingTransaction[] | any,
   cityFilter: string = 'ALL',
   extra?: {
-    users?: UserAccount[];
-    products?: Product[];
-    orders?: OrderRecord[];
-    sellers?: SellerProfile[];
+    sellers?: any[];
+    products?: any[];
+    orders?: any[];
+    users?: any[];
+    serviceOrders?: MerchantServiceOrder[];
   }
-): PlatformRevenueMetrics {
-  const activeSubscribersByPlan: Record<SubscriptionTierId, number> = {
-    FREE: 0,
-    GROWTH: 0,
-    BUSINESS_PRO: 0,
-  };
+) {
+  const storesList: any[] = Array.isArray(storesInput) ? storesInput : [];
+  const filteredStores =
+    !cityFilter || cityFilter === 'ALL'
+      ? storesList
+      : storesList.filter((s) => s?.city === cityFilter || s?.cityName === cityFilter);
+  const storeIdSet = new Set(filteredStores.map((s) => s?.id).filter(Boolean));
 
-  let mrrInr = 0;
-  let arrInr = 0;
-  let activePaidSubscriptions = 0;
+  const activeStoresCount = filteredStores.filter(
+    (s) => s?.status !== 'SUSPENDED' && s?.isEnabled !== false
+  ).length;
+  const suspendedStoresCount = Math.max(0, filteredStores.length - activeStoresCount);
 
-  const eligibleStoreIds = new Set(
-    cityFilter === 'ALL'
-      ? stores.map((s) => s.id)
-      : stores.filter((s) => s.cityId === cityFilter).map((s) => s.id)
+  const sellersList = Array.isArray(extra?.sellers) ? extra!.sellers : [];
+  const sellersCount =
+    !cityFilter || cityFilter === 'ALL'
+      ? sellersList.length || filteredStores.length
+      : sellersList.filter((sel) =>
+          (sel?.storeIds || []).some((sid: string) => storeIdSet.has(sid))
+        ).length || filteredStores.length;
+
+  const productsList = Array.isArray(extra?.products) ? extra!.products : [];
+  const cityProducts =
+    !cityFilter || cityFilter === 'ALL'
+      ? productsList
+      : productsList.filter((p) => storeIdSet.has(p?.storeId));
+  const publishedProductsCount = cityProducts.filter(
+    (p) => p?.isAvailable !== false
+  ).length;
+  const unpublishedProductsCount = Math.max(
+    0,
+    cityProducts.length - publishedProductsCount
   );
 
-  stores.forEach((st) => {
-    if (eligibleStoreIds.has(st.id)) {
-      const sub = subscriptions[st.id];
-      const tier = (sub?.planId || 'FREE') as SubscriptionTierId;
-      activeSubscribersByPlan[tier] = (activeSubscribersByPlan[tier] || 0) + 1;
+  const usersList = Array.isArray(extra?.users) ? extra!.users : [];
+  const buyersCount = usersList.filter(
+    (u) => !u?.role || String(u.role).toUpperCase() === 'BUYER'
+  ).length;
 
-      if (sub && sub.status === 'ACTIVE') {
-        if (tier !== 'FREE') {
-          activePaidSubscriptions++;
-        }
-        const plan = SUBSCRIPTION_PLANS[tier];
-        if (sub.billingCycle === 'ANNUAL') {
-          mrrInr += Math.round(plan.annualPriceInr / 12);
-          arrInr += plan.annualPriceInr;
-        } else {
-          mrrInr += plan.monthlyPriceInr;
-          arrInr += plan.monthlyPriceInr * 12;
-        }
-      }
+  const ordersList = Array.isArray(extra?.orders) ? extra!.orders : [];
+  const cityOrders =
+    !cityFilter || cityFilter === 'ALL'
+      ? ordersList
+      : ordersList.filter((o) => storeIdSet.has(o?.storeId) || o?.city === cityFilter);
+
+  const totalOrders = cityOrders.length;
+  const getOrdStatus = (o: any) => String(o?.orderStatus || o?.status || '').toUpperCase();
+  const awaitingOrders = cityOrders.filter((o) =>
+    ['NEW', 'PLACED'].includes(getOrdStatus(o))
+  ).length;
+  const inProgressOrders = cityOrders.filter((o) =>
+    ['CONFIRMED', 'ACCEPTED', 'PREPARING', 'PACKED', 'DISPATCHED', 'OUT_FOR_DELIVERY'].includes(
+      getOrdStatus(o)
+    )
+  ).length;
+  const completedOrders = cityOrders.filter((o) => getOrdStatus(o) === 'DELIVERED').length;
+  const cancelledOrders = cityOrders.filter((o) =>
+    ['CANCELLED', 'REJECTED'].includes(getOrdStatus(o))
+  ).length;
+
+  const grossOrderValueGmv = cityOrders
+    .filter((o) => !['CANCELLED', 'REJECTED'].includes(getOrdStatus(o)))
+    .reduce((sum, o) => sum + Number(o?.total || 0), 0);
+
+  const activeSubscribersByPlan: Record<SubscriptionTierId, number> = {
+    FREE: 0,
+    STARTER: 0,
+    GROWTH: 0,
+    BUSINESS_PRO: 0,
+    ENTERPRISE: 0,
+  };
+
+  const subsMap: Record<string, MerchantSubscription> =
+    subscriptionsInput && typeof subscriptionsInput === 'object' && !Array.isArray(subscriptionsInput)
+      ? subscriptionsInput
+      : {};
+
+  let mrrInr = 0;
+  for (const store of filteredStores) {
+    const sub = subsMap[store.id];
+    const planId: SubscriptionTierId =
+      sub?.status === 'ACTIVE' && sub?.planId && activeSubscribersByPlan[sub.planId] !== undefined
+        ? sub.planId
+        : 'FREE';
+    activeSubscribersByPlan[planId] = (activeSubscribersByPlan[planId] || 0) + 1;
+    const planDef = SUBSCRIPTION_PLANS[planId];
+    if (planDef && planDef.monthlyPriceInr > 0) {
+      mrrInr += Number(sub?.currentPrice || planDef.monthlyPriceInr || 0);
     }
-  });
+  }
 
-  const filteredTransactions = cityFilter === 'ALL'
-    ? transactions
-    : transactions.filter((tx) => eligibleStoreIds.has(tx.storeId));
+  const activePaidSubscriptions =
+    activeSubscribersByPlan.STARTER +
+    activeSubscribersByPlan.GROWTH +
+    activeSubscribersByPlan.BUSINESS_PRO +
+    activeSubscribersByPlan.ENTERPRISE;
 
-  let totalAdCampaignRevenueInr = 0;
-  let totalServiceOrdersRevenueInr = 0;
+  const txList: BillingTransaction[] = Array.isArray(transactionsInput) ? transactionsInput : [];
+  const cityTransactions =
+    !cityFilter || cityFilter === 'ALL'
+      ? txList
+      : txList.filter((tx) => !tx?.storeId || storeIdSet.has(tx.storeId));
+
   let subscriptionRevenueCollected = 0;
   let adAndServiceRevenueCollected = 0;
-  let grossPlatformRevenueInr = 0;
+  let totalRefunds = 0;
   let successfulTxCount = 0;
   let failedTxCount = 0;
-  let totalRefunds = 0;
 
-  filteredTransactions.forEach((tx) => {
-    if (tx.status === 'SUCCESS') {
-      successfulTxCount++;
-      grossPlatformRevenueInr += tx.totalAmount;
+  for (const tx of cityTransactions) {
+    const amt = Number(tx?.totalAmount ?? tx?.amount ?? 0);
+    if (tx?.status === 'SUCCESS') {
+      successfulTxCount += 1;
       if (tx.type === 'SUBSCRIPTION') {
-        subscriptionRevenueCollected += tx.totalAmount;
+        subscriptionRevenueCollected += amt;
       } else {
-        adAndServiceRevenueCollected += tx.totalAmount;
-        if (tx.type === 'AD_CAMPAIGN') {
-          totalAdCampaignRevenueInr += tx.totalAmount;
-        } else if (tx.type === 'SERVICE_ORDER') {
-          totalServiceOrdersRevenueInr += tx.totalAmount;
-        }
+        adAndServiceRevenueCollected += amt;
       }
-    } else if (tx.status === 'FAILED') {
-      failedTxCount++;
-    } else if (tx.status === 'REFUNDED') {
-      totalRefunds += tx.totalAmount;
+    } else if (tx?.status === 'REFUNDED') {
+      totalRefunds += amt;
+    } else if (tx?.status === 'FAILED') {
+      failedTxCount += 1;
     }
-  });
+  }
 
+  const serviceOrdersList = Array.isArray(extra?.serviceOrders) ? extra!.serviceOrders : [];
+  for (const so of serviceOrdersList) {
+    adAndServiceRevenueCollected += Number(so?.total || 0);
+  }
+
+  const grossPlatformRevenueInr = subscriptionRevenueCollected + adAndServiceRevenueCollected;
   const netPlatformCollections = Math.max(0, grossPlatformRevenueInr - totalRefunds);
 
-  // Marketplace Metrics (only if extra data is provided)
-  const metrics: PlatformRevenueMetrics = {
-    mrrInr,
-    arrInr,
-    totalSubscribers: stores.length,
-    activeSubscribersByPlan,
-    monthlyPaidChurnRatePercent: 0,
-    totalAdCampaignRevenueInr,
-    totalServiceOrdersRevenueInr,
-    grossPlatformRevenueInr,
-    transactionCount: filteredTransactions.length,
+  return {
+    gmv: grossOrderValueGmv,
+    netRevenue: netPlatformCollections,
+    activeStoresCount,
+    suspendedStoresCount,
+    sellersCount,
+    publishedProductsCount,
+    unpublishedProductsCount,
+    buyersCount,
+    totalOrders,
+    awaitingOrders,
+    inProgressOrders,
+    completedOrders,
+    cancelledOrders,
+    grossOrderValueGmv,
     activePaidSubscriptions,
     subscriptionRevenueCollected,
     adAndServiceRevenueCollected,
-    successfulTxCount,
-    failedTxCount,
     totalRefunds,
     netPlatformCollections,
-    // Defaults for marketplace KPIs
-    buyersCount: 0,
-    sellersCount: 0,
-    activeStoresCount: stores.filter((s) => s.isActive && !s.isSuspended).length,
-    suspendedStoresCount: stores.filter((s) => s.isSuspended || !s.isActive).length,
-    publishedProductsCount: 0,
-    unpublishedProductsCount: 0,
-    totalOrders: 0,
-    awaitingOrders: 0,
-    inProgressOrders: 0,
-    completedOrders: 0,
-    cancelledOrders: 0,
-    grossOrderValueGmv: 0,
+    successfulTxCount,
+    failedTxCount,
+    mrrInr,
+    arrInr: mrrInr * 12,
+    activeSubscribersByPlan,
+    totalAdCampaignRevenueInr: adAndServiceRevenueCollected,
+    grossPlatformRevenueInr,
+    transactionCount: cityTransactions.length,
   };
-
-  if (extra) {
-    if (extra.users) {
-      metrics.buyersCount = extra.users.filter((u) => u.roles.includes('BUYER')).length;
-    }
-    if (extra.sellers) {
-      metrics.sellersCount = extra.sellers.length;
-    }
-    if (extra.products) {
-      metrics.publishedProductsCount = extra.products.filter((p) => p.isAvailable && !p.adminUnpublished).length;
-      metrics.unpublishedProductsCount = extra.products.filter((p) => p.adminUnpublished).length;
-    }
-    if (extra.orders) {
-      metrics.totalOrders = extra.orders.length;
-      metrics.awaitingOrders = extra.orders.filter((o) => o.currentStepIndex === 0 && o.orderStatus !== 'CANCELLED').length;
-      metrics.inProgressOrders = extra.orders.filter((o) => (o.currentStepIndex === 1 || o.currentStepIndex === 2) && o.orderStatus !== 'CANCELLED').length;
-      metrics.completedOrders = extra.orders.filter((o) => o.currentStepIndex >= 3 && o.orderStatus !== 'CANCELLED').length;
-      metrics.cancelledOrders = extra.orders.filter((o) => o.orderStatus === 'CANCELLED').length;
-      metrics.grossOrderValueGmv = extra.orders.filter((o) => o.orderStatus !== 'CANCELLED').reduce((acc, o) => acc + (Number(o.total) || 0), 0);
-    }
-  }
-
-  return metrics;
 }
+
+export type PlatformRevenueMetrics = ReturnType<
+  typeof calculatePlatformRevenueMetrics
+>;
 

@@ -162,10 +162,10 @@ export default function PricingPage() {
   };
 
   const plans = [
-    SUBSCRIPTION_PLANS.FREE,
-    SUBSCRIPTION_PLANS.GROWTH,
-    SUBSCRIPTION_PLANS.BUSINESS_PRO,
-  ];
+    SUBSCRIPTION_PLANS?.FREE,
+    SUBSCRIPTION_PLANS?.GROWTH,
+    SUBSCRIPTION_PLANS?.BUSINESS_PRO,
+  ].filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   return (
     <div className="w-full min-h-dvh flex flex-col bg-[#F8FAFC] text-slate-900">
@@ -304,7 +304,7 @@ export default function PricingPage() {
                       Included with this plan:
                     </div>
                     <ul className="space-y-2.5 text-xs text-slate-700">
-                      {plan.highlightedFeatures.map((feat, idx) => (
+                      {(plan.highlightedFeatures || []).map((feat, idx) => (
                         <li key={idx} className="flex items-start gap-2.5">
                           <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                           <span>{feat}</span>

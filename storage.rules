@@ -1,82 +1,12 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isSuperAdmin() {
-      return isAuthenticated()
-        && (
-          request.auth.token.phone_number == '+918329306616'
-          || request.auth.token.role == 'super_admin'
-          || request.auth.token.super_admin == true
-        );
-    }
-
-    function isAdmin() {
-      return isAuthenticated()
-        && (
-          isSuperAdmin()
-          || request.auth.token.role == 'admin'
-          || request.auth.token.admin == true
-        );
-    }
-
-    function isValidImageUpload() {
-      return request.resource != null
-        && request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
-    }
-
-    // Publicly readable store & product media; writable only by owner or verified Admin/Super Admin
-    match /stores/{storeId}/{allPaths=**} {
-      allow read: if true;
-      allow create: if (isSuperAdmin() || isAdmin() || isAuthenticated()) && isValidImageUpload();
-      allow update: if (
-          isSuperAdmin()
-          || isAdmin()
-          || (isAuthenticated() && (resource == null || !('ownerUid' in resource.metadata) || resource.metadata.ownerUid == request.auth.uid))
-        ) && isValidImageUpload();
-      allow delete: if isSuperAdmin()
-        || isAdmin()
-        || (isAuthenticated() && (resource == null || !('ownerUid' in resource.metadata) || resource.metadata.ownerUid == request.auth.uid));
-    }
-
-    match /products/{sellerUid}/{allPaths=**} {
-      allow read: if true;
-      allow create, update: if (isSuperAdmin() || isAdmin() || (isAuthenticated() && request.auth.uid == sellerUid))
-        && isValidImageUpload();
-      allow delete: if isSuperAdmin() || isAdmin() || (isAuthenticated() && request.auth.uid == sellerUid);
-    }
-
-    function isValidPartnerKycDocument() {
-      return request.resource != null
-        && request.resource.size <= 5 * 1024 * 1024
-        && (
-          request.resource.contentType.matches('image/(jpeg|png|webp)')
-          || request.resource.contentType == 'application/pdf'
-        );
-    }
-
-    // Restricted Partner KYC Documents: Never publicly readable; accessible only to the applicant or Super Admin
-    match /partner_kyc/{applicantUid}/{allPaths=**} {
-      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == applicantUid);
-      allow create, update: if (isSuperAdmin() || (isAuthenticated() && request.auth.uid == applicantUid))
-        && isValidPartnerKycDocument();
-      allow delete: if isSuperAdmin();
-    }
-
-    // Restricted Partner Settlement Bank Transfer Proofs: Writable only by Super Admin; readable by Super Admin or Admin
-    match /partner_settlement_proofs/{settlementId}/{allPaths=**} {
-      allow read: if isSuperAdmin() || isAdmin();
-      allow create, update: if isSuperAdmin() && isValidPartnerKycDocument();
-      allow delete: if isSuperAdmin();
-    }
-
-    // Default deny for all other Storage paths
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
   }
 }

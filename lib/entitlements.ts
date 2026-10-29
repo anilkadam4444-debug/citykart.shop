@@ -27,6 +27,7 @@ export function getDefaultFreeSubscription(storeId: string, sellerId: string): M
     currentPeriodStart: now.toISOString(),
     currentPeriodEnd: nextYear.toISOString(),
     cancelAtPeriodEnd: false,
+    renewedAt: now.toISOString(),
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };

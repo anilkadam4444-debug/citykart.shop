@@ -56,7 +56,7 @@ import { useUrbanDirect } from '@/components/urbandirect-provider';
 import { AdminLocationManager } from '@/components/admin-location-manager';
 import { AdminPartnerManagement } from '@/components/admin-partner-management';
 import { CategoryIcon } from '@/components/category-icon';
-import { auth, db } from '@/lib/firebase';
+import { auth, buildAuthenticatedHeaders, db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
 import {
   collection,
   deleteDoc,
@@ -385,24 +385,15 @@ export function SuperAdminDashboard() {
   const [editAdminName, setEditAdminName] = useState<string>('');
   const [editAdminDesignation, setEditAdminDesignation] = useState<string>('');
 
-  // Helper to get fresh Firebase ID token if available
+  // Helper to get fresh Firebase ID token + fallback session header if available
   const getAuthHeaders = useCallback(async (): Promise<
     Record<string, string>
   > => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
     try {
-      if (auth.currentUser) {
-        const token = await auth.currentUser.getIdToken();
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-      }
+      return await buildAuthenticatedHeaders();
     } catch {
-      // Rely on HttpOnly session cookie if ID token fetch fails
+      return { 'Content-Type': 'application/json' };
     }
-    return headers;
   }, []);
 
   // Fetch Dashboard Payload from Server-Protected Route
@@ -549,7 +540,7 @@ export function SuperAdminDashboard() {
 
       // Also persist /admins/{uid} via authenticated client if Firestore rules allow
       const resolvedAdmin = data.adminRecord || data.admin;
-      if (resolvedAdmin?.uid) {
+      if (resolvedAdmin?.uid && !IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
         try {
           await setDoc(
             doc(db, 'admins', resolvedAdmin.uid),
@@ -883,16 +874,18 @@ export function SuperAdminDashboard() {
         `Suspended store "${confirmModal.targetName}".`
       );
       if (ok) {
-        try {
-          await updateDoc(doc(db, 'stores', confirmModal.targetId), {
-            isActive: false,
-            isSuspended: true,
-            suspensionReason:
-              confirmReason.trim() || 'Suspended by Citykart Platform Owner.',
-            suspendedAt: new Date().toISOString(),
-          });
-        } catch {
-          // Server registry updated
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'stores', confirmModal.targetId), {
+              isActive: false,
+              isSuspended: true,
+              suspensionReason:
+                confirmReason.trim() || 'Suspended by Citykart Platform Owner.',
+              suspendedAt: new Date().toISOString(),
+            });
+          } catch {
+            // Server registry updated
+          }
         }
         setProviderStores((prev) =>
           prev.map((s) =>
@@ -921,14 +914,16 @@ export function SuperAdminDashboard() {
         `Restored store "${confirmModal.targetName}".`
       );
       if (ok) {
-        try {
-          await updateDoc(doc(db, 'stores', confirmModal.targetId), {
-            isActive: true,
-            isSuspended: false,
-            suspensionReason: '',
-          });
-        } catch {
-          // Server registry updated
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'stores', confirmModal.targetId), {
+              isActive: true,
+              isSuspended: false,
+              suspensionReason: '',
+            });
+          } catch {
+            // Server registry updated
+          }
         }
         setProviderStores((prev) =>
           prev.map((s) =>
@@ -973,16 +968,18 @@ export function SuperAdminDashboard() {
         `Suspended buyer account ${confirmModal.targetName}.`
       );
       if (ok) {
-        try {
-          await updateDoc(doc(db, 'users', confirmModal.targetId), {
-            accountStatus: 'SUSPENDED',
-            suspensionReason:
-              confirmReason.trim() ||
-              'Account suspended by Citykart Platform Owner.',
-            suspendedAt: new Date().toISOString(),
-          });
-        } catch {
-          // Server registry updated
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'users', confirmModal.targetId), {
+              accountStatus: 'SUSPENDED',
+              suspensionReason:
+                confirmReason.trim() ||
+                'Account suspended by Citykart Platform Owner.',
+              suspendedAt: new Date().toISOString(),
+            });
+          } catch {
+            // Server registry updated
+          }
         }
         setConfirmModal(null);
       }
@@ -999,13 +996,15 @@ export function SuperAdminDashboard() {
         `Restored buyer account ${confirmModal.targetName}.`
       );
       if (ok) {
-        try {
-          await updateDoc(doc(db, 'users', confirmModal.targetId), {
-            accountStatus: 'ACTIVE',
-            suspensionReason: '',
-          });
-        } catch {
-          // Server registry updated
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'users', confirmModal.targetId), {
+              accountStatus: 'ACTIVE',
+              suspensionReason: '',
+            });
+          } catch {
+            // Server registry updated
+          }
         }
         setConfirmModal(null);
       }
@@ -1021,17 +1020,19 @@ export function SuperAdminDashboard() {
         `Unpublished product "${confirmModal.targetName}".`
       );
       if (ok) {
-        try {
-          await updateDoc(doc(db, 'products', confirmModal.targetId), {
-            isAvailable: false,
-            adminUnpublished: true,
-            unpublishReason:
-              confirmReason.trim() ||
-              'Unpublished from public discovery by Super Admin.',
-            unpublishedAt: new Date().toISOString(),
-          });
-        } catch {
-          // Server registry updated
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'products', confirmModal.targetId), {
+              isAvailable: false,
+              adminUnpublished: true,
+              unpublishReason:
+                confirmReason.trim() ||
+                'Unpublished from public discovery by Super Admin.',
+              unpublishedAt: new Date().toISOString(),
+            });
+          } catch {
+            // Server registry updated
+          }
         }
         setProviderProducts((prev) =>
           prev.map((p) =>
@@ -1059,14 +1060,16 @@ export function SuperAdminDashboard() {
         `Restored product "${confirmModal.targetName}".`
       );
       if (ok) {
-        try {
-          await updateDoc(doc(db, 'products', confirmModal.targetId), {
-            isAvailable: true,
-            adminUnpublished: false,
-            unpublishReason: '',
-          });
-        } catch {
-          // Server registry updated
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await updateDoc(doc(db, 'products', confirmModal.targetId), {
+              isAvailable: true,
+              adminUnpublished: false,
+              unpublishReason: '',
+            });
+          } catch {
+            // Server registry updated
+          }
         }
         setProviderProducts((prev) =>
           prev.map((p) =>
@@ -1958,8 +1961,9 @@ export function SuperAdminDashboard() {
                     isLoadingDashboard ? 'animate-spin text-[#003B8E]' : ''
                   }`}
                 />
-                <span className="hidden sm:inline">Refresh</span>
+                <span>Refresh</span>
               </button>
+
             </div>
           </div>
         </header>
@@ -4259,11 +4263,11 @@ export function SuperAdminDashboard() {
                             </td>
                             <td className="py-3 px-4 text-slate-600">
                               {new Date(
-                                sub.currentPeriodStart
+                                sub.currentPeriodStart || Date.now()
                               ).toLocaleDateString()}{' '}
                               →{' '}
                               {new Date(
-                                sub.currentPeriodEnd
+                                sub.currentPeriodEnd || Date.now()
                               ).toLocaleDateString()}
                             </td>
                             <td className="py-3 px-4">
@@ -4744,17 +4748,17 @@ export function SuperAdminDashboard() {
                         'Created At',
                       ],
                       scopedTransactions.map((t) => [
-                        t.invoiceNumber,
-                        t.id,
-                        t.storeId,
-                        t.type,
-                        t.description,
-                        String(t.amount),
-                        String(t.taxAmount),
-                        String(t.totalAmount),
-                        t.status,
-                        t.paymentGateway,
-                        t.createdAt,
+                        String(t.invoiceNumber || ''),
+                        String(t.id || ''),
+                        String(t.storeId || ''),
+                        String(t.type || ''),
+                        String(t.description || ''),
+                        String(t.amount ?? 0),
+                        String(t.taxAmount ?? 0),
+                        String(t.totalAmount ?? 0),
+                        String(t.status || ''),
+                        String(t.paymentGateway || ''),
+                        String(t.createdAt || ''),
                       ])
                     )
                   }

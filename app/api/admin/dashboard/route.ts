@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
-import { db, FIREBASE_PROJECT_ID, FIRESTORE_DATABASE_ID } from '@/lib/firebase';
+import {
+  db,
+  FIREBASE_PROJECT_ID,
+  FIRESTORE_DATABASE_ID,
+  IS_PREVIEW_DUMMY_FIREBASE,
+} from '@/lib/firebase';
 import {
   AUTHORITATIVE_STORE_CATEGORIES,
   LocalStore,
@@ -68,16 +73,18 @@ export async function GET(req: NextRequest) {
   const excludeDemo = searchParams.get('excludeDemo') === 'true';
 
   const startProbeMs = Date.now();
-  let firestoreHealthy = false;
-  let firestoreLatencyMs = 0;
+  let firestoreHealthy = !IS_PREVIEW_DUMMY_FIREBASE;
+  let firestoreLatencyMs = 1;
 
-  try {
-    await getDoc(doc(db, 'test', 'connection'));
-    firestoreHealthy = true;
-    firestoreLatencyMs = Date.now() - startProbeMs;
-  } catch {
-    firestoreHealthy = false;
-    firestoreLatencyMs = Date.now() - startProbeMs;
+  if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    try {
+      await getDoc(doc(db, 'test', 'connection'));
+      firestoreHealthy = true;
+      firestoreLatencyMs = Date.now() - startProbeMs;
+    } catch {
+      firestoreHealthy = false;
+      firestoreLatencyMs = Date.now() - startProbeMs;
+    }
   }
 
   // 2. Fetch Firestore collections in parallel with graceful fallback
@@ -94,20 +101,35 @@ export async function GET(req: NextRequest) {
     fsLocationReqsSnap,
     fsFcmTokensSnap,
     auditLogs,
-  ] = await Promise.all([
-    getDocs(collection(db, 'users')).catch(() => null),
-    getDocs(collection(db, 'sellers')).catch(() => null),
-    getDocs(collection(db, 'stores')).catch(() => null),
-    getDocs(collection(db, 'products')).catch(() => null),
-    getDocs(collection(db, 'orders')).catch(() => null),
-    getDocs(collection(db, 'merchantSubscriptions')).catch(() => null),
-    getDocs(collection(db, 'billingTransactions')).catch(() => null),
-    getDocs(collection(db, 'featuredCampaigns')).catch(() => null),
-    getDocs(collection(db, 'merchantServiceOrders')).catch(() => null),
-    getDocs(collection(db, 'locationRequests')).catch(() => null),
-    getDocs(collection(db, 'fcm_tokens')).catch(() => null),
-    getAdminAuditLogs(150),
-  ]);
+  ] = IS_PREVIEW_DUMMY_FIREBASE
+    ? [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        await getAdminAuditLogs(150),
+      ]
+    : await Promise.all([
+        getDocs(collection(db, 'users')).catch(() => null),
+        getDocs(collection(db, 'sellers')).catch(() => null),
+        getDocs(collection(db, 'stores')).catch(() => null),
+        getDocs(collection(db, 'products')).catch(() => null),
+        getDocs(collection(db, 'orders')).catch(() => null),
+        getDocs(collection(db, 'merchantSubscriptions')).catch(() => null),
+        getDocs(collection(db, 'billingTransactions')).catch(() => null),
+        getDocs(collection(db, 'featuredCampaigns')).catch(() => null),
+        getDocs(collection(db, 'merchantServiceOrders')).catch(() => null),
+        getDocs(collection(db, 'locationRequests')).catch(() => null),
+        getDocs(collection(db, 'fcm_tokens')).catch(() => null),
+        getAdminAuditLogs(150),
+      ]);
 
   // 3. Merge Deleted Store Tombstones
   const deletedStoreIds = new Set<string>(serverDeletedStoresRegistry.keys());
@@ -302,7 +324,7 @@ export async function GET(req: NextRequest) {
     if (role === 'SELLER' || role === 'BOTH') sellerFcmTokenCount++;
     if (role === 'BUYER' || role === 'BOTH' || !role) buyerFcmTokenCount++;
   });
-  const sellerNotificationsCount = serverNotificationsRegistry.size;
+  const sellerNotificationsCount = serverNotificationsRegistry.length;
   const recentEvents = Array.from(serverSystemEventsRegistry.values()).sort(
     (a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -356,12 +378,12 @@ export async function GET(req: NextRequest) {
         process.env.FIREBASE_SERVICE_ACCOUNT_KEY
       ),
       hasVapidKey: Boolean(
-        process.env.NEXT_PUBLIC_FIREBASE_WEB_PUSH_CERTIFICATE_KEY ||
-          process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+        process.env.FIREBASE_WEB_PUSH_CERTIFICATE_KEY ||
+          process.env.FIREBASE_VAPID_KEY
       ),
       fcmVapidConfigured: Boolean(
-        process.env.NEXT_PUBLIC_FIREBASE_WEB_PUSH_CERTIFICATE_KEY ||
-          process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+        process.env.FIREBASE_WEB_PUSH_CERTIFICATE_KEY ||
+          process.env.FIREBASE_VAPID_KEY
       ),
       registeredFcmTokensCount: fcmTokensCount,
       registeredFcmTokenCount: fcmTokensCount,

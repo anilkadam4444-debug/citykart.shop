@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
-import { db } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 import { INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
+import { serverStoresRegistry } from '@/lib/stores-registry';
 import {
   BillingTransaction,
   MerchantSubscription,
@@ -75,8 +76,10 @@ export async function POST(req: NextRequest) {
     }
 
     let targetStore: LocalStore | null =
-      INITIAL_STORES.find((s) => s.id === storeId) || null;
-    if (!targetStore) {
+      INITIAL_STORES.find((s) => s.id === storeId) ||
+      serverStoresRegistry.get(storeId) ||
+      null;
+    if (!targetStore && !IS_PREVIEW_DUMMY_FIREBASE) {
       try {
         const snap = await getDoc(doc(db, 'stores', storeId));
         if (snap.exists()) {
@@ -146,24 +149,26 @@ export async function POST(req: NextRequest) {
     const txId = `tx_${gatewayPaymentId}`; // Use gateway ID for idempotency
 
     // Idempotency check: if transaction already verified, return existing record
-    try {
-      const existingTxSnap = await getDoc(doc(db, 'billingTransactions', txId));
-      if (existingTxSnap.exists()) {
-        const existingSubSnap = await getDoc(
-          doc(db, 'merchantSubscriptions', `sub_${storeId}`)
-        );
-        return NextResponse.json({
-          success: true,
-          idempotentReplay: true,
-          transaction: existingTxSnap.data(),
-          subscription: existingSubSnap.exists()
-            ? existingSubSnap.data()
-            : undefined,
-          message: `Subscription payment already verified (${plan.name}).`,
-        });
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const existingTxSnap = await getDoc(doc(db, 'billingTransactions', txId));
+        if (existingTxSnap.exists()) {
+          const existingSubSnap = await getDoc(
+            doc(db, 'merchantSubscriptions', `sub_${storeId}`)
+          );
+          return NextResponse.json({
+            success: true,
+            idempotentReplay: true,
+            transaction: existingTxSnap.data(),
+            subscription: existingSubSnap.exists()
+              ? existingSubSnap.data()
+              : undefined,
+            message: `Subscription payment already verified (${plan.name}).`,
+          });
+        }
+      } catch {
+        // Proceed if check fails
       }
-    } catch {
-      // Proceed if check fails
     }
 
     // Compute authoritative server-side pricing including any reserved platform fees for this invoice
@@ -265,26 +270,28 @@ export async function POST(req: NextRequest) {
         '[verify-payment] adminDb batch write notice, falling back to Web SDK:',
         adminErr
       );
-      try {
-        const clientBatch = writeBatch(db);
-        clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
-        clientBatch.set(
-          doc(db, 'merchantSubscriptions', subscription.id),
-          subscription,
-          { merge: true }
-        );
-        clientBatch.set(
-          doc(db, 'stores', storeId),
-          {
-            subscriptionTier: planId,
-            subscriptionStatus: 'ACTIVE',
-            subscriptionExpiry: subscription.currentPeriodEnd,
-          },
-          { merge: true }
-        );
-        await clientBatch.commit();
-      } catch (fallbackErr) {
-        console.warn('[verify-payment] Web SDK write notice:', fallbackErr);
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const clientBatch = writeBatch(db);
+          clientBatch.set(doc(db, 'billingTransactions', txId), transaction);
+          clientBatch.set(
+            doc(db, 'merchantSubscriptions', subscription.id),
+            subscription,
+            { merge: true }
+          );
+          clientBatch.set(
+            doc(db, 'stores', storeId),
+            {
+              subscriptionTier: planId,
+              subscriptionStatus: 'ACTIVE',
+              subscriptionExpiry: subscription.currentPeriodEnd,
+            },
+            { merge: true }
+          );
+          await clientBatch.commit();
+        } catch (fallbackErr) {
+          console.warn('[verify-payment] Web SDK write notice:', fallbackErr);
+        }
       }
     }
 

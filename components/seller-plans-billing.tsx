@@ -50,6 +50,7 @@ import {
   SERVICE_ORDERS_STORAGE_KEY,
 } from '@/lib/entitlements';
 import { LocalStore, Product, SellerProfile } from '@/lib/catalog-data';
+import { buildAuthenticatedHeaders } from '@/lib/firebase';
 import { ProductStudioArtwork } from './product-studio-artwork';
 
 interface SellerPlansBillingProps {
@@ -145,7 +146,8 @@ export function SellerPlansBilling({
 
   const [fees, setFees] = useState<PlatformFeeLedgerEntry[]>([]);
   useEffect(() => {
-    fetch(`/api/billing/fees?sellerId=${seller.id}`)
+    buildAuthenticatedHeaders(false)
+      .then((headers) => fetch(`/api/billing/fees?sellerId=${seller.id}`, { headers }))
       .then(res => res.json())
       .then(data => {
         if (data.ok && Array.isArray(data.fees)) {
@@ -360,9 +362,10 @@ export function SellerPlansBilling({
     setBannerMessage(null);
 
     try {
+      const authHeaders = await buildAuthenticatedHeaders(true);
       const checkoutRes = await fetch('/api/billing/create-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           sellerId: seller.id,
           storeId: store.id,
@@ -402,9 +405,10 @@ export function SellerPlansBilling({
         handler: async (response: any) => {
           setIsProcessingUpgrade(targetTier);
           try {
+            const verifyHeaders = await buildAuthenticatedHeaders(true);
             const verifyRes = await fetch('/api/billing/verify-payment', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: verifyHeaders,
               body: JSON.stringify({
                 sellerId: seller.id,
                 storeId: store.id,
@@ -767,9 +771,9 @@ export function SellerPlansBilling({
               </h3>
               <p className="text-xs text-slate-600">{currentPlan.tagline}</p>
               <div className="text-[11px] text-slate-400">
-                Billing Cycle: {subscription.billingCycle.toLowerCase()} ·
+                Billing Cycle: {(subscription.billingCycle || 'MONTHLY').toLowerCase()} ·
                 Renewal on{' '}
-                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                {new Date(subscription.currentPeriodEnd || Date.now()).toLocaleDateString()}
               </div>
             </div>
 
@@ -1440,7 +1444,7 @@ export function SellerPlansBilling({
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600 tabular-nums">
                         <span>
                           Valid until{' '}
-                          {new Date(camp.endDate).toLocaleDateString()}
+                          {new Date(camp.endDate || Date.now()).toLocaleDateString()}
                         </span>
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-slate-900">

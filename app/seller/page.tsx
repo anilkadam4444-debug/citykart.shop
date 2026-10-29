@@ -110,16 +110,16 @@ export default function SellerEntryPage() {
           (st) =>
             (verifiedUser.sellerId && st.sellerId === verifiedUser.sellerId) ||
             (matchedSeller && st.sellerId === matchedSeller.id) ||
-            verifiedUser.storeIds.includes(st.id)
+            Boolean(verifiedUser.storeIds?.includes(st.id))
         );
         const completed =
-          verifiedUser.roles.includes('ADMIN') ||
+          Boolean(verifiedUser.roles?.includes('ADMIN')) ||
           matchedStores.some((s) => isStoreLocationComplete(s));
 
         if (completed) {
           router?.push('/seller/dashboard');
         } else if (
-          verifiedUser.roles.includes('SELLER') ||
+          Boolean(verifiedUser.roles?.includes('SELLER')) ||
           Boolean(verifiedUser.sellerId)
         ) {
           setIsOpeningNewStore(true);
@@ -170,7 +170,7 @@ export default function SellerEntryPage() {
           (st) =>
             (verifiedUser.sellerId && st.sellerId === verifiedUser.sellerId) ||
             (matchedSeller && st.sellerId === matchedSeller.id) ||
-            verifiedUser.storeIds.includes(st.id)
+            Boolean(verifiedUser.storeIds?.includes(st.id))
         );
         const existingCompletedStore = matchedStores.find((s) =>
           isStoreLocationComplete(s)

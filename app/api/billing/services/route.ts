@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, writeBatch } from 'firebase/firestore';
-import { db, removeUndefined } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE, removeUndefined } from '@/lib/firebase';
 import {
   BillingTransaction,
   MerchantServiceOrder,
@@ -70,13 +70,15 @@ export async function POST(req: NextRequest) {
       createdAt: now.toISOString(),
     });
 
-    try {
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'merchantServiceOrders', orderId), serviceOrder);
-      batch.set(doc(db, 'billingTransactions', txId), transaction);
-      await batch.commit();
-    } catch {
-      // Graceful fallback if Firestore client write is unavailable
+    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+      try {
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'merchantServiceOrders', orderId), serviceOrder);
+        batch.set(doc(db, 'billingTransactions', txId), transaction);
+        await batch.commit();
+      } catch {
+        // Graceful fallback if Firestore client write is unavailable
+      }
     }
 
     return NextResponse.json({

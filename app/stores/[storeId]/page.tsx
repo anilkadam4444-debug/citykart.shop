@@ -12,6 +12,7 @@ import {
 } from '@/lib/catalog-data';
 import { CategoryIcon } from '@/components/category-icon';
 import { ProductStudioArtwork } from '@/components/product-studio-artwork';
+import { StoreRatingBadge } from '@/components/store-star-rating';
 import { getCanonicalUrl, SITE_CONFIG } from '@/lib/seo-config';
 import {
   generateBreadcrumbSchema,
@@ -237,9 +238,17 @@ export default async function StorePage({ params }: StorePageProps) {
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              {store.name}
-            </h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                {store.name}
+              </h1>
+              <StoreRatingBadge
+                storeId={store.id}
+                fallbackRating={store.rating}
+                fallbackReviewsCount={store.reviewsCount}
+                size="md"
+              />
+            </div>
 
             <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
               {store.specialty} · Located at {store.address}.

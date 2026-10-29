@@ -10,6 +10,7 @@ import {
   Loader2,
   Store,
   Compass,
+  Lock,
 } from 'lucide-react';
 import {
   CustomerShoppingLocation,
@@ -25,6 +26,7 @@ import {
 interface LocationSelectorModalProps {
   isOpen: boolean;
   canClose: boolean;
+  isCityLocked?: boolean;
   currentLocation: CustomerShoppingLocation;
   stores: LocalStore[];
   onConfirmLocation: (location: CustomerShoppingLocation) => void;
@@ -73,6 +75,7 @@ const QUICK_GLOBAL_CITIES = [
 export function LocationSelectorModal({
   isOpen,
   canClose,
+  isCityLocked = false,
   currentLocation,
   stores,
   onConfirmLocation,
@@ -125,6 +128,83 @@ export function LocationSelectorModal({
   }, [stores, selectedLoc]);
 
   if (!isOpen) return null;
+
+  if (isCityLocked) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="location-locked-heading"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+      >
+        <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden p-5 sm:p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#003B8E] shrink-0">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#003B8E] block">
+                  Hyperlocal Marketplace
+                </span>
+                <h2
+                  id="location-locked-heading"
+                  className="text-base sm:text-lg font-bold text-slate-900"
+                >
+                  Buyer City Locked to {currentLocation.city}
+                </h2>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="min-w-[40px] min-h-[40px] rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Your shopping city was locked to{' '}
+            <strong className="text-slate-900">{currentLocation.city}</strong>{' '}
+            during login. Because Citykart is a hyperlocal marketplace, product
+            discovery and doorstep delivery are strictly restricted within{' '}
+            <strong className="text-slate-900">{currentLocation.city}</strong>{' '}
+            only.
+          </p>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-[#F96302] shrink-0" />
+              <div>
+                <div className="font-bold text-slate-900">
+                  {currentLocation.city}
+                  {currentLocation.locality
+                    ? ` · ${currentLocation.locality}`
+                    : ''}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {currentLocation.stateRegion}, {currentLocation.country}
+                </div>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-[#003B8E] text-[10px] font-bold">
+              Locked
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 px-4 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold cursor-pointer transition-colors"
+          >
+            Continue Shopping in {currentLocation.city}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleUseCurrentLocation = () => {
     setGeoErrorMsg(null);
@@ -258,19 +338,19 @@ export function LocationSelectorModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="location-dialog-heading"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="relative w-full max-w-xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-6">
+      <div className="relative w-full max-w-xl max-h-[92dvh] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-auto">
         {/* Top Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-200 bg-slate-50/70 flex items-start justify-between gap-4">
-          <div className="space-y-1">
+        <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-200 bg-slate-50/70 flex items-start justify-between gap-3 shrink-0">
+          <div className="space-y-1 min-w-0">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#003B8E]">
-              <MapPin className="w-3.5 h-3.5" />
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
               <span>Hyperlocal Shopping Location</span>
             </div>
             <h2
               id="location-dialog-heading"
-              className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight"
+              className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight"
             >
               Select your city or town
             </h2>
@@ -284,14 +364,14 @@ export function LocationSelectorModal({
               type="button"
               onClick={onClose}
               aria-label="Close location selector"
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors cursor-pointer"
+              className="min-w-[44px] min-h-[44px] rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        <div className="p-6 space-y-5 max-h-[78vh] overflow-y-auto custom-scrollbar">
+        <div className="p-4 sm:p-6 space-y-5 flex-1 overflow-y-auto overscroll-contain custom-scrollbar">
           {/* Geolocation action + quick popular cities */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

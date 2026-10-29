@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState, useMemo} from 'react';
+import React, {useState, useMemo, useEffect} from 'react';
 import {
   X,
   Plus,
@@ -23,6 +23,7 @@ import {
   EyeOff,
   Copy,
   Check,
+  Lock,
 } from 'lucide-react';
 import {
   CartItem,
@@ -34,6 +35,7 @@ import {
   PaymentMethod,
 } from '@/lib/catalog-data';
 import {ProductStudioArtwork} from './product-studio-artwork';
+import {buildAuthenticatedHeaders} from '@/lib/firebase';
 
 interface CartCheckoutDrawerProps {
   isOpen: boolean;
@@ -94,8 +96,7 @@ export function CartCheckoutDrawer({
   );
   const [notes, setNotes] = useState('Call on intercom #402 upon arrival');
   const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>('UPI_ON_DELIVERY');
-  const [upiId, setUpiId] = useState('anilkadam@okicici');
+    useState<PaymentMethod>('PAY_ON_DELIVERY');
   const [termsAcknowledged, setTermsAcknowledged] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -105,6 +106,21 @@ export function CartCheckoutDrawer({
   const [confirmedPin, setConfirmedPin] = useState<string | null>(null);
   const [showConfirmedPin, setShowConfirmedPin] = useState<boolean>(true);
   const [copiedPin, setCopiedPin] = useState<boolean>(false);
+
+  // Keep checkout city, stateRegion, and country strictly locked to customerLocation
+  useEffect(() => {
+    if (customerLocation.country) setCountry(customerLocation.country);
+    if (customerLocation.stateRegion) setStateRegion(customerLocation.stateRegion);
+    if (customerLocation.city) setCity(customerLocation.city);
+    if (customerLocation.locality) setLocality(customerLocation.locality);
+    if (customerLocation.postalCode) setPostalCode(customerLocation.postalCode);
+  }, [
+    customerLocation.country,
+    customerLocation.stateRegion,
+    customerLocation.city,
+    customerLocation.locality,
+    customerLocation.postalCode,
+  ]);
 
   // Group items by store for strict multi-merchant separation
   const itemsByStore = useMemo(() => {
@@ -193,9 +209,20 @@ export function CartCheckoutDrawer({
 
   const handleAlignAddressWithStore = () => {
     if (!activeStore) return;
-    setCountry(activeStore.country);
-    setStateRegion(activeStore.stateRegion);
-    setCity(activeStore.cityName);
+    // Hyperlocal rule: Never switch city away from buyer's locked customerLocation.city
+    const lockedCity = customerLocation.city || activeStore.cityName;
+    if (
+      activeStore.cityName.trim().toLowerCase() !==
+      lockedCity.trim().toLowerCase()
+    ) {
+      setFormError(
+        `Intra-city delivery restriction: Your city is locked to ${lockedCity}, so orders cannot be delivered from ${activeStore.cityName}.`
+      );
+      return;
+    }
+    setCountry(customerLocation.country || activeStore.country);
+    setStateRegion(customerLocation.stateRegion || activeStore.stateRegion);
+    setCity(lockedCity);
     setLocality(
       activeStore.serviceArea.coveredLocalities[0] || activeStore.neighborhood
     );
@@ -233,9 +260,22 @@ export function CartCheckoutDrawer({
       return;
     }
 
+    if (
+      customerLocation.city &&
+      (city.trim().toLowerCase() !==
+        customerLocation.city.trim().toLowerCase() ||
+        activeStore.cityName.trim().toLowerCase() !==
+          customerLocation.city.trim().toLowerCase())
+    ) {
+      setFormError(
+        `Hyperlocal intra-city restriction: Delivery of products is strictly within ${customerLocation.city} only.`
+      );
+      return;
+    }
+
     if (!isStoreDeliverable) {
       setFormError(
-        `${activeStore.name} does not deliver to ${locality}, ${city}. Please enter an address inside the store's delivery coverage or click "Use store's delivery area".`
+        `${activeStore.name} does not deliver to ${locality}, ${city}. Please enter a locality inside ${city} covered by this store or click "Use store's delivery area".`
       );
       return;
     }
@@ -270,13 +310,24 @@ export function CartCheckoutDrawer({
     try {
       const payload = {
         storeId: activeStore.id,
+        storeName: activeStore.name,
+        sellerId: activeStore.sellerId,
         storeData: activeStore,
         items: checkoutItems.map((item) => ({
           productId: item.product.id,
+          storeId: item.product.storeId,
+          productName: item.product.name,
+          price: item.product.price,
+          unit: item.product.unit,
+          product: item.product,
           productData: item.product,
           variant: item.variant,
           quantity: item.quantity,
         })),
+        subtotal,
+        deliveryFee,
+        discount,
+        total,
         customer: {
           fullName: fullName.trim(),
           phone: phone.trim(),
@@ -288,8 +339,7 @@ export function CartCheckoutDrawer({
           postalCode: postalCode.trim(),
           notes: notes.trim(),
         },
-        paymentMethod,
-        upiId: paymentMethod === 'UPI_ON_DELIVERY' ? upiId.trim() : undefined,
+        paymentMethod: 'PAY_ON_DELIVERY',
         promoCode: appliedPromo || undefined,
         idempotencyKey,
         buyerUid: buyerUid || undefined,
@@ -299,9 +349,10 @@ export function CartCheckoutDrawer({
         checkoutAcknowledgementVersion: 'seller-responsibility-v1.2',
       };
 
+      const headers = await buildAuthenticatedHeaders();
       const res = await fetch('/api/orders', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -349,25 +400,25 @@ export function CartCheckoutDrawer({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Drawer Header */}
-        <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {step === 'checkout' && (
               <button
                 type="button"
                 onClick={() => setStep('cart')}
-                className="p-1.5 -ml-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="min-w-[44px] min-h-[44px] -ml-1.5 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
                 aria-label="Back to cart"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
-            <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate">
                 {step === 'cart' && 'Your Shopping Cart'}
                 {step === 'checkout' && `Checkout · ${activeStore?.name || 'Local Store'}`}
                 {step === 'confirmed' && `Order #${confirmedOrder?.id} Confirmed`}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 truncate">
                 {step === 'cart' &&
                   (uniqueStoreIds.length > 1
                     ? `Items from ${uniqueStoreIds.length} local stores (separate store orders)`
@@ -384,7 +435,7 @@ export function CartCheckoutDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close cart"
-            className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="min-w-[44px] min-h-[44px] text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 inline-flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -392,8 +443,8 @@ export function CartCheckoutDrawer({
 
         {/* Free Delivery Progress Bar (per active store) */}
         {step !== 'confirmed' && checkoutItems.length > 0 && activeStore && (
-          <div className="px-6 py-3 bg-blue-50/70 border-b border-blue-200/60">
-            <div className="flex items-center justify-between text-xs mb-1.5">
+          <div className="px-4 sm:px-6 py-3 bg-blue-50/70 border-b border-blue-200/60 shrink-0">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1.5">
               <span className="text-slate-800 font-semibold">
                 {remainingForFreeDelivery === 0
                   ? `Free local delivery unlocked from ${activeStore.name}!`
@@ -446,12 +497,12 @@ export function CartCheckoutDrawer({
                   <span>Ordered at {confirmedOrder.createdAt}</span>
                   <span>·</span>
                   <span className="font-medium text-slate-700">
-                    Method:{' '}
+                    Payment:{' '}
                     {confirmedOrder.paymentMethod === 'UPI_ON_DELIVERY'
-                      ? `UPI on delivery (${confirmedOrder.upiId || 'Scan QR at door'})`
+                      ? 'UPI on Delivery'
                       : confirmedOrder.paymentMethod === 'CASH_ON_DELIVERY'
-                        ? 'Cash on delivery'
-                        : 'Card tap on delivery'}
+                        ? 'Cash on Delivery'
+                        : 'Pay on Delivery (Pay by Cash or UPI when your order arrives)'}
                   </span>
                   <span>·</span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px]">
@@ -646,11 +697,11 @@ export function CartCheckoutDrawer({
                         : formatCurrency(confirmedOrder.deliveryFee)}
                     </span>
                   </div>
-                  {confirmedOrder.discount > 0 && (
+                  {(confirmedOrder.discount || 0) > 0 && (
                     <div className="flex justify-between text-emerald-700 font-medium">
                       <span>Discount (URBAN10)</span>
                       <span className="font-mono tabular-nums">
-                        -{formatCurrency(confirmedOrder.discount)}
+                        -{formatCurrency(confirmedOrder.discount || 0)}
                       </span>
                     </div>
                   )}
@@ -950,93 +1001,35 @@ export function CartCheckoutDrawer({
                 </div>
               )}
 
-              {/* Payment Method Selection */}
+              {/* Payment Method — Single Unified "Pay on Delivery" Option */}
               <div>
                 <div className="text-xs font-bold text-slate-900 mb-2.5">
-                  1. Payment Method (Pay on Delivery)
+                  1. Payment Option
                 </div>
-                <div className="grid grid-cols-1 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('UPI_ON_DELIVERY')}
-                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
-                      paymentMethod === 'UPI_ON_DELIVERY'
-                        ? 'border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] shadow-2xs'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <QrCode className="w-4 h-4 text-[#003B8E] mt-0.5 shrink-0" />
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">
-                          UPI or QR Code on Delivery
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Scan the store delivery person&apos;s QR code when your order arrives
-                        </div>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('PAY_ON_DELIVERY')}
+                  aria-pressed={paymentMethod === 'PAY_ON_DELIVERY'}
+                  className="w-full p-4 rounded-xl border border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] text-left transition-all flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-1 p-2 rounded-xl bg-white border border-blue-200 text-[#003B8E] shrink-0 mt-0.5">
+                      <Banknote className="w-4 h-4" />
+                      <QrCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-extrabold text-slate-900">
+                        Pay on Delivery
+                      </div>
+                      <div className="text-xs text-slate-600 mt-0.5">
+                        Pay by Cash or UPI when your order arrives.
                       </div>
                     </div>
-                  </button>
-
-                  {paymentMethod === 'UPI_ON_DELIVERY' && (
-                    <div className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Your UPI ID (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        placeholder="example: yourname@okicici"
-                        className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono focus:outline-none focus:border-[#003B8E] focus:bg-white"
-                      />
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('CASH_ON_DELIVERY')}
-                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
-                      paymentMethod === 'CASH_ON_DELIVERY'
-                        ? 'border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] shadow-2xs'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Banknote className="w-4 h-4 text-[#003B8E] mt-0.5 shrink-0" />
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">
-                          Cash on Delivery
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Pay with cash when you receive your order at your doorstep
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('TAP_ON_DELIVERY')}
-                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between gap-3 cursor-pointer ${
-                      paymentMethod === 'TAP_ON_DELIVERY'
-                        ? 'border-[#003B8E] bg-blue-50/40 ring-1 ring-[#003B8E] shadow-2xs'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Smartphone className="w-4 h-4 text-[#003B8E] mt-0.5 shrink-0" />
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">
-                          Card Tap on Delivery
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Tap your debit/credit card or smartphone POS machine
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
+                  </div>
+                  <div className="w-5 h-5 rounded-full bg-[#003B8E] text-white flex items-center justify-center shrink-0">
+                    <Check className="w-3.5 h-3.5" />
+                  </div>
+                </button>
               </div>
 
               {/* Customer Delivery Address Form */}
@@ -1088,29 +1081,44 @@ export function CartCheckoutDrawer({
                   </div>
                 </div>
 
+                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Lock className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
+                    <span className="text-slate-700 truncate">
+                      Intra-city delivery locked to{' '}
+                      <strong className="font-bold text-[#003B8E]">
+                        {city}
+                      </strong>
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-white border border-blue-200 text-[10px] font-bold text-[#003B8E] shrink-0">
+                    Within City Only
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Country *
+                      Country (Locked)
                     </label>
                     <input
                       type="text"
                       required
+                      readOnly
                       value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                      className="w-full px-3 py-2 text-xs bg-slate-100 text-slate-600 border border-slate-200 rounded-xl cursor-not-allowed"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      State / Region *
+                      State / Region (Locked)
                     </label>
                     <input
                       type="text"
                       required
+                      readOnly
                       value={stateRegion}
-                      onChange={(e) => setStateRegion(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                      className="w-full px-3 py-2 text-xs bg-slate-100 text-slate-600 border border-slate-200 rounded-xl cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -1118,14 +1126,14 @@ export function CartCheckoutDrawer({
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      City / Town *
+                      City / Town (Locked)
                     </label>
                     <input
                       type="text"
                       required
+                      readOnly
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                      className="w-full px-3 py-2 text-xs bg-slate-100 font-bold text-[#003B8E] border border-blue-200 rounded-xl cursor-not-allowed"
                     />
                   </div>
                   <div>

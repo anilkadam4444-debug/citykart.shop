@@ -389,17 +389,25 @@ export interface UserAccount {
   maskedPhone: string;
   countryCode: string;
   fullName: string;
-  roles: ('BUYER' | 'SELLER' | 'ADMIN' | 'PARTNER')[];
-  role?: 'super_admin' | 'admin' | 'partner' | 'buyer' | 'seller';
+  roles: ('SUPER_ADMIN' | 'BUYER' | 'SELLER' | 'ADMIN' | 'PARTNER' | string)[];
+  role?: 'super_admin' | 'admin' | 'partner' | 'buyer' | 'seller' | string;
   phoneVerified?: boolean;
   sellerId?: string;
-  storeIds: string[];
+  storeIds?: string[];
   createdAt: string;
   isAdmin?: boolean;
   isPartner?: boolean;
   partnerId?: string;
   assignedCityId?: string;
   assignedCityName?: string;
+  lockedCity?: string;
+  lockedCityId?: string;
+  lockedStateRegion?: string;
+  lockedCountry?: string;
+  lockedCountryCode?: string;
+  lockedLocality?: string;
+  lockedPostalCode?: string;
+  cityLockedAt?: string;
   accountStatus?: 'ACTIVE' | 'SUSPENDED';
   suspensionReason?: string;
   suspendedAt?: string;
@@ -422,6 +430,7 @@ export interface LocalStore {
   ownerUid?: string;
   sellerName: string;
   phone?: string;
+  upiId?: string;
   name: string;
   categoryId: StoreCategoryId;
   category: StoreCategoryName;
@@ -448,6 +457,7 @@ export interface LocalStore {
   operatingHours: string;
   avgDispatchMins: number;
   rating: number;
+  reviewsCount?: number;
   verifiedSince: string;
   specialty: string;
   upiHandle: string;
@@ -518,10 +528,10 @@ const inrFormatter = new Intl.NumberFormat('en-IN', {
  * (e.g., ₹120, ₹799, ₹4,999) by default while supporting international currency codes.
  */
 export function formatCurrency(
-  amount: number,
+  amount?: number | null,
   currencyCode: string = 'INR'
 ): string {
-  const safeAmount = Number.isFinite(amount) ? amount : 0;
+  const safeAmount = typeof amount === 'number' && Number.isFinite(amount) ? amount : 0;
   const normalizedCurrency = (currencyCode || 'INR').toUpperCase();
   if (normalizedCurrency === 'INR') {
     return inrFormatter.format(Math.round(safeAmount));
@@ -767,78 +777,86 @@ export function queryCityScopedCatalog(params: {
 
   const unverifiedStores = stores.filter((s) => !isStoreLocationComplete(s));
 
-  if (
-    customerLocation.mode !== 'SELECTED_LOCATION' ||
-    !customerLocation.city.trim()
-  ) {
-    return {
-      requiresCitySelection: true,
-      eligibleStoresInCity: [],
-      filteredStores: [],
-      filteredProducts: [],
-      categoryStoreCounts: {...emptyCategoryCounts},
-      categoryProductCounts: {...emptyCategoryCounts},
-      unverifiedStores,
-    };
-  }
+  const isGlobalMode =
+    customerLocation.mode === 'GLOBAL_ALL' ||
+    !customerLocation.city.trim() ||
+    customerLocation.city.toLowerCase() === 'all cities';
 
-  // 1. Identify all active, verified stores eligible to serve the buyer's selected city
-  const eligibleStoresInCity = stores.filter((store) => {
-    if (!isStoreEligibleForSelectedCity(store, customerLocation)) {
-      return false;
-    }
-    if (onlyDeliverableToLocality && customerLocation.locality.trim()) {
-      return evaluateStoreDeliveryEligibility(store, customerLocation)
-        .isDeliverable;
-    }
-    return true;
-  });
+  // 1. Identify active stores
+  let eligibleStoresInCity = isGlobalMode
+    ? stores.filter((s) => s.isActive !== false && !s.isSuspended && isStoreLocationComplete(s))
+    : stores.filter((store) => {
+        if (!isStoreEligibleForSelectedCity(store, customerLocation)) {
+          return false;
+        }
+        if (onlyDeliverableToLocality && customerLocation.locality.trim()) {
+          return evaluateStoreDeliveryEligibility(store, customerLocation).isDeliverable;
+        }
+        return true;
+      });
+
+  // Graceful fallback: If selected city has zero local stores, fall back to all active verified stores
+  let isFallbackToGlobal = false;
+  if (!isGlobalMode && eligibleStoresInCity.length === 0) {
+    eligibleStoresInCity = stores.filter(
+      (s) => s.isActive !== false && !s.isSuspended && isStoreLocationComplete(s)
+    );
+    isFallbackToGlobal = true;
+  }
 
   const eligibleStoreMap = new Map<string, LocalStore>(
     eligibleStoresInCity.map((s) => [s.id, s])
   );
 
-  // 2. Identify all published products belonging strictly to eligible stores in the selected city
+  // 2. Identify published products belonging to eligible stores
   const eligibleProductsInCity = products.filter(
     (product) =>
       eligibleStoreMap.has(product.storeId) && !product.adminUnpublished
   );
 
-  // 3. Calculate city-specific category counts from eligible local stores & products
-  const categoryStoreCounts = {...emptyCategoryCounts};
-  const categoryProductCounts = {...emptyCategoryCounts};
+  // 3. Calculate category counts
+  const categoryStoreCounts = { ...emptyCategoryCounts };
+  const categoryProductCounts = { ...emptyCategoryCounts };
 
   for (const cat of AUTHORITATIVE_STORE_CATEGORIES) {
     const matchingStores = eligibleStoresInCity.filter(
       (store) =>
         store.categoryId === cat.id ||
-        store.category === cat.name ||
+        store.category.toLowerCase() === cat.name.toLowerCase() ||
         eligibleProductsInCity.some(
           (p) =>
             p.storeId === store.id &&
-            (p.categoryId === cat.id || p.category === cat.name)
+            (p.categoryId === cat.id || p.category.toLowerCase() === cat.name.toLowerCase())
         )
     );
     categoryStoreCounts[cat.id] = matchingStores.length;
 
     const matchingProducts = eligibleProductsInCity.filter(
-      (p) => p.categoryId === cat.id || p.category === cat.name
+      (p) => p.categoryId === cat.id || p.category.toLowerCase() === cat.name.toLowerCase()
     );
     categoryProductCounts[cat.id] = matchingProducts.length;
   }
 
   const query = searchQuery.trim().toLowerCase();
+  const resolvedCat =
+    selectedCategory && selectedCategory !== 'All Categories'
+      ? getCategoryByIdOrName(selectedCategory)
+      : undefined;
 
-  // 4. Filter stores within the selected city by category and search query
+  // 4. Filter stores by category and search query
   const filteredStores = eligibleStoresInCity.filter((store) => {
-    if (
-      selectedCategory !== 'All Categories' &&
-      store.category !== selectedCategory
-    ) {
-      const hasProductInCategory = eligibleProductsInCity.some(
-        (p) => p.storeId === store.id && p.category === selectedCategory
-      );
-      if (!hasProductInCategory) return false;
+    if (resolvedCat) {
+      const matchStoreCat =
+        store.categoryId === resolvedCat.id ||
+        store.category.toLowerCase() === resolvedCat.name.toLowerCase();
+      if (!matchStoreCat) {
+        const hasProductInCategory = eligibleProductsInCity.some(
+          (p) =>
+            p.storeId === store.id &&
+            (p.categoryId === resolvedCat.id || p.category.toLowerCase() === resolvedCat.name.toLowerCase())
+        );
+        if (!hasProductInCategory) return false;
+      }
     }
 
     if (query) {
@@ -846,29 +864,27 @@ export function queryCityScopedCatalog(params: {
         .filter((p) => p.storeId === store.id)
         .map((p) => `${p.name} ${p.category} ${p.description}`)
         .join(' ');
-      const hay =
-        `${store.name} ${store.category} ${store.cityName} ${store.neighborhood} ${store.specialty} ${storeProductsText}`.toLowerCase();
+      const hay = `${store.name} ${store.category} ${store.cityName} ${store.neighborhood} ${store.specialty} ${storeProductsText}`.toLowerCase();
       return hay.includes(query);
     }
 
     return true;
   });
 
-  // 5. Filter products strictly within eligible stores in the selected city
+  // 5. Filter products by category and search query
   const filteredProducts = eligibleProductsInCity.filter((product) => {
     const parentStore = eligibleStoreMap.get(product.storeId);
     if (!parentStore) return false;
 
-    if (
-      selectedCategory !== 'All Categories' &&
-      product.category !== selectedCategory
-    ) {
-      return false;
+    if (resolvedCat) {
+      const matchProdCat =
+        product.categoryId === resolvedCat.id ||
+        product.category.toLowerCase() === resolvedCat.name.toLowerCase();
+      if (!matchProdCat) return false;
     }
 
     if (query) {
-      const hay =
-        `${product.name} ${product.storeName} ${product.neighborhood} ${product.category} ${product.description} ${parentStore.specialty}`.toLowerCase();
+      const hay = `${product.name} ${product.storeName} ${product.neighborhood} ${product.category} ${product.description} ${parentStore.specialty}`.toLowerCase();
       return hay.includes(query);
     }
 
@@ -876,7 +892,7 @@ export function queryCityScopedCatalog(params: {
   });
 
   return {
-    requiresCitySelection: false,
+    requiresCitySelection: isGlobalMode,
     eligibleStoresInCity,
     filteredStores,
     filteredProducts,
@@ -887,6 +903,12 @@ export function queryCityScopedCatalog(params: {
 }
 
 export interface CartItem {
+  productId?: string;
+  storeId?: string;
+  productName?: string;
+  price?: number;
+  unit?: string;
+  imageUrl?: string;
   product: Product;
   variant: string;
   quantity: number;
@@ -894,14 +916,35 @@ export interface CartItem {
 }
 
 export type PaymentMethod =
+  | 'PAY_ON_DELIVERY'
   | 'UPI_ON_DELIVERY'
   | 'CASH_ON_DELIVERY'
+  | 'cash_on_delivery'
+  | 'upi_on_delivery'
   | 'TAP_ON_DELIVERY';
+
+export function formatPaymentMethodLabel(
+  paymentMethod?: PaymentMethod | string | null,
+  collectionMethod?: PaymentMethod | string | null
+): string {
+  const effective = (collectionMethod || paymentMethod || 'PAY_ON_DELIVERY')
+    .toString()
+    .toUpperCase();
+  if (effective === 'CASH_ON_DELIVERY') {
+    return 'Cash on Delivery (COD)';
+  }
+  if (effective === 'UPI_ON_DELIVERY') {
+    return 'UPI on Delivery';
+  }
+  return 'Pay on Delivery (Cash or UPI)';
+}
 
 export type OrderStatus =
   | 'NEW'
+  | 'PLACED'
   | 'CONFIRMED'
   | 'PREPARING'
+  | 'DISPATCHED'
   | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
   | 'CANCELLED'
@@ -918,6 +961,7 @@ export type PaymentStatus = 'PENDING' | 'PAID' | 'DISPUTED';
 
 export type DeliveryPinLifecycleStatus =
   | 'ACTIVE'
+  | 'PENDING_DELIVERY'
   | 'VERIFIED'
   | 'EXPIRED'
   | 'LOCKED'
@@ -933,17 +977,23 @@ export type PinNotificationChannelStatus =
 export interface DeliveryPinPublicInfo {
   status: DeliveryPinLifecycleStatus;
   pinVersion: number;
-  createdAt: string;
-  expiresAt: string;
+  pin?: string;
+  deliveryPin?: string;
+  generatedAt?: string;
+  verified?: boolean;
+  createdAt?: string;
+  expiresAt?: string;
   verifiedAt?: string;
+  verifiedBy?: string;
   verifiedByActor?: string;
   verifiedByRole?: 'SELLER' | 'DELIVERY_AGENT' | 'ADMIN';
-  attemptsUsed: number;
-  maxAttempts: number;
+  attemptsCount?: number;
+  attemptsUsed?: number;
+  maxAttempts?: number;
   remainingAttempts?: number;
   lastResentAt?: string;
-  resendCount: number;
-  notificationStatus: PinNotificationChannelStatus;
+  resendCount?: number;
+  notificationStatus?: PinNotificationChannelStatus;
   notificationDetail?: string;
   unifiedNotificationDispatched?: boolean;
 }
@@ -976,8 +1026,10 @@ export interface SellerUnifiedOrderNotification {
 
 export interface OrderRecord {
   id: string;
+  orderNumber?: string;
   createdAt: string;
   createdAtIso?: string;
+  updatedAt?: string;
   storeId: string;
   storeName: string;
   sellerId: string;
@@ -988,9 +1040,11 @@ export interface OrderRecord {
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
-  discount: number;
-  totalPlatformFee: number;
+  discount?: number;
+  platformFee?: number;
+  totalPlatformFee?: number;
   total: number;
+  currency?: string;
   paymentMethod: PaymentMethod;
   upiId?: string;
   paymentStatus?: PaymentStatus;
@@ -998,30 +1052,30 @@ export interface OrderRecord {
   paymentCollectedBy?: string;
   paymentCollectionMethod?: PaymentMethod;
   paymentReferenceNote?: string;
+  paymentVerifiedAt?: string;
   customer: {
     fullName: string;
     phone: string;
+    phoneE164?: string;
     country: string;
     stateRegion: string;
     address: string;
+    deliveryAddress?: string;
     city: string;
     locality: string;
     postalCode: string;
     notes: string;
   };
   currentStepIndex: number;
-  orderStatus:
-    | 'NEW'
-    | 'CONFIRMED'
-    | 'PREPARING'
-    | 'OUT_FOR_DELIVERY'
-    | 'DELIVERED'
-    | 'CANCELLED'
-    | 'REJECTED';
+  orderStatus: OrderStatus;
   deliveredAt?: string;
   deliveredByActor?: string;
+  deliveryPin?: string;
   deliveryPinVerified?: boolean;
   deliveryPinInfo?: DeliveryPinPublicInfo;
+  storeRating?: number;
+  storeReviewComment?: string;
+  storeRatedAt?: string;
   sellerUnifiedNotification?: SellerUnifiedOrderNotification;
   /**
    * Transient buyer-only fields attached ONLY to immediate buyer order creation

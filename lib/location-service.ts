@@ -166,11 +166,63 @@ export function saveMissingLocationRequest(req: MissingLocationRequest): void {
   } catch {}
 }
 
+/**
+ * Detects if a location is classified as a village, hamlet, or taluka/sub-district administrative unit.
+ */
+export function isVillageOrTalukaPlace(
+  localityType?: string,
+  cityName?: string,
+  districtName?: string
+): boolean {
+  if (localityType === 'VILLAGE') return true;
+
+  const cleanCity = (cityName || '').trim().toLowerCase();
+  const cleanDistrict = (districtName || '').trim().toLowerCase();
+
+  const villageKeywords = ['village', 'gram', 'hamlet', 'gaon', 'grama', 'wadi', 'palli'];
+  const talukaKeywords = ['taluka', 'tehsil', 'mouzah', 'sub-district', 'subdistrict', 'block', 'mandal'];
+
+  for (const kw of villageKeywords) {
+    if (cleanCity.includes(` ${kw}`) || cleanCity.startsWith(`${kw} `) || cleanCity === kw) {
+      return true;
+    }
+  }
+
+  for (const kw of talukaKeywords) {
+    if (cleanCity.includes(` ${kw}`) || cleanCity.startsWith(`${kw} `) || cleanCity === kw) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validates whether a location is eligible for seller onboarding.
+ * Policy: Seller onboarding is open to large and medium-sized cities worldwide.
+ * Taluka and village locations are not allowed yet.
+ */
+export function validateSellerLocationEligibility(location: {
+  localityType?: string;
+  cityName?: string;
+  district?: string;
+}): { eligible: boolean; reason?: string } {
+  if (isVillageOrTalukaPlace(location.localityType, location.cityName, location.district)) {
+    return {
+      eligible: false,
+      reason:
+        'Seller onboarding is currently open to large and medium-sized cities worldwide. Onboarding for villages and talukas is not enabled yet. Please select your nearest large or medium city hub.',
+    };
+  }
+  return { eligible: true };
+}
+
 export function getCitiesByCountryRegionAndDistrict(
   countryCodeOrName?: string | null,
   regionCodeOrName?: string | null,
   districtName?: string | null,
-  searchQuery?: string
+  searchQuery?: string,
+  forSellerOnboarding?: boolean
 ): CityDef[] {
   if (!countryCodeOrName) return [];
   const country = getCountryByCodeOrName(countryCodeOrName);
@@ -189,6 +241,10 @@ export function getCitiesByCountryRegionAndDistrict(
   const cleanDistrict = (districtName || '').toLowerCase().trim();
 
   let filtered = combined.filter((c) => {
+    if (forSellerOnboarding && isVillageOrTalukaPlace(c.localityType, c.cityName, c.district)) {
+      return false;
+    }
+
     const matchCountry =
       c.country.toLowerCase() === cleanCountry ||
       c.countryCode.toLowerCase() === cleanCode;
@@ -234,9 +290,16 @@ export function getCitiesByCountryRegionAndDistrict(
 export function getCitiesByCountryAndRegion(
   countryCodeOrName?: string | null,
   regionCodeOrName?: string | null,
-  searchQuery?: string
+  searchQuery?: string,
+  forSellerOnboarding?: boolean
 ): CityDef[] {
-  return getCitiesByCountryRegionAndDistrict(countryCodeOrName, regionCodeOrName, undefined, searchQuery);
+  return getCitiesByCountryRegionAndDistrict(
+    countryCodeOrName,
+    regionCodeOrName,
+    undefined,
+    searchQuery,
+    forSellerOnboarding
+  );
 }
 
 /**

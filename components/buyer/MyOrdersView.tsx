@@ -34,10 +34,57 @@ export function MyOrdersView({ orders, onBackToHome }: MyOrdersViewProps) {
                   <span className="text-xs font-mono font-bold text-slate-900">Order #{order.id}</span>
                   <div className="text-[11px] text-slate-500">{order.createdAt || 'Recent order'}</div>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>{order.orderStatus || 'CONFIRMED'}</span>
-                </div>
+                {(() => {
+                  const status = order.orderStatus || 'NEW';
+                  const badgeConfig = {
+                    NEW: {
+                      bg: 'bg-amber-50 text-amber-800 border-amber-200/90',
+                      icon: <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse transition-transform duration-300" />,
+                      label: 'Order Placed',
+                    },
+                    CONFIRMED: {
+                      bg: 'bg-blue-50 text-[#003B8E] border-blue-200/90',
+                      icon: <CheckCircle className="w-3.5 h-3.5 text-[#003B8E] transition-transform duration-300" />,
+                      label: 'Store Confirmed',
+                    },
+                    PREPARING: {
+                      bg: 'bg-indigo-50 text-indigo-800 border-indigo-200/90',
+                      icon: <Package className="w-3.5 h-3.5 text-indigo-600 animate-[bounce_2s_infinite] transition-transform duration-300" />,
+                      label: 'Being Prepared',
+                    },
+                    OUT_FOR_DELIVERY: {
+                      bg: 'bg-orange-50 text-[#F96302] border-orange-200/90 ring-2 ring-orange-100/60 animate-pulse',
+                      icon: <Truck className="w-3.5 h-3.5 text-[#F96302] transition-transform duration-300" />,
+                      label: 'Out for Delivery',
+                    },
+                    DELIVERED: {
+                      bg: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
+                      icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-600 transition-transform duration-300" />,
+                      label: 'Delivered',
+                    },
+                    CANCELLED: {
+                      bg: 'bg-red-50 text-red-800 border-red-200/90',
+                      icon: <Clock className="w-3.5 h-3.5 text-red-600 transition-transform duration-300" />,
+                      label: 'Cancelled',
+                    },
+                    REJECTED: {
+                      bg: 'bg-rose-50 text-rose-800 border-rose-200/90',
+                      icon: <Clock className="w-3.5 h-3.5 text-rose-600 transition-transform duration-300" />,
+                      label: 'Rejected',
+                    },
+                  }[status] || {
+                    bg: 'bg-slate-100 text-slate-700 border-slate-200',
+                    icon: <Clock className="w-3.5 h-3.5 text-slate-500" />,
+                    label: status,
+                  };
+
+                  return (
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs transition-all duration-500 ease-out hover:scale-[1.03] ${badgeConfig.bg}`}>
+                      {badgeConfig.icon}
+                      <span>{badgeConfig.label}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="space-y-2">

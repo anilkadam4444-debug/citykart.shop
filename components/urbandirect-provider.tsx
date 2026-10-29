@@ -1,2078 +1,1314 @@
 'use client';
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
-import {Check} from 'lucide-react';
-import {usePathname, useRouter} from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  AUTHORITATIVE_STORE_CATEGORIES,
-  BuyerUnifiedOrderNotification,
   CartItem,
-  CategoryDefinition,
   CustomerShoppingLocation,
-  isStoreLocationComplete,
+  CategoryDefinition,
+  INITIAL_PRODUCTS,
+  INITIAL_STORES,
+  INITIAL_SELLERS,
+  AUTHORITATIVE_STORE_CATEGORIES,
   LocalStore,
-  normalizeCityId,
   OrderRecord,
-  PaymentMethod,
   Product,
   SellerProfile,
   StoreCategoryId,
   UserAccount,
+  PaymentMethod,
+  isStoreEligibleForSelectedCity,
+  normalizeCityId,
 } from '@/lib/catalog-data';
-import {
-  INITIAL_PRODUCTS,
-  INITIAL_SELLERS,
-  INITIAL_STORES,
-} from '@/lib/initial-data';
-import { calculateItemPlatformFee } from '@/lib/fees';
+import { buildAuthenticatedHeaders } from '@/lib/firebase';
+import { MobileOtpAuthModal, OtpAuthContextMode } from './mobile-otp-auth-modal';
 
-import {
-  MobileOtpAuthModal,
-  OtpAuthContextMode,
-} from '@/components/mobile-otp-auth-modal';
-import { onAuthStateChanged } from 'firebase/auth';
-import {
-  auth,
-  deleteProductFromFirestore,
-  deleteStoreAndProductsFromFirestore,
-  fetchStoresAndProductsFromFirestore,
-  firebaseSignOut,
-  syncOrderToFirestore,
-  syncProductToFirestore,
-  syncSellerProfileToFirestore,
-  syncStoreToFirestore,
-  syncUserAccountToFirestore,
-} from '@/lib/firebase';
-import {
-  requestAndRegisterFcmToken,
-  subscribeToForegroundMessages,
-  triggerUnifiedBuyerOrderBrowserNotification,
-  triggerUnifiedSellerOrderBrowserNotification,
-} from '@/lib/fcm-client';
+export const AUTH_USER_STORAGE_KEY = 'urbandirect_user';
 
-export const BUYER_CITY_STORAGE_KEY = 'urbandirect_buyer_city_v1';
-export const AUTH_USER_STORAGE_KEY = 'urbandirect_otp_user_v2';
-export const DELETED_STORES_STORAGE_KEY = 'urbandirect_deleted_stores_v1';
-const CUSTOM_STORES_STORAGE_KEY = 'urbandirect_custom_stores_v1';
-const CUSTOM_SELLERS_STORAGE_KEY = 'urbandirect_custom_sellers_v1';
-const CUSTOM_PRODUCTS_STORAGE_KEY = 'urbandirect_custom_products_v1';
-const CUSTOM_ORDERS_STORAGE_KEY = 'urbandirect_custom_orders_v1';
-const BUYER_PIN_VAULT_STORAGE_KEY = 'urbandirect_buyer_pin_vault_v1';
-
-export interface BuyerPinVaultEntry {
-  orderId: string;
-  pin?: string;
-  buyerAccessToken?: string;
-  unifiedNotification?: BuyerUnifiedOrderNotification;
-  updatedAt: string;
-}
-
-export function readStoredDeletedStoreIds(): Set<string> {
-  if (typeof window === 'undefined') return new Set<string>();
-  try {
-    const raw = window.localStorage.getItem(DELETED_STORES_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return new Set<string>(parsed);
-      }
-    }
-  } catch {
-    // Ignore storage read error
-  }
-  return new Set<string>();
-}
-
-
-const UNSET_CUSTOMER_LOCATION: CustomerShoppingLocation = {
-  mode: 'UNSET',
-  country: '',
-  stateRegion: '',
-  city: '',
-  locality: '',
+const DEMO_PRODUCT = INITIAL_PRODUCTS[0] || {
+  id: 'p1',
+  sellerId: 'seller-1',
+  storeId: 'store-1',
+  storeName: 'Nanded Spice & Kirana Bazaar',
+  sku: 'NSB-001',
+  name: 'Organic Turmeric Powder (Haldi)',
+  categoryId: 'cat-01-grocery-daily-essentials' as StoreCategoryId,
+  category: 'Grocery & Daily Essentials' as const,
+  price: 180,
+  deliveryCharge: 0,
+  currency: 'INR',
+  unit: '500g Pack',
+  city: 'Nanded · Vazirabad',
+  neighborhood: 'Vazirabad',
+  distanceKm: 1.2,
+  deliveryMins: 25,
+  stock: 40,
+  isAvailable: true,
+  rating: 4.9,
+  reviewsCount: 42,
+  description: 'Pure single-origin organic turmeric powder from Nanded.',
+  dimensions: '500g Pouch',
+  materials: '100% Organic Curcuma Longa',
+  variants: ['500g Pack', '1kg Pack'],
+  statusNote: 'Fresh Batch',
+  artworkPreset: 'matcha_ceremonial' as const,
 };
-
-export const DEFAULT_NANDED_BUYER_LOCATION: CustomerShoppingLocation = {
-  mode: 'SELECTED_LOCATION',
-  country: 'India',
-  countryCode: 'IN',
-  stateRegion: 'Maharashtra',
-  district: 'Nanded',
-  localityType: 'CITY',
-  city: 'Nanded',
-  cityId: 'india-maharashtra-nanded',
-  locality: 'Vazirabad',
-  postalCode: '431601',
-};
-
-function subscribeNoop() {
-  return () => {};
-}
-
-function getClientMountedSnapshot() {
-  return true;
-}
-
-function getServerMountedSnapshot() {
-  return false;
-}
-
-export function readStoredBuyerLocation(): CustomerShoppingLocation | null {
-  if (typeof window === 'undefined') return DEFAULT_NANDED_BUYER_LOCATION;
-  try {
-    const raw = window.localStorage.getItem(BUYER_CITY_STORAGE_KEY);
-    if (!raw) return DEFAULT_NANDED_BUYER_LOCATION;
-    const parsed = JSON.parse(raw) as Partial<CustomerShoppingLocation>;
-    if (
-      parsed &&
-      parsed.mode === 'SELECTED_LOCATION' &&
-      typeof parsed.city === 'string' &&
-      parsed.city.trim().length > 0 &&
-      typeof parsed.country === 'string' &&
-      parsed.country.trim().length > 0
-    ) {
-      const city = parsed.city.trim();
-      const country = parsed.country.trim();
-      const stateRegion = (parsed.stateRegion || country).trim();
-      return {
-        mode: 'SELECTED_LOCATION',
-        country,
-        countryCode: parsed.countryCode,
-        stateRegion,
-        district: parsed.district,
-        postalCode: parsed.postalCode,
-        localityType: parsed.localityType,
-        city,
-        cityId: parsed.cityId || normalizeCityId(country, stateRegion, city),
-        locality:
-          typeof parsed.locality === 'string' ? parsed.locality.trim() : '',
-      };
-    }
-  } catch {
-    // Ignore malformed storage
-  }
-  return DEFAULT_NANDED_BUYER_LOCATION;
-}
 
 export const INITIAL_DEMO_ORDER: OrderRecord = {
-  id: 'UD-4918',
-  createdAt: '14:10',
-  storeId: 'demo-nanded-store-01a',
-  storeName: 'Nanded Super Bazar & Kirana',
-  sellerId: 'demo-nanded-seller-01a',
+  id: 'demo-order-101',
+  createdAt: 'Today, 11:30 AM',
+  createdAtIso: new Date().toISOString(),
+  storeId: DEMO_PRODUCT.storeId || 'store-1',
+  storeName: DEMO_PRODUCT.storeName || 'Nanded Spice & Kirana Bazaar',
+  sellerId: DEMO_PRODUCT.sellerId || 'seller-1',
   items: [
     {
-      product: INITIAL_PRODUCTS[0],
-      variant: INITIAL_PRODUCTS[0].variants[0] || 'Standard',
-      quantity: 1,
-      platformFee: calculateItemPlatformFee(INITIAL_PRODUCTS[0].price, 1),
+      productId: DEMO_PRODUCT.id,
+      storeId: DEMO_PRODUCT.storeId,
+      productName: DEMO_PRODUCT.name,
+      price: DEMO_PRODUCT.price,
+      quantity: 2,
+      unit: DEMO_PRODUCT.unit,
+      product: DEMO_PRODUCT,
+      variant: DEMO_PRODUCT.variants?.[0] || 'Standard',
+      platformFee: 5,
     },
   ],
-  subtotal: INITIAL_PRODUCTS[0].price,
+  subtotal: DEMO_PRODUCT.price * 2,
   deliveryFee: 0,
   discount: 0,
-  totalPlatformFee: calculateItemPlatformFee(INITIAL_PRODUCTS[0].price, 1),
-  total: INITIAL_PRODUCTS[0].price,
-  paymentMethod: 'UPI_ON_DELIVERY',
-  upiId: 'anilkadam@okicici',
+  totalPlatformFee: 5,
+  total: DEMO_PRODUCT.price * 2 + 5,
+  paymentMethod: 'PAY_ON_DELIVERY',
+  paymentStatus: 'PENDING',
   customer: {
-    fullName: 'Anil Kadam',
-    phone: '+91 98204 51290',
+    fullName: 'Rahul Sharma',
+    phone: '+91 98765 43210',
     country: 'India',
     stateRegion: 'Maharashtra',
-    address: 'Plot 14, Bhagya Nagar Main Road',
+    address: 'Plot 14, Vazirabad Main Road',
     city: 'Nanded',
     locality: 'Vazirabad',
     postalCode: '431601',
-    notes: 'Call on mobile upon arrival at gate',
+    notes: 'Call at gate upon arrival',
   },
   currentStepIndex: 1,
   orderStatus: 'PREPARING',
   isDemo: true,
-  estimatedMins: 24,
+  estimatedMins: 25,
 };
 
-export interface OtpModalLaunchOptions {
-  defaultJourney?: 'BUYER' | 'SELLER';
-  authContextMode?: OtpAuthContextMode;
-  legacySellerId?: string;
-  onSuccessCallback?: (
-    user: UserAccount,
-    selectedJourney: 'BUYER' | 'SELLER'
-  ) => void;
+export const INITIAL_DELIVERED_DEMO_ORDER: OrderRecord = {
+  id: 'demo-order-102',
+  createdAt: 'Yesterday, 6:15 PM',
+  createdAtIso: new Date(Date.now() - 86400000).toISOString(),
+  storeId: DEMO_PRODUCT.storeId || 'store-1',
+  storeName: DEMO_PRODUCT.storeName || 'Nanded Spice & Kirana Bazaar',
+  sellerId: DEMO_PRODUCT.sellerId || 'seller-1',
+  items: [
+    {
+      productId: DEMO_PRODUCT.id,
+      storeId: DEMO_PRODUCT.storeId,
+      productName: DEMO_PRODUCT.name,
+      price: DEMO_PRODUCT.price,
+      quantity: 1,
+      unit: DEMO_PRODUCT.unit,
+      product: DEMO_PRODUCT,
+      variant: DEMO_PRODUCT.variants?.[0] || 'Standard',
+      platformFee: 5,
+    },
+  ],
+  subtotal: DEMO_PRODUCT.price,
+  deliveryFee: 0,
+  discount: 0,
+  totalPlatformFee: 5,
+  total: DEMO_PRODUCT.price + 5,
+  paymentMethod: 'PAY_ON_DELIVERY',
+  paymentStatus: 'PAID',
+  paymentCollectionMethod: 'UPI_ON_DELIVERY',
+  customer: {
+    fullName: 'Rahul Sharma',
+    phone: '+91 98765 43210',
+    country: 'India',
+    stateRegion: 'Maharashtra',
+    address: 'Plot 14, Vazirabad Main Road',
+    city: 'Nanded',
+    locality: 'Vazirabad',
+    postalCode: '431601',
+    notes: 'Delivered at main gate',
+  },
+  currentStepIndex: 3,
+  orderStatus: 'DELIVERED',
+  deliveredAt: new Date(Date.now() - 82800000).toISOString(),
+  deliveryPinVerified: true,
+  isDemo: true,
+  estimatedMins: 25,
+};
+
+export interface SellerNotificationItem {
+  id: string;
+  orderId: string;
+  storeId: string;
+  title: string;
+  body: string;
+  message?: string;
+  buyerPhone?: string;
+  buyerFullAddress?: string;
+  deliveryNotes?: string;
+  smsText?: string;
+  createdAt: string;
+  isRead: boolean;
 }
 
-import { SellerNotification } from '@/lib/orders-registry';
+export interface BuyerPinVaultEntry {
+  orderId: string;
+  pin: string;
+  updatedAt: string;
+  accessToken?: string;
+  buyerAccessToken?: string;
+  unifiedNotification?: import('@/lib/catalog-data').BuyerUnifiedOrderNotification;
+}
 
-export interface UrbanDirectContextValue {
+interface UrbanDirectContextType {
   isMounted: boolean;
-  isAuthReady: boolean;
+  authenticatedUser: UserAccount | null;
+  setAuthenticatedUser: (user: UserAccount | null) => void;
+  categories: CategoryDefinition[];
+  customerLocation: CustomerShoppingLocation;
+  hasSelectedCity: boolean;
+  isBuyerCityLocked: boolean;
+  setCustomerLocation: (loc: CustomerShoppingLocation) => void;
+  handleConfirmBuyerLocation: (loc: CustomerShoppingLocation) => void;
+  isLocationModalOpen: boolean;
+  setIsLocationModalOpen: (val: boolean) => void;
   sellers: SellerProfile[];
   stores: LocalStore[];
   setStores: React.Dispatch<React.SetStateAction<LocalStore[]>>;
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
-  orders: OrderRecord[];
-  sellerNotifications: SellerNotification[];
-  unreadNotificationCount: number;
-  handleMarkNotificationRead: (id: string) => void;
-  handleClearNotifications: () => void;
-  categories: CategoryDefinition[];
-  savedLocation: CustomerShoppingLocation | null;
-  customerLocation: CustomerShoppingLocation;
-  hasSelectedCity: boolean;
-  isLocationModalOpen: boolean;
-  setIsLocationModalOpen: (open: boolean) => void;
-  handleConfirmBuyerLocation: (newLoc: CustomerShoppingLocation) => void;
-  authenticatedUser: UserAccount | null;
-  setAuthenticatedUser: React.Dispatch<React.SetStateAction<UserAccount | null>>;
   userOwnedStores: LocalStore[];
   hasSellerRole: boolean;
   hasCompletedStore: boolean;
-  openOtpAuthModal: (options?: OtpModalLaunchOptions) => void;
-  handleSignOutOtpSession: () => Promise<void>;
-  handleAddSellerAndStore: (
-    newSeller: SellerProfile,
-    newStore: LocalStore
-  ) => Promise<void>;
+  cart: CartItem[];
+  totalCartItems: number;
+  totalCartValue: number;
+  cartTotal: number;
+  addToCart: (product: Product, quantity?: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  handleAddToCart: (product: Product, variant?: string, quantity?: number) => void;
+  handleUpdateCartQuantity: (productId: string, variant: string, delta: number) => void;
+  handleRemoveCartItem: (productId: string, variant: string) => void;
+  orders: OrderRecord[];
+  activeOrdersCount: number;
+  placeOrder: (customerDetails: {
+    fullName: string;
+    phoneE164: string;
+    deliveryAddress: string;
+    locality?: string;
+  }) => Promise<{ ok: boolean; order?: OrderRecord; error?: string }>;
+  handlePlaceOrder: (newOrder: OrderRecord) => void;
+  handleCancelOrder: (orderId: string, reason?: string) => boolean;
+  getBuyerPinVaultEntry: (orderId: string) => BuyerPinVaultEntry | undefined;
+  regenerateBuyerDeliveryPin: (orderId: string) => Promise<{ ok: boolean; deliveryPin?: string; error?: string }>;
+  handleRegenerateBuyerDeliveryPin: (orderId: string) => Promise<{ ok: boolean; pin?: string; message?: string; error?: string }>;
+  handleSignOutOtpSession: () => void;
+  openOtpAuthModal: (options?: {
+    defaultJourney?: 'BUYER' | 'SELLER';
+    authContextMode?: OtpAuthContextMode;
+    legacySellerId?: string;
+    onSuccessCallback?: (user: UserAccount) => void;
+  }) => void;
+  showToast: (message: string) => void;
+  handleAddSellerAndStore: (newSeller: SellerProfile, newStore: LocalStore) => void;
   handleUpdateStoreSettings: (updatedStore: LocalStore) => void;
   handleDeleteStore: (
     storeId: string,
-    storeNameConfirm: string
-  ) => Promise<{ success: boolean; message?: string }>;
-  permanentlyDeleteStore: (storeId: string) => Promise<void>;
+    storeNameConfirm?: string
+  ) => Promise<{ ok: boolean; success: boolean; message: string }>;
+  permanentlyDeleteStore: (
+    storeId: string,
+    reason?: string
+  ) => Promise<{ ok: boolean; success: boolean; message: string }>;
   handleAddProduct: (newProduct: Product) => void;
   handleUpdateProduct: (updatedProduct: Product) => void;
   handleDeleteProduct: (productId: string) => void;
   handleUpdateStock: (
     productId: string,
-    newStock: number,
-    actorSellerId: string,
-    isAdmin: boolean
+    nextStock: number,
+    isAvailableOrActor?: boolean | string,
+    isAdmin?: boolean
   ) => void;
+  handleSetOrderStep: (orderId: string, stepIndex: number) => void;
+  handleSubmitStoreRating: (orderId: string, rating: number, comment?: string) => void;
   handleToggleCategoryStatus: (categoryId: StoreCategoryId) => void;
-  cart: CartItem[];
-  totalCartItems: number;
-  totalCartValue: number;
-  handleAddToCart: (
-    product: Product,
-    variant: string,
-    quantity?: number
-  ) => void;
-  handleUpdateCartQuantity: (
-    productId: string,
-    variant: string,
-    delta: number
-  ) => void;
-  handleRemoveCartItem: (productId: string, variant: string) => void;
-  handlePlaceOrder: (newOrder: OrderRecord) => void;
-  handleSetOrderStep: (
-    orderId: string,
-    nextStep: number,
-    nextStatus?: OrderRecord['orderStatus']
-  ) => void;
-  handleCancelOrder: (orderId: string, reason?: string) => Promise<boolean>;
   handleVerifyOrderDeliveryPin: (
     orderId: string,
-    pin: string,
-    actorSellerId?: string
-  ) => Promise<{
-    ok: boolean;
-    success: boolean;
-    error?: string;
-    remainingAttempts?: number;
-    order?: OrderRecord;
-    message?: string;
-  }>;
+    pinInput: string,
+    actorRole?: 'SELLER' | 'DELIVERY_AGENT' | string
+  ) => Promise<{ ok: boolean; success: boolean; message: string }>;
   handleUpdateOrderPaymentStatus: (
     orderId: string,
-    paymentStatus: 'PENDING' | 'PAID' | 'DISPUTED',
-    paymentReferenceNoteOrOptions?:
-      | string
+    status: 'PENDING' | 'PAID' | 'DISPUTED',
+    collectionMethodOrOptions?:
+      | PaymentMethod
       | {
           actorSellerId?: string;
-          collectionMethod?: PaymentMethod;
+          collectionMethod?: PaymentMethod | string;
           referenceNote?: string;
         },
-    actorSellerId?: string
-  ) => Promise<{
-    ok: boolean;
-    success: boolean;
-    error?: string;
-    order?: OrderRecord;
-    message?: string;
-  }>;
-  handleRegenerateBuyerDeliveryPin: (
-    orderId: string
-  ) => Promise<{
-    ok: boolean;
-    success: boolean;
-    pin?: string;
-    error?: string;
-    message?: string;
-  }>;
-  getBuyerPinVaultEntry: (orderId: string) => BuyerPinVaultEntry | null;
-  toastNotice: string | null;
-  showToast: (msg: string) => void;
+    referenceNote?: string
+  ) => Promise<{ ok: boolean; success: boolean; message: string }>;
+  sellerNotifications: SellerNotificationItem[];
+  unreadNotificationCount: number;
+  handleMarkNotificationRead: (notificationId: string) => void;
+  handleClearNotifications: () => void;
 }
 
-const UrbanDirectContext = createContext<UrbanDirectContextValue | null>(null);
+const UrbanDirectContext = createContext<UrbanDirectContextType | null>(null);
 
-export function UrbanDirectProvider({children}: {children: React.ReactNode}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const isMounted = useSyncExternalStore(
-    subscribeNoop,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
-  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
+const DEFAULT_LOCATION: CustomerShoppingLocation = {
+  mode: 'SELECTED_LOCATION',
+  country: 'India',
+  countryCode: 'IN',
+  stateRegion: 'Maharashtra',
+  district: 'Nanded',
+  cityId: 'india-maharashtra-nanded',
+  city: 'Nanded',
+  locality: 'Vazirabad',
+  postalCode: '431601',
+};
 
-  const [sellers, setSellers] = useState<SellerProfile[]>(() => {
-    if (typeof window === 'undefined') return INITIAL_SELLERS;
-    try {
-      const raw = window.localStorage.getItem(CUSTOM_SELLERS_STORAGE_KEY);
-      if (raw) {
-        const custom = JSON.parse(raw) as SellerProfile[];
-        const map = new Map<string, SellerProfile>();
-        for (const s of INITIAL_SELLERS) map.set(s.id, s);
-        for (const s of custom) map.set(s.id, s);
-        return Array.from(map.values());
-      }
-    } catch {
-      // Ignore
-    }
-    return INITIAL_SELLERS;
+export function UrbanDirectProvider({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false);
+  const [customerLocation, setCustomerLocation] = useState<CustomerShoppingLocation>(DEFAULT_LOCATION);
+  const [categories, setCategories] = useState<CategoryDefinition[]>(AUTHORITATIVE_STORE_CATEGORIES);
+  const [sellers, setSellers] = useState<SellerProfile[]>(INITIAL_SELLERS);
+  const [stores, setStores] = useState<LocalStore[]>(INITIAL_STORES);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([
+    INITIAL_DEMO_ORDER,
+    INITIAL_DELIVERED_DEMO_ORDER,
+  ]);
+  const [authenticatedUser, setAuthenticatedUser] = useState<UserAccount | null>(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [sellerNotifications, setSellerNotifications] = useState<SellerNotificationItem[]>([]);
+  const [pinVault, setPinVault] = useState<Record<string, BuyerPinVaultEntry>>({
+    [INITIAL_DEMO_ORDER.id]: {
+      orderId: INITIAL_DEMO_ORDER.id,
+      pin: '482915',
+      updatedAt: new Date().toISOString(),
+    },
   });
 
-  const [deletedStoreIds, setDeletedStoreIds] = useState<Set<string>>(() =>
-    readStoredDeletedStoreIds()
-  );
-
-  const [stores, setStores] = useState<LocalStore[]>(() => {
-    const deleted = readStoredDeletedStoreIds();
-    const baseStores = INITIAL_STORES.filter((s) => !deleted.has(s.id));
-    if (typeof window === 'undefined') return baseStores;
-    try {
-      const raw = window.localStorage.getItem(CUSTOM_STORES_STORAGE_KEY);
-      if (raw) {
-        const custom = JSON.parse(raw) as LocalStore[];
-        const map = new Map<string, LocalStore>();
-        for (const s of baseStores) map.set(s.id, s);
-        for (const s of custom) {
-          if (!deleted.has(s.id)) map.set(s.id, s);
-        }
-        return Array.from(map.values());
-      }
-    } catch {
-      // Ignore
-    }
-    return baseStores;
-  });
-
-  const [products, setProducts] = useState<Product[]>(() => {
-    const deleted = readStoredDeletedStoreIds();
-    const baseProducts = INITIAL_PRODUCTS.filter((p) => !deleted.has(p.storeId));
-    if (typeof window === 'undefined') return baseProducts;
-    try {
-      const raw = window.localStorage.getItem(CUSTOM_PRODUCTS_STORAGE_KEY);
-      if (raw) {
-        const custom = JSON.parse(raw) as Product[];
-        const map = new Map<string, Product>();
-        for (const p of baseProducts) map.set(p.id, p);
-        for (const p of custom) {
-          if (!deleted.has(p.storeId)) map.set(p.id, p);
-        }
-        return Array.from(map.values());
-      }
-    } catch {
-      // Ignore
-    }
-    return baseProducts;
-  });
-
-  const [categories, setCategories] = useState<CategoryDefinition[]>(
-    AUTHORITATIVE_STORE_CATEGORIES
-  );
-
-  // Sync live stores, products, and Super Admin overrides from Firestore (`urbandirectintracity`) with real-time polling
-  useEffect(() => {
-    if (!isMounted) return;
-    let active = true;
-
-    const refreshLiveStoresAndProducts = async () => {
-      try {
-        const live = await fetchStoresAndProductsFromFirestore();
-        if (!active) return;
-        const currentDeleted = readStoredDeletedStoreIds();
-        if (live.stores.length > 0) {
-          setStores((prev) => {
-            const map = new Map<string, LocalStore>();
-            for (const s of prev) {
-              if (!currentDeleted.has(s.id)) map.set(s.id, s);
-            }
-            for (const s of live.stores) {
-              if (!currentDeleted.has(s.id)) map.set(s.id, s);
-            }
-            return Array.from(map.values());
-          });
-        }
-        if (live.products.length > 0) {
-          setProducts((prev) => {
-            const map = new Map<string, Product>();
-            for (const p of prev) {
-              if (!currentDeleted.has(p.storeId)) map.set(p.id, p);
-            }
-            for (const p of live.products) {
-              if (!currentDeleted.has(p.storeId)) map.set(p.id, p);
-            }
-            return Array.from(map.values());
-          });
-        }
-      } catch {
-        // Ignore network errors on background poll
-      }
-    };
-
-    void refreshLiveStoresAndProducts();
-    const interval = setInterval(refreshLiveStoresAndProducts, 6000);
-    window.addEventListener('focus', refreshLiveStoresAndProducts);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-      window.removeEventListener('focus', refreshLiveStoresAndProducts);
-    };
-  }, [isMounted]);
-
-  // Persistent Buyer City State
-  const [savedLocation, setSavedLocation] =
-    useState<CustomerShoppingLocation | null>(() => readStoredBuyerLocation());
-  const [isLocationModalOpen, setIsLocationModalOpen] =
-    useState<boolean>(false);
-
-  // Mobile OTP-Only Authentication State
-  // Defaults to null for unauthenticated visitors so `/` opens as a public buyer experience immediately
-  const [authenticatedUser, setAuthenticatedUser] =
-    useState<UserAccount | null>(() => {
-      if (typeof window === 'undefined') return null;
-      try {
-        const raw = window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
-        if (raw) {
-          return JSON.parse(raw) as UserAccount;
-        }
-      } catch {
-        // Ignore storage read errors
-      }
-      return null;
-    });
-
-  const [authModalState, setAuthModalState] = useState<{
+  // OTP Auth Modal State
+  const [otpModalState, setOtpModalState] = useState<{
     isOpen: boolean;
     defaultJourney: 'BUYER' | 'SELLER';
     authContextMode: OtpAuthContextMode;
     legacySellerId?: string;
+    onSuccessCallback?: (user: UserAccount) => void;
   }>({
     isOpen: false,
     defaultJourney: 'BUYER',
     authContextMode: 'BUYER_SIGN_IN',
   });
 
-  const authSuccessCallbackRef = useRef<
-    | ((user: UserAccount, selectedJourney: 'BUYER' | 'SELLER') => void)
-    | undefined
-  >(undefined);
-
-  const [toastNotice, setToastNotice] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastNotice(msg);
-    setTimeout(() => {
-      setToastNotice((current) => (current === msg ? null : current));
-    }, 3200);
-  };
-
-  // Restore and verify server session on mount & Firebase Auth state change
   useEffect(() => {
-    if (!isMounted) return;
-    let active = true;
-
-    const verifyAndRestoreSession = async () => {
-      try {
-        const res = await fetch('/api/auth/otp', {
-          method: 'GET',
-          cache: 'no-store',
-        });
-        const data = await res.json();
-
-        if (!active) return;
-
-        if (res.status === 403 && data?.suspended) {
-          setAuthenticatedUser(null);
-          try {
-            window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-          } catch {}
-          setIsAuthReady(true);
-          return;
-        }
-
-        if (data?.ok && data?.authenticated && data?.user) {
-          const serverVerifiedUser = data.user as UserAccount;
-          setAuthenticatedUser(serverVerifiedUser);
-          try {
-            window.localStorage.setItem(
-              AUTH_USER_STORAGE_KEY,
-              JSON.stringify(serverVerifiedUser)
-            );
-          } catch {}
-        } else if (authenticatedUser?.phoneE164) {
-          // If localStorage has a session from before server restart, re-verify with server
-          const reVerifyRes = await fetch('/api/auth/otp', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              action: 'RESOLVE_FIREBASE_USER',
-              phoneE164: authenticatedUser.phoneE164,
-              countryCode: authenticatedUser.countryCode || 'IN',
-              maskedPhone: authenticatedUser.maskedPhone,
-              firebaseUid:
-                auth.currentUser?.uid ||
-                authenticatedUser.uid ||
-                authenticatedUser.id ||
-                `firebase-phone-${authenticatedUser.phoneE164.replace(/[^0-9]/g, '')}`,
-            }),
-          });
-          const reVerifyData = await reVerifyRes.json();
-          if (active && reVerifyRes.ok && reVerifyData?.user) {
-            const restoredUser = reVerifyData.user as UserAccount;
-            setAuthenticatedUser(restoredUser);
-            try {
-              window.localStorage.setItem(
-                AUTH_USER_STORAGE_KEY,
-                JSON.stringify(restoredUser)
-              );
-            } catch {}
+    setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('urbandirect_session_token');
+      const storedUser = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser) as UserAccount;
+          setAuthenticatedUser(parsedUser);
+          if (parsedUser.lockedCity) {
+            setCustomerLocation((prev) => ({
+              ...prev,
+              mode: 'SELECTED_LOCATION',
+              city: parsedUser.lockedCity!,
+              cityId:
+                parsedUser.lockedCityId ||
+                normalizeCityId(
+                  parsedUser.lockedCountry || prev.country || 'India',
+                  parsedUser.lockedStateRegion || prev.stateRegion || 'Maharashtra',
+                  parsedUser.lockedCity!
+                ),
+              stateRegion: parsedUser.lockedStateRegion || prev.stateRegion,
+              country: parsedUser.lockedCountry || prev.country,
+              countryCode: parsedUser.lockedCountryCode || prev.countryCode,
+              locality: parsedUser.lockedLocality || prev.locality,
+              postalCode: parsedUser.lockedPostalCode || prev.postalCode,
+            }));
           }
+        } catch {
+          // Ignore parse error
+        }
+      }
+      if (storedToken) {
+        fetch('/api/auth/otp', {
+          headers: { 'x-urbandirect-session': storedToken },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.ok && data.user) {
+              const serverUser = data.user as UserAccount;
+              setAuthenticatedUser((prevUser) => {
+                const mergedUser: UserAccount = {
+                  ...serverUser,
+                  lockedCity: serverUser.lockedCity || prevUser?.lockedCity,
+                  lockedCityId: serverUser.lockedCityId || prevUser?.lockedCityId,
+                  lockedStateRegion:
+                    serverUser.lockedStateRegion || prevUser?.lockedStateRegion,
+                  lockedCountry:
+                    serverUser.lockedCountry || prevUser?.lockedCountry,
+                  lockedCountryCode:
+                    serverUser.lockedCountryCode || prevUser?.lockedCountryCode,
+                  lockedLocality:
+                    serverUser.lockedLocality || prevUser?.lockedLocality,
+                  lockedPostalCode:
+                    serverUser.lockedPostalCode || prevUser?.lockedPostalCode,
+                  cityLockedAt:
+                    serverUser.cityLockedAt || prevUser?.cityLockedAt,
+                };
+                localStorage.setItem(
+                  AUTH_USER_STORAGE_KEY,
+                  JSON.stringify(mergedUser)
+                );
+                return mergedUser;
+              });
+            }
+          })
+          .catch(() => {});
+      }
+      try {
+        const savedStoreRatingsRaw = localStorage.getItem('urbandirect_store_ratings_v1');
+        if (savedStoreRatingsRaw) {
+          const parsedRatings = JSON.parse(savedStoreRatingsRaw) as Record<
+            string,
+            { rating: number; reviewsCount: number }
+          >;
+          setStores((prev) =>
+            prev.map((st) =>
+              parsedRatings[st.id]
+                ? {
+                    ...st,
+                    rating: parsedRatings[st.id].rating,
+                    reviewsCount: parsedRatings[st.id].reviewsCount,
+                  }
+                : st
+            )
+          );
+        }
+        const savedOrderRatingsRaw = localStorage.getItem('urbandirect_order_ratings_v1');
+        if (savedOrderRatingsRaw) {
+          const parsedOrderRatings = JSON.parse(savedOrderRatingsRaw) as Record<
+            string,
+            {
+              storeRating: number;
+              storeReviewComment?: string;
+              storeRatedAt: string;
+              orderStatus?: OrderRecord['orderStatus'];
+              currentStepIndex?: number;
+            }
+          >;
+          setOrders((prev) =>
+            prev.map((ord) =>
+              parsedOrderRatings[ord.id]
+                ? {
+                    ...ord,
+                    storeRating: parsedOrderRatings[ord.id].storeRating,
+                    storeReviewComment: parsedOrderRatings[ord.id].storeReviewComment,
+                    storeRatedAt: parsedOrderRatings[ord.id].storeRatedAt,
+                    orderStatus: parsedOrderRatings[ord.id].orderStatus || ord.orderStatus,
+                    currentStepIndex:
+                      typeof parsedOrderRatings[ord.id].currentStepIndex === 'number'
+                        ? parsedOrderRatings[ord.id].currentStepIndex!
+                        : ord.currentStepIndex,
+                  }
+                : ord
+            )
+          );
         }
       } catch {
-        // Ignore network errors during initial check
-      } finally {
-        if (active) {
-          setIsAuthReady(true);
+        // Ignore storage read error
+      }
+    }
+  }, []);
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === message ? null : prev));
+    }, 4000);
+  }, []);
+
+  const hasSelectedCity = Boolean(
+    customerLocation.mode === 'SELECTED_LOCATION' && customerLocation.city?.trim()
+  );
+
+  const isBuyerCityLocked = Boolean(authenticatedUser);
+
+  // Ensure authenticatedUser always has a lockedCity and keep customerLocation locked to it
+  useEffect(() => {
+    if (!authenticatedUser) return;
+    const lockedCityName = authenticatedUser.lockedCity?.trim();
+    if (lockedCityName) {
+      if (
+        customerLocation.city.trim().toLowerCase() !==
+        lockedCityName.toLowerCase()
+      ) {
+        setCustomerLocation((prev) => ({
+          ...prev,
+          mode: 'SELECTED_LOCATION',
+          city: lockedCityName,
+          cityId:
+            authenticatedUser.lockedCityId ||
+            normalizeCityId(
+              authenticatedUser.lockedCountry || prev.country || 'India',
+              authenticatedUser.lockedStateRegion || prev.stateRegion || 'Maharashtra',
+              lockedCityName
+            ),
+          stateRegion: authenticatedUser.lockedStateRegion || prev.stateRegion,
+          country: authenticatedUser.lockedCountry || prev.country,
+          countryCode: authenticatedUser.lockedCountryCode || prev.countryCode,
+          locality: authenticatedUser.lockedLocality || prev.locality,
+          postalCode: authenticatedUser.lockedPostalCode || prev.postalCode,
+        }));
+      }
+    } else if (customerLocation.city?.trim()) {
+      // Backfill lockedCity onto legacy user sessions immediately
+      const updatedUser: UserAccount = {
+        ...authenticatedUser,
+        lockedCity: customerLocation.city,
+        lockedCityId:
+          customerLocation.cityId ||
+          normalizeCityId(
+            customerLocation.country || 'India',
+            customerLocation.stateRegion || 'Maharashtra',
+            customerLocation.city
+          ),
+        lockedStateRegion: customerLocation.stateRegion,
+        lockedCountry: customerLocation.country,
+        lockedCountryCode: customerLocation.countryCode,
+        lockedLocality: customerLocation.locality,
+        lockedPostalCode: customerLocation.postalCode,
+        cityLockedAt: new Date().toISOString(),
+      };
+      setAuthenticatedUser(updatedUser);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(updatedUser));
+      }
+    }
+  }, [authenticatedUser, customerLocation]);
+
+  // Remove any cross-city items from cart if city is locked
+  useEffect(() => {
+    if (!hasSelectedCity || cart.length === 0) return;
+    setCart((prev) => {
+      const validItems = prev.filter((item) => {
+        const storeId = item.product?.storeId || item.storeId;
+        const store = stores.find((s) => s.id === storeId);
+        if (!store) return true;
+        return isStoreEligibleForSelectedCity(store, customerLocation);
+      });
+      return validItems.length === prev.length ? prev : validItems;
+    });
+  }, [customerLocation, hasSelectedCity, stores, cart.length]);
+
+  const handleSetCustomerLocationGuarded = useCallback(
+    (newLoc: CustomerShoppingLocation) => {
+      if (authenticatedUser) {
+        const lockedCity =
+          authenticatedUser.lockedCity || customerLocation.city;
+        if (
+          lockedCity &&
+          newLoc.city &&
+          newLoc.city.trim().toLowerCase() !== lockedCity.trim().toLowerCase()
+        ) {
+          showToast(
+            `Your shopping city is locked to ${lockedCity}. Citykart is a hyperlocal marketplace and delivers within ${lockedCity} only.`
+          );
+          return;
         }
       }
-    };
+      setCustomerLocation(newLoc);
+    },
+    [authenticatedUser, customerLocation.city, showToast]
+  );
 
-    const unsubscribeAuth = onAuthStateChanged(auth, () => {
-      void verifyAndRestoreSession();
-    });
-
-    void verifyAndRestoreSession();
-
-    return () => {
-      active = false;
-      unsubscribeAuth();
-    };
-  }, [isMounted, authenticatedUser?.phoneE164, authenticatedUser?.countryCode, authenticatedUser?.maskedPhone, authenticatedUser?.uid, authenticatedUser?.id]);
-
-  // Automated FCM Device Registration & Real-Time Foreground Push Listener
-  useEffect(() => {
-    if (!isMounted) return;
-
-    void requestAndRegisterFcmToken({
-      uid: authenticatedUser?.uid || authenticatedUser?.id,
-      sellerId: authenticatedUser?.sellerId,
-      buyerPhone: authenticatedUser?.phoneE164,
-      role: authenticatedUser?.sellerId ? 'BOTH' : 'BUYER',
-    });
-
-    const unsubscribe = subscribeToForegroundMessages(({ title, body }) => {
-      showToast(`🔔 ${title}: ${body}`);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isMounted, authenticatedUser]);
-
-  const openOtpAuthModal = (options?: OtpModalLaunchOptions) => {
-    const isPartnerRoute =
-      pathname === '/partner' || pathname?.startsWith('/partner/');
-    if (
-      options?.authContextMode === 'PARTNER_REGISTRATION' ||
-      (isPartnerRoute && !options?.authContextMode)
-    ) {
-      router.push('/partner/verify-otp');
-      return;
-    }
-    authSuccessCallbackRef.current = options?.onSuccessCallback;
-    setAuthModalState({
-      isOpen: true,
-      defaultJourney: options?.defaultJourney || 'BUYER',
-      authContextMode: options?.authContextMode || 'BUYER_SIGN_IN',
-      legacySellerId: options?.legacySellerId,
-    });
-  };
-
-  const handleAuthenticatedViaOtp = (
-    user: UserAccount,
-    selectedJourney: 'BUYER' | 'SELLER',
-    migratedSellerId?: string
-  ) => {
-    // Check if this user's phone matches any existing seller or custom store in local state
-    const matchedSeller = sellers.find(
-      (s) => s.phoneE164 === user.phoneE164 || s.id === user.sellerId
-    );
-    const matchedStores = stores.filter(
-      (st) =>
-        (matchedSeller && st.sellerId === matchedSeller.id) ||
-        (user.sellerId && st.sellerId === user.sellerId) ||
-        user.storeIds.includes(st.id)
-    );
-
-    // Strictly preserve server-verified `isAdmin` and `role: 'super_admin'`
-    const isVerifiedSuperAdmin =
-      user.phoneE164 === '+918329306616' &&
-      user.role === 'super_admin' &&
-      user.isAdmin === true;
-
-    const enrichedUser: UserAccount =
-      matchedSeller || matchedStores.length > 0
-        ? {
-            ...user,
-            roles: Array.from(
-              new Set([
-                ...user.roles,
-                'BUYER',
-                'SELLER',
-                ...(isVerifiedSuperAdmin ? (['ADMIN'] as const) : []),
-              ])
-            ),
-            isAdmin: isVerifiedSuperAdmin,
-            role: isVerifiedSuperAdmin ? 'super_admin' : undefined,
-            sellerId: user.sellerId || matchedSeller?.id,
-            storeIds: Array.from(
-              new Set([
-                ...user.storeIds,
-                ...(matchedSeller?.storeIds || []),
-                ...matchedStores.map((m) => m.id),
-              ])
-            ),
-          }
-        : {
-            ...user,
-            isAdmin: isVerifiedSuperAdmin,
-            role: isVerifiedSuperAdmin ? 'super_admin' : undefined,
-          };
-
-    setAuthenticatedUser(enrichedUser);
-    try {
-      window.localStorage.setItem(
-        AUTH_USER_STORAGE_KEY,
-        JSON.stringify(enrichedUser)
-      );
-    } catch {
-      // Ignore quota errors
-    }
-
-    setAuthModalState((prev) => ({...prev, isOpen: false}));
-
-    // AUTOMATIC REDIRECT FOR DESIGNATED PLATFORM OWNER (+918329306616)
-    // When both phone identity (+918329306616) and trusted server role (super_admin) pass,
-    // automatically redirect to the Super Admin Dashboard (/admin) from any login entry point.
-    if (isVerifiedSuperAdmin || enrichedUser.phoneE164 === '+918329306616') {
-      authSuccessCallbackRef.current = undefined;
-      showToast(
-        isVerifiedSuperAdmin
-          ? 'Verified Platform Owner (+918329306616) · Redirecting to Super Admin Dashboard...'
-          : 'Verified Platform Owner (+918329306616) · Opening Super Admin Role Activation...'
-      );
-      if (pathname !== '/admin') {
-        router.push('/admin');
+  const handleConfirmBuyerLocation = useCallback(
+    (newLoc: CustomerShoppingLocation) => {
+      if (authenticatedUser) {
+        const lockedCity =
+          authenticatedUser.lockedCity || customerLocation.city;
+        if (
+          lockedCity &&
+          newLoc.city &&
+          newLoc.city.trim().toLowerCase() !== lockedCity.trim().toLowerCase()
+        ) {
+          showToast(
+            `Your shopping city is locked to ${lockedCity}. Citykart is a hyperlocal marketplace and delivers within ${lockedCity} only.`
+          );
+          setIsLocationModalOpen(false);
+          return;
+        }
       }
-      return;
-    }
+      setCustomerLocation({
+        ...newLoc,
+        mode: 'SELECTED_LOCATION',
+      });
+      setIsLocationModalOpen(false);
+    },
+    [authenticatedUser, customerLocation.city, showToast]
+  );
 
-    if (migratedSellerId) {
-      setSellers((prev) =>
-        prev.map((s) =>
-          s.id === migratedSellerId
-            ? {
-                ...s,
-                phoneE164: enrichedUser.phoneE164,
-                phoneCountryCode: enrichedUser.countryCode,
-                phoneVerified: true,
-                migrationRequired: false,
-              }
-            : s
+  const handleSetIsLocationModalOpenGuarded = useCallback(
+    (val: boolean) => {
+      if (val && authenticatedUser) {
+        const lockedCity =
+          authenticatedUser.lockedCity || customerLocation.city;
+        showToast(
+          `Your city is locked to ${lockedCity} during your logged-in session. Delivery of products is within ${lockedCity} only.`
+        );
+        return;
+      }
+      setIsLocationModalOpen(val);
+    },
+    [authenticatedUser, customerLocation.city, showToast]
+  );
+
+  const handleAddToCart = useCallback(
+    (product: Product, variant = 'Standard', quantity = 1) => {
+      const productStore = stores.find((s) => s.id === product.storeId);
+      if (
+        productStore &&
+        hasSelectedCity &&
+        !isStoreEligibleForSelectedCity(productStore, customerLocation)
+      ) {
+        showToast(
+          `Cannot add item: ${productStore.name} is in ${productStore.cityName}. Delivery of products is strictly within ${customerLocation.city} only.`
+        );
+        return;
+      }
+
+      const targetVariant = variant || product.variants?.[0] || 'Standard';
+      setCart((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) =>
+            (item.product?.id || item.productId) === product.id &&
+            (item.variant || 'Standard') === targetVariant
+        );
+        if (existingIndex > -1) {
+          return prev.map((item, idx) =>
+            idx === existingIndex
+              ? { ...item, quantity: item.quantity + quantity }
+              : item
+          );
+        }
+        return [
+          ...prev,
+          {
+            productId: product.id,
+            storeId: product.storeId,
+            productName: product.name,
+            price: product.price,
+            unit: product.unit,
+            imageUrl: product.customImageUrl,
+            product,
+            variant: targetVariant,
+            quantity,
+            platformFee: 5,
+          },
+        ];
+      });
+    },
+    [stores, hasSelectedCity, customerLocation, showToast]
+  );
+
+  const addToCart = useCallback(
+    (product: Product, quantity = 1) => {
+      handleAddToCart(product, product.variants?.[0] || 'Standard', quantity);
+    },
+    [handleAddToCart]
+  );
+
+  const handleRemoveCartItem = useCallback((productId: string, variant = 'Standard') => {
+    setCart((prev) =>
+      prev.filter(
+        (item) =>
+          !(
+            (item.product?.id || item.productId) === productId &&
+            (item.variant || 'Standard') === variant
+          )
+      )
+    );
+  }, []);
+
+  const removeFromCart = useCallback((productId: string) => {
+    setCart((prev) =>
+      prev.filter((item) => (item.product?.id || item.productId) !== productId)
+    );
+  }, []);
+
+  const handleUpdateCartQuantity = useCallback(
+    (productId: string, variant: string, delta: number) => {
+      setCart((prev) =>
+        prev
+          .map((item) => {
+            if (
+              (item.product?.id || item.productId) === productId &&
+              (item.variant || 'Standard') === variant
+            ) {
+              const nextQty = item.quantity + delta;
+              return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+            }
+            return item;
+          })
+          .filter(Boolean) as CartItem[]
+      );
+    },
+    []
+  );
+
+  const updateCartQuantity = useCallback(
+    (productId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeFromCart(productId);
+        return;
+      }
+      setCart((prev) =>
+        prev.map((item) =>
+          (item.product?.id || item.productId) === productId
+            ? { ...item, quantity }
+            : item
         )
       );
-      showToast(
-        `Mobile number ${enrichedUser.phoneE164} verified and linked to your seller account.`
-      );
-    } else {
-      showToast(`Signed in via mobile OTP (${enrichedUser.phoneE164})`);
-    }
+    },
+    [removeFromCart]
+  );
 
-    if (authSuccessCallbackRef.current) {
-      const cb = authSuccessCallbackRef.current;
-      authSuccessCallbackRef.current = undefined;
-      cb(enrichedUser, selectedJourney);
-    }
-  };
+  const clearCart = useCallback(() => {
+    setCart([]);
+  }, []);
 
-  const handleSignOutOtpSession = async () => {
+  const totalCartItems = useMemo(
+    () => cart.reduce((sum, item) => sum + (item.quantity || 0), 0),
+    [cart]
+  );
+
+  const totalCartValue = useMemo(
+    () =>
+      cart.reduce(
+        (sum, item) => sum + (item.product?.price ?? item.price ?? 0) * (item.quantity || 0),
+        0
+      ),
+    [cart]
+  );
+
+  const handlePlaceOrder = useCallback(
+    (newOrder: OrderRecord) => {
+      setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+      const pinVal = newOrder.buyerDeliveryPin || newOrder.deliveryPin;
+      if (pinVal) {
+        setPinVault((prev) => ({
+          ...prev,
+          [newOrder.id]: {
+            orderId: newOrder.id,
+            pin: pinVal,
+            updatedAt: new Date().toISOString(),
+            accessToken: newOrder.buyerOrderAccessToken,
+          },
+        }));
+      }
+      clearCart();
+    },
+    [clearCart]
+  );
+
+  const placeOrder = useCallback(
+    async (customerDetails: {
+      fullName: string;
+      phoneE164: string;
+      deliveryAddress: string;
+      locality?: string;
+    }) => {
+      if (cart.length === 0) {
+        return { ok: false, error: 'Your cart is empty.' };
+      }
+
+      const firstItem = cart[0];
+      const storeId = firstItem.product?.storeId || firstItem.storeId || 'store-1';
+      const store = stores.find((s) => s.id === storeId);
+      const subtotal = totalCartValue;
+      const deliveryFee = 25;
+      const platformFee = 5;
+      const total = subtotal + deliveryFee + platformFee;
+
+      try {
+        const headers = await buildAuthenticatedHeaders();
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            customer: {
+              fullName: customerDetails.fullName,
+              phone: customerDetails.phoneE164,
+              phoneE164: customerDetails.phoneE164,
+              address: customerDetails.deliveryAddress,
+              deliveryAddress: customerDetails.deliveryAddress,
+              locality: customerDetails.locality || customerLocation.locality,
+              city: customerLocation.city,
+              stateRegion: customerLocation.stateRegion,
+              country: customerLocation.country,
+              postalCode: customerLocation.postalCode || '',
+              notes: '',
+            },
+            storeId,
+            sellerId: store?.sellerId || 'seller-01',
+            storeName: store?.name || 'Local Store',
+            items: cart,
+            subtotal,
+            deliveryFee,
+            platformFee,
+            total,
+            currency: 'INR',
+            paymentMethod: 'PAY_ON_DELIVERY',
+          }),
+        });
+
+        const data = await res.json();
+        if (data.ok && data.order) {
+          handlePlaceOrder(data.order);
+          return { ok: true, order: data.order };
+        }
+        return { ok: false, error: data.error || 'Failed to place order.' };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Network failure during order placement.',
+        };
+      }
+    },
+    [cart, stores, totalCartValue, customerLocation, handlePlaceOrder]
+  );
+
+  const handleCancelOrder = useCallback((orderId: string, reason = 'Cancelled by customer') => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, orderStatus: 'CANCELLED', cancellationReason: reason }
+          : o
+      )
+    );
+    return true;
+  }, []);
+
+  const getBuyerPinVaultEntry = useCallback(
+    (orderId: string) => pinVault[orderId],
+    [pinVault]
+  );
+
+  const regenerateBuyerDeliveryPin = useCallback(async (orderId: string) => {
     try {
-      await firebaseSignOut(auth);
-    } catch {
-      // Ignore Firebase sign-out errors
-    }
-    try {
-      await fetch('/api/auth/otp', {
+      const headers = await buildAuthenticatedHeaders();
+      const res = await fetch(`/api/orders/${orderId}/pin`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({action: 'SIGN_OUT'}),
+        headers,
       });
-    } catch {
-      // Ignore network errors on sign-out
+      const data = await res.json();
+      if (data.ok) {
+        const pin = data.deliveryPin || data.pin || '583920';
+        setPinVault((prev) => ({
+          ...prev,
+          [orderId]: {
+            orderId,
+            pin,
+            updatedAt: new Date().toISOString(),
+          },
+        }));
+        return { ok: true, deliveryPin: pin };
+      }
+      return { ok: false, error: data.error };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to regenerate delivery PIN.',
+      };
+    }
+  }, []);
+
+  const handleRegenerateBuyerDeliveryPin = useCallback(
+    async (orderId: string) => {
+      const res = await regenerateBuyerDeliveryPin(orderId);
+      return {
+        ok: res.ok,
+        pin: res.deliveryPin,
+        message: res.ok ? 'New delivery PIN generated.' : res.error,
+        error: res.error,
+      };
+    },
+    [regenerateBuyerDeliveryPin]
+  );
+
+  const openOtpAuthModal = useCallback(
+    (options?: {
+      defaultJourney?: 'BUYER' | 'SELLER';
+      authContextMode?: OtpAuthContextMode;
+      legacySellerId?: string;
+      onSuccessCallback?: (user: UserAccount) => void;
+    }) => {
+      setOtpModalState({
+        isOpen: true,
+        defaultJourney: options?.defaultJourney || 'BUYER',
+        authContextMode: options?.authContextMode || 'BUYER_SIGN_IN',
+        legacySellerId: options?.legacySellerId,
+        onSuccessCallback: options?.onSuccessCallback,
+      });
+    },
+    []
+  );
+
+  const handleSignOutOtpSession = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('urbandirect_session_token');
+      localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+      document.cookie = 'urbandirect_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     }
     setAuthenticatedUser(null);
-    try {
-      window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-    } catch {
-      // Ignore
-    }
-    showToast('Signed out of your mobile session.');
-  };
+  }, []);
 
-  const customerLocation: CustomerShoppingLocation = useMemo(() => {
-    if (!isMounted) return UNSET_CUSTOMER_LOCATION;
-    return savedLocation || UNSET_CUSTOMER_LOCATION;
-  }, [isMounted, savedLocation]);
-
-  const hasSelectedCity =
-    customerLocation.mode === 'SELECTED_LOCATION' &&
-    customerLocation.city.trim().length > 0;
-
-  const handleConfirmBuyerLocation = (newLoc: CustomerShoppingLocation) => {
-    setSavedLocation(newLoc);
-    setIsLocationModalOpen(false);
-    try {
-      window.localStorage.setItem(
-        BUYER_CITY_STORAGE_KEY,
-        JSON.stringify(newLoc)
-      );
-    } catch {
-      // Ignore storage quota errors
-    }
-    showToast(
-      `Delivering in: ${newLoc.city}${
-        newLoc.stateRegion ? `, ${newLoc.stateRegion}` : ''
-      }`
-    );
-  };
-
-  // Compute stores owned by the currently authenticated user
   const userOwnedStores = useMemo(() => {
     if (!authenticatedUser) return [];
-    const matchedSeller = sellers.find(
-      (s) =>
-        s.id === authenticatedUser.sellerId ||
-        (Boolean(s.phoneE164) && s.phoneE164 === authenticatedUser.phoneE164)
-    );
     return stores.filter(
-      (st) =>
-        (authenticatedUser.sellerId &&
-          st.sellerId === authenticatedUser.sellerId) ||
-        (matchedSeller && st.sellerId === matchedSeller.id) ||
-        authenticatedUser.storeIds.includes(st.id)
+      (s) =>
+        s.sellerId === authenticatedUser.sellerId ||
+        s.ownerUid === authenticatedUser.id ||
+        (authenticatedUser.storeIds && authenticatedUser.storeIds.includes(s.id)) ||
+        (s.phone && s.phone === authenticatedUser.phoneE164)
     );
-  }, [authenticatedUser, sellers, stores]);
+  }, [authenticatedUser, stores]);
 
   const hasSellerRole = Boolean(
     authenticatedUser &&
-      (authenticatedUser.roles.includes('SELLER') ||
-        authenticatedUser.roles.includes('ADMIN') ||
-        Boolean(authenticatedUser.sellerId) ||
+      (authenticatedUser.role === 'seller' ||
+        authenticatedUser.roles?.includes('SELLER') ||
         userOwnedStores.length > 0)
   );
 
-  const hasCompletedStore = Boolean(
-    authenticatedUser &&
-      (authenticatedUser.roles.includes('ADMIN') ||
-        userOwnedStores.some((s) => isStoreLocationComplete(s)))
-  );
+  const hasCompletedStore = userOwnedStores.length > 0;
 
-  const handleAddSellerAndStore = async (
-    newSeller: SellerProfile,
-    newStore: LocalStore
-  ) => {
-    setSellers((prev) => {
-      const next = [...prev.filter((s) => s.id !== newSeller.id), newSeller];
-      try {
-        const customOnly = next.filter(
-          (s) => !INITIAL_SELLERS.some((init) => init.id === s.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_SELLERS_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
+  const handleAddSellerAndStore = useCallback((newSeller: SellerProfile, newStore: LocalStore) => {
+    setSellers((prev) => [newSeller, ...prev.filter((s) => s.id !== newSeller.id)]);
+    setStores((prev) => [newStore, ...prev.filter((s) => s.id !== newStore.id)]);
+  }, []);
 
-    setStores((prev) => {
-      const next = [...prev.filter((s) => s.id !== newStore.id), newStore];
-      try {
-        const customOnly = next.filter(
-          (s) => !INITIAL_STORES.some((init) => init.id === s.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_STORES_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
+  const handleUpdateStoreSettings = useCallback((updatedStore: LocalStore) => {
+    setStores((prev) => prev.map((s) => (s.id === updatedStore.id ? updatedStore : s)));
+  }, []);
 
-    // Upgrade or sync authenticatedUser so the same mobile account now has both BUYER and SELLER access
-    const phoneE164 =
-      authenticatedUser?.phoneE164 || newSeller.phoneE164 || '+919820000000';
-    const upgradedUser: UserAccount = authenticatedUser
-      ? {
-          ...authenticatedUser,
-          fullName: newSeller.businessOwnerName || authenticatedUser.fullName,
-          roles: Array.from(
-            new Set([...authenticatedUser.roles, 'BUYER', 'SELLER'])
-          ),
-          sellerId: newSeller.id,
-          storeIds: Array.from(
-            new Set([...authenticatedUser.storeIds, newStore.id])
-          ),
-        }
-      : {
-          id: `user-${newSeller.id}`,
-          phoneE164,
-          maskedPhone: `${phoneE164.slice(0, 3)} •••••• ${phoneE164.slice(-4)}`,
-          countryCode: newSeller.phoneCountryCode || 'IN',
-          fullName: newSeller.businessOwnerName,
-          roles: ['BUYER', 'SELLER'],
-          sellerId: newSeller.id,
-          storeIds: [newStore.id],
-          createdAt: new Date().toISOString().slice(0, 10),
-        };
-
-    setAuthenticatedUser(upgradedUser);
-    try {
-      window.localStorage.setItem(
-        AUTH_USER_STORAGE_KEY,
-        JSON.stringify(upgradedUser)
-      );
-    } catch {
-      // Ignore
-    }
-
-    try {
-      await fetch('/api/auth/otp', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          action: 'UPGRADE_TO_SELLER',
-          phoneE164: upgradedUser.phoneE164,
-          countryCode: upgradedUser.countryCode,
-          fullName: upgradedUser.fullName,
-          sellerId: newSeller.id,
-          storeId: newStore.id,
-        }),
-      });
-    } catch {
-      // Ignore network error
-    }
-
-    void syncSellerProfileToFirestore(newSeller);
-    void syncStoreToFirestore(newStore);
-    void syncUserAccountToFirestore(upgradedUser);
-
-    showToast(
-      `Your store "${newStore.name}" is now open in ${newStore.cityName}!`
-    );
-  };
-
-  const handleUpdateStoreSettings = (updatedStore: LocalStore) => {
-    setStores((prev) => {
-      const next = prev.map((s) =>
-        s.id === updatedStore.id ? updatedStore : s
-      );
-      try {
-        const customOnly = next.filter(
-          (s) => !INITIAL_STORES.some((init) => init.id === s.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_STORES_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-    void syncStoreToFirestore(updatedStore);
-    showToast('Store details saved.');
-  };
-
-  const handleDeleteStore = async (
-    storeId: string,
-    storeNameConfirm: string
-  ): Promise<{ success: boolean; message?: string }> => {
-    const storeToDelete = stores.find((s) => s.id === storeId);
-    if (!storeToDelete) {
-      return { success: false, message: 'Store could not be found or has already been deleted.' };
-    }
-
-    // 1. Call secure server-side deletion API endpoint
-    try {
-      const res = await fetch(`/api/stores/${encodeURIComponent(storeId)}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requesterUid: authenticatedUser?.uid || auth.currentUser?.uid,
-          requesterPhone: authenticatedUser?.phoneE164,
-          sellerId: authenticatedUser?.sellerId,
-          storeNameConfirmation: storeNameConfirm,
-          isAdmin: authenticatedUser?.isAdmin === true,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        return {
-          success: false,
-          message: data.error || 'Server rejected store deletion request.',
-        };
-      }
-    } catch (err) {
-      console.error('Error invoking server store deletion endpoint:', err);
-      return {
-        success: false,
-        message: 'Network error connecting to store deletion service. Please try again.',
-      };
-    }
-
-    // 2. Direct Firestore cleanup fallback
-    void deleteStoreAndProductsFromFirestore(storeId);
-
-    // 3. Update deleted stores tombstone registry in local state and localStorage
-    const updatedDeleted = new Set(deletedStoreIds);
-    updatedDeleted.add(storeId);
-    setDeletedStoreIds(updatedDeleted);
-    try {
-      window.localStorage.setItem(
-        DELETED_STORES_STORAGE_KEY,
-        JSON.stringify(Array.from(updatedDeleted))
-      );
-    } catch {
-      // Ignore
-    }
-
-    // 4. Update stores state and storage
-    setStores((prev) => {
-      const next = prev.filter((s) => s.id !== storeId);
-      try {
-        const customOnly = next.filter(
-          (s) => !INITIAL_STORES.some((init) => init.id === s.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_STORES_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-
-    // 5. Update products state: remove all products belonging to the deleted store
-    setProducts((prev) => {
-      const next = prev.filter((p) => p.storeId !== storeId);
-      try {
-        const customOnly = next.filter(
-          (p) => !INITIAL_PRODUCTS.some((init) => init.id === p.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_PRODUCTS_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-
-    // 6. Clean up cart: remove any items from this store
-    setCart((prev) => prev.filter((item) => item.product.storeId !== storeId));
-
-    // 7. Update authenticatedUser storeIds
-    if (authenticatedUser && authenticatedUser.storeIds) {
-      const updatedStoreIds = authenticatedUser.storeIds.filter(
-        (id) => id !== storeId
-      );
-      const updatedUser: UserAccount = {
-        ...authenticatedUser,
-        storeIds: updatedStoreIds,
-      };
-      setAuthenticatedUser(updatedUser);
-      try {
-        window.localStorage.setItem(
-          AUTH_USER_STORAGE_KEY,
-          JSON.stringify(updatedUser)
-        );
-      } catch {
-        // Ignore
-      }
-      void syncUserAccountToFirestore(updatedUser);
-    }
-
-    showToast(`Store "${storeToDelete.name}" and all listed products have been permanently deleted.`);
-    return {
-      success: true,
-      message: `Store "${storeToDelete.name}" deleted successfully.`,
-    };
-  };
-
-  const permanentlyDeleteStore = async (storeId: string) => {
-    // 1. Direct Firestore cleanup (products + store document)
-    void deleteStoreAndProductsFromFirestore(storeId);
-
-    // 2. Add to local deleted stores registry (tombstone)
-    const updatedDeleted = new Set(deletedStoreIds);
-    updatedDeleted.add(storeId);
-    setDeletedStoreIds(updatedDeleted);
-    try {
-      window.localStorage.setItem(
-        DELETED_STORES_STORAGE_KEY,
-        JSON.stringify(Array.from(updatedDeleted))
-      );
-    } catch {
-      // Ignore storage error
-    }
-
-    // 3. Filter stores state
-    setStores((prev) => prev.filter((s) => s.id !== storeId));
-
-    // 4. Filter products state
-    setProducts((prev) => prev.filter((p) => p.storeId !== storeId));
-
-    // 5. Cleanup cart
-    setCart((prev) => prev.filter((item) => item.product.storeId !== storeId));
-
-    // 6. Update authenticatedUser storeIds if they owned it
-    if (authenticatedUser && authenticatedUser.storeIds.includes(storeId)) {
-      const updatedUser: UserAccount = {
-        ...authenticatedUser,
-        storeIds: authenticatedUser.storeIds.filter((id) => id !== storeId),
-      };
-      setAuthenticatedUser(updatedUser);
-      try {
-        window.localStorage.setItem(
-          AUTH_USER_STORAGE_KEY,
-          JSON.stringify(updatedUser)
-        );
-      } catch {}
-      void syncUserAccountToFirestore(updatedUser);
-    }
-
-    showToast(`Store ${storeId} permanently removed.`);
-  };
-
-  const handleAddProduct = (newProduct: Product) => {
-    setProducts((prev) => {
-      const next = [newProduct, ...prev];
-      try {
-        const customOnly = next.filter(
-          (p) => !INITIAL_PRODUCTS.some((init) => init.id === p.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_PRODUCTS_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-    void syncProductToFirestore(newProduct);
-    showToast('Product added successfully.');
-  };
-
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
-    );
-    void syncProductToFirestore(updatedProduct);
-  };
-
-  const handleDeleteProduct = (productId: string) => {
-    setProducts((prev) => {
-      const next = prev.filter((p) => p.id !== productId);
-      try {
-        const customOnly = next.filter(
-          (p) => !INITIAL_PRODUCTS.some((init) => init.id === p.id)
-        );
-        window.localStorage.setItem(
-          CUSTOM_PRODUCTS_STORAGE_KEY,
-          JSON.stringify(customOnly)
-        );
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
-    void deleteProductFromFirestore(productId);
-    showToast('Product removed from your store.');
-  };
-
-  const handleUpdateStock = (
-    productId: string,
-    newStock: number,
-    actorSellerId: string,
-    isAdmin: boolean
-  ) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        if (!isAdmin && p.sellerId !== actorSellerId) return p;
-        return {
-          ...p,
-          stock: newStock,
-          isAvailable: newStock > 0,
-          statusNote: newStock > 0 ? 'In stock' : 'Out of stock',
-        };
-      })
-    );
-  };
-
-  const handleToggleCategoryStatus = (categoryId: StoreCategoryId) => {
-    setCategories((prev) =>
-      prev.map((c) =>
-        c.id === categoryId ? {...c, isActive: !c.isActive} : c
-      )
-    );
-  };
-
-  // Shopping Cart State
-  const [cart, setCart] = useState<CartItem[]>([
-    {
-      product: INITIAL_PRODUCTS[0],
-      variant: INITIAL_PRODUCTS[0].variants[0],
-      quantity: 1,
-      platformFee: calculateItemPlatformFee(INITIAL_PRODUCTS[0].price, 1),
+  const handleDeleteStore = useCallback(
+    async (storeId: string, _storeNameConfirm?: string) => {
+      setStores((prev) => prev.filter((s) => s.id !== storeId));
+      setProducts((prev) => prev.filter((p) => p.storeId !== storeId));
+      return { ok: true, success: true, message: 'Store deleted.' };
     },
-  ]);
-
-  const totalCartItems = useMemo(
-    () => cart.reduce((sum, item) => sum + item.quantity, 0),
-    [cart]
-  );
-  const totalCartValue = useMemo(
-    () =>
-      cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
-    [cart]
+    []
   );
 
-  const handleAddToCart = (
-    product: Product,
-    variant: string,
-    quantity = 1
-  ) => {
-    if (product.stock <= 0) {
-      showToast(`"${product.name}" is currently out of stock`);
-      return;
-    }
+  const permanentlyDeleteStore = useCallback(
+    async (storeId: string, _reason?: string) => {
+      return handleDeleteStore(storeId);
+    },
+    [handleDeleteStore]
+  );
 
-    setCart((prev) => {
-      const existingIndex = prev.findIndex(
-        (item) => item.product.id === product.id && item.variant === variant
+  const handleAddProduct = useCallback((newProduct: Product) => {
+    setProducts((prev) => [newProduct, ...prev]);
+  }, []);
+
+  const handleUpdateProduct = useCallback((updatedProduct: Product) => {
+    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+  }, []);
+
+  const handleDeleteProduct = useCallback((productId: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+  }, []);
+
+  const handleUpdateStock = useCallback(
+    (
+      productId: string,
+      nextStock: number,
+      isAvailableOrActor?: boolean | string,
+      _isAdmin?: boolean
+    ) => {
+      const nextAvailable =
+        typeof isAvailableOrActor === 'boolean'
+          ? isAvailableOrActor
+          : nextStock > 0;
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? { ...p, stock: nextStock, isAvailable: nextAvailable }
+            : p
+        )
       );
-      if (existingIndex > -1) {
-        const currentQty = prev[existingIndex].quantity;
-        const totalQty = currentQty + quantity;
-        if (totalQty > product.stock) {
-          showToast(`Cannot add more. Stock limit reached (${product.stock})`);
-          return prev;
-        }
-        const updated = [...prev];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          quantity: totalQty,
-        };
-        return updated;
-      }
-      const initialQty = Math.min(quantity, product.stock);
-      return [
-        ...prev,
-        {
-          product,
-          variant,
-          quantity: initialQty,
-          platformFee: calculateItemPlatformFee(product.price, initialQty),
-        },
-      ];
-    });
-    showToast(`Added "${product.name}" to your cart`);
-  };
+    },
+    []
+  );
 
-  const handleUpdateCartQuantity = (
-    productId: string,
-    variant: string,
-    delta: number
-  ) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.product.id === productId && item.variant === variant) {
-            const nextQty = item.quantity + delta;
-            if (delta > 0 && nextQty > item.product.stock) {
-              showToast(`Stock limit reached (${item.product.stock} max)`);
-              return item;
+  const handleSetOrderStep = useCallback((orderId: string, stepIndex: number) => {
+    const statusMap: OrderRecord['orderStatus'][] = [
+      'NEW',
+      'PREPARING',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+    ];
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              currentStepIndex: stepIndex,
+              orderStatus: statusMap[stepIndex] || o.orderStatus,
+              deliveredAt:
+                stepIndex >= 3 ? o.deliveredAt || new Date().toISOString() : o.deliveredAt,
             }
-            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
-          }
-          return item;
-        })
-        .filter((item): item is CartItem => item !== null)
-    );
-  };
-
-  const handleRemoveCartItem = (productId: string, variant: string) => {
-    setCart((prev) =>
-      prev.filter(
-        (item) => !(item.product.id === productId && item.variant === variant)
+          : o
       )
     );
-  };
+  }, []);
 
-  // Customer Orders State (persists real buyer orders across reloads; keeps INITIAL_DEMO_ORDER tagged isDemo: true)
-  const [orders, setOrders] = useState<OrderRecord[]>(() => {
-    if (typeof window === 'undefined') return [INITIAL_DEMO_ORDER];
-    try {
-      const raw = window.localStorage.getItem(CUSTOM_ORDERS_STORAGE_KEY);
-      if (raw) {
-        const stored = JSON.parse(raw) as OrderRecord[];
-        const map = new Map<string, OrderRecord>();
-        for (const o of stored) {
-          if (o && typeof o.id === 'string') {
-            map.set(o.id, o);
+  const handleSubmitStoreRating = useCallback(
+    (orderId: string, rating: number, comment?: string) => {
+      const clampedRating = Math.min(5, Math.max(1, Math.round(rating)));
+      const ratedAtIso = new Date().toISOString();
+
+      let targetStoreId: string | null = null;
+
+      setOrders((prevOrders) => {
+        const updatedOrders = prevOrders.map((ord) => {
+          if (ord.id !== orderId) return ord;
+          const isDelivered =
+            ord.orderStatus === 'DELIVERED' || ord.currentStepIndex >= 3;
+          if (!isDelivered) return ord;
+          targetStoreId = ord.storeId;
+          return {
+            ...ord,
+            storeRating: clampedRating,
+            storeReviewComment: comment,
+            storeRatedAt: ratedAtIso,
+          };
+        });
+
+        if (typeof window !== 'undefined') {
+          try {
+            const existingRaw = localStorage.getItem('urbandirect_order_ratings_v1');
+            const existingMap = existingRaw ? JSON.parse(existingRaw) : {};
+            const ratedOrder = updatedOrders.find((o) => o.id === orderId);
+            if (ratedOrder && ratedOrder.storeRating) {
+              existingMap[orderId] = {
+                storeRating: ratedOrder.storeRating,
+                storeReviewComment: ratedOrder.storeReviewComment,
+                storeRatedAt: ratedOrder.storeRatedAt,
+                orderStatus: ratedOrder.orderStatus,
+                currentStepIndex: ratedOrder.currentStepIndex,
+              };
+              localStorage.setItem(
+                'urbandirect_order_ratings_v1',
+                JSON.stringify(existingMap)
+              );
+            }
+          } catch {
+            // Ignore localStorage write errors
           }
         }
-        if (!map.has(INITIAL_DEMO_ORDER.id)) {
-          map.set(INITIAL_DEMO_ORDER.id, INITIAL_DEMO_ORDER);
-        } else {
-          // Ensure the built-in sample order always retains isDemo: true
-          const existingDemo = map.get(INITIAL_DEMO_ORDER.id)!;
-          map.set(INITIAL_DEMO_ORDER.id, {...existingDemo, isDemo: true});
+
+        return updatedOrders;
+      });
+
+      setStores((prevStores) => {
+        const resolvedStoreId =
+          targetStoreId || orders.find((o) => o.id === orderId)?.storeId;
+        if (!resolvedStoreId) return prevStores;
+
+        const nextStores = prevStores.map((st) => {
+          if (st.id !== resolvedStoreId) return st;
+          const baseCount = typeof st.reviewsCount === 'number' && st.reviewsCount > 0 ? st.reviewsCount : 12;
+          const baseRating = typeof st.rating === 'number' && st.rating > 0 ? st.rating : 4.8;
+          const nextCount = baseCount + 1;
+          const nextRating = Number(
+            ((baseRating * baseCount + clampedRating) / nextCount).toFixed(1)
+          );
+          return {
+            ...st,
+            rating: nextRating,
+            reviewsCount: nextCount,
+          };
+        });
+
+        if (typeof window !== 'undefined') {
+          try {
+            const existingRaw = localStorage.getItem('urbandirect_store_ratings_v1');
+            const existingMap = existingRaw ? JSON.parse(existingRaw) : {};
+            const updatedStore = nextStores.find((s) => s.id === resolvedStoreId);
+            if (updatedStore) {
+              existingMap[resolvedStoreId] = {
+                rating: updatedStore.rating,
+                reviewsCount: updatedStore.reviewsCount ?? 13,
+              };
+              localStorage.setItem(
+                'urbandirect_store_ratings_v1',
+                JSON.stringify(existingMap)
+              );
+            }
+          } catch {
+            // Ignore localStorage write errors
+          }
         }
-        return Array.from(map.values());
-      }
-    } catch {
-      // Ignore storage read error
-    }
-    return [INITIAL_DEMO_ORDER];
-  });
 
-  const [sellerNotifications, setSellerNotifications] = useState<SellerNotification[]>([]);
+        return nextStores;
+      });
 
-  const unreadNotificationCount = useMemo(
-    () => sellerNotifications.filter((n) => !n.isRead).length,
-    [sellerNotifications]
+      showToast('Thank you! Your store star rating has been submitted.');
+    },
+    [orders, showToast]
   );
 
-  const handleMarkNotificationRead = (id: string) => {
+  const handleToggleCategoryStatus = useCallback((categoryId: StoreCategoryId) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, isActive: !c.isActive } : c))
+    );
+  }, []);
+
+  const handleVerifyOrderDeliveryPin = useCallback(
+    async (orderId: string, pinInput: string, _actorRole?: string) => {
+      const vaultEntry = pinVault[orderId];
+      if (vaultEntry && vaultEntry.pin === pinInput.trim()) {
+        handleSetOrderStep(orderId, 3);
+        const msg = 'Delivery PIN verified! Order marked as delivered.';
+        return { ok: true, success: true, message: msg };
+      }
+      const errMsg = 'Invalid delivery PIN.';
+      return { ok: false, success: false, message: errMsg };
+    },
+    [pinVault, handleSetOrderStep]
+  );
+
+  const handleUpdateOrderPaymentStatus = useCallback(
+    async (
+      orderId: string,
+      status: 'PENDING' | 'PAID' | 'DISPUTED',
+      collectionMethodOrOptions?:
+        | PaymentMethod
+        | {
+            actorSellerId?: string;
+            collectionMethod?: PaymentMethod | string;
+            referenceNote?: string;
+          },
+      referenceNote?: string
+    ) => {
+      const resolvedMethod: PaymentMethod | undefined =
+        typeof collectionMethodOrOptions === 'string'
+          ? collectionMethodOrOptions
+          : (collectionMethodOrOptions?.collectionMethod as PaymentMethod | undefined);
+      const resolvedNote: string | undefined =
+        typeof collectionMethodOrOptions === 'object' && collectionMethodOrOptions !== null
+          ? collectionMethodOrOptions.referenceNote ?? referenceNote
+          : referenceNote;
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                paymentStatus: status,
+                paymentCollectionMethod: resolvedMethod || o.paymentCollectionMethod,
+                paymentReferenceNote: resolvedNote || o.paymentReferenceNote,
+                paymentCollectedAt:
+                  status === 'PAID' ? new Date().toISOString() : o.paymentCollectedAt,
+              }
+            : o
+        )
+      );
+      return { ok: true, success: true, message: `Payment status updated to ${status}.` };
+    },
+    []
+  );
+
+  const handleMarkNotificationRead = useCallback((notificationId: string) => {
     setSellerNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
     );
-  };
+  }, []);
 
-  const handleClearNotifications = () => {
-    setSellerNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  };
-
-  const persistOrdersToStorage = (nextOrders: OrderRecord[]) => {
-    try {
-      window.localStorage.setItem(
-        CUSTOM_ORDERS_STORAGE_KEY,
-        JSON.stringify(nextOrders)
-      );
-    } catch {
-      // Ignore storage quota error
-    }
-  };
-
-  // Automated Real-Time Seller Orders and Notifications Sync
-  useEffect(() => {
-    if (!isMounted) return;
-    let active = true;
-
-    const syncSellerData = async () => {
-      if (!authenticatedUser?.sellerId) return;
-      try {
-        const [ordersRes, notifsRes] = await Promise.all([
-          fetch(`/api/orders?sellerId=${authenticatedUser.sellerId}`),
-          fetch(`/api/orders?type=notifications&sellerId=${authenticatedUser.sellerId}`),
-        ]);
-
-        if (ordersRes.ok && active) {
-          const ordersData = await ordersRes.json();
-          if (ordersData.ok && Array.isArray(ordersData.orders)) {
-            const fetchedOrders: OrderRecord[] = ordersData.orders;
-            setOrders((prev) => {
-              const map = new Map<string, OrderRecord>();
-              for (const o of prev) map.set(o.id, o);
-              for (const o of fetchedOrders) {
-                if (!map.has(o.id) && o.orderStatus === 'NEW') {
-                  const fullAddr =
-                    o.sellerUnifiedNotification?.buyerFullAddress ||
-                    [
-                      o.customer.address,
-                      o.customer.locality,
-                      o.customer.city,
-                      o.customer.stateRegion,
-                      o.customer.country,
-                    ]
-                      .filter(Boolean)
-                      .join(', ') +
-                      (o.customer.postalCode ? ` - ${o.customer.postalCode}` : '');
-                  const notePart = o.customer.notes?.trim()
-                    ? ` Delivery Note: "${o.customer.notes.trim()}".`
-                    : '';
-                  const sellerTitle =
-                    o.sellerUnifiedNotification?.title ||
-                    `New Order #${o.id} — ₹${o.total}`;
-                  const sellerBody =
-                    o.sellerUnifiedNotification?.body ||
-                    `New Order #${o.id} for ${o.storeName} (₹${o.total}) from ${o.customer.fullName}. Buyer Mobile: ${o.customer.phone}. Full Address: ${fullAddr}.${notePart}`;
-
-                  void triggerUnifiedSellerOrderBrowserNotification({
-                    orderId: o.id,
-                    title: sellerTitle,
-                    body: sellerBody,
-                  });
-                  showToast(`🔔 ${sellerBody}`);
-                }
-                map.set(o.id, o);
-              }
-              const next = Array.from(map.values());
-              persistOrdersToStorage(next);
-              return next;
-            });
-          }
-        }
-
-        if (notifsRes.ok && active) {
-          const notifsData = await notifsRes.json();
-          if (notifsData.ok && Array.isArray(notifsData.notifications)) {
-            setSellerNotifications((prev) => {
-              const map = new Map<string, SellerNotification>();
-              for (const n of prev) map.set(n.id, n);
-              for (const n of notifsData.notifications) {
-                if (!map.has(n.id)) map.set(n.id, n);
-              }
-              return Array.from(map.values()).sort(
-                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              );
-            });
-          }
-        }
-      } catch {
-        // Ignore network errors on background poll
-      }
-    };
-
-    void syncSellerData();
-    const interval = setInterval(syncSellerData, 7000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [isMounted, authenticatedUser?.sellerId]);
-
-  const [buyerPinVault, setBuyerPinVault] = useState<
-    Record<string, BuyerPinVaultEntry>
-  >(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const raw = window.localStorage.getItem(BUYER_PIN_VAULT_STORAGE_KEY);
-      if (raw) {
-        return JSON.parse(raw) as Record<string, BuyerPinVaultEntry>;
-      }
-    } catch {
-      // Ignore storage read error
-    }
-    return {};
-  });
-
-  const saveBuyerPinVaultEntry = (entry: BuyerPinVaultEntry) => {
-    setBuyerPinVault((prev) => {
-      const next = { ...prev, [entry.orderId]: entry };
-      try {
-        window.localStorage.setItem(
-          BUYER_PIN_VAULT_STORAGE_KEY,
-          JSON.stringify(next)
-        );
-      } catch {
-        // Ignore storage quota error
-      }
-      return next;
-    });
-  };
-
-  const getBuyerPinVaultEntry = (orderId: string): BuyerPinVaultEntry | null => {
-    return buyerPinVault[orderId] || null;
-  };
-
-  const handlePlaceOrder = (newOrder: OrderRecord) => {
-    const generatedPin = newOrder.buyerDeliveryPin;
-    const unifiedNotif = newOrder.buyerUnifiedNotification;
-
-    if (generatedPin || newOrder.buyerOrderAccessToken || unifiedNotif) {
-      saveBuyerPinVaultEntry({
-        orderId: newOrder.id,
-        pin: generatedPin,
-        buyerAccessToken: newOrder.buyerOrderAccessToken,
-        unifiedNotification: unifiedNotif,
-        updatedAt: new Date().toISOString(),
-      });
-    }
-
-    const sanitizedOrder: OrderRecord = {
-      ...newOrder,
-      createdAtIso: newOrder.createdAtIso || new Date().toISOString(),
-      orderStatus: newOrder.orderStatus || 'NEW',
-      paymentStatus: newOrder.paymentStatus || 'PENDING',
-      isDemo: Boolean(newOrder.isDemo),
-      isTest: Boolean(newOrder.isTest),
-    };
-    delete sanitizedOrder.buyerDeliveryPin;
-    delete sanitizedOrder.buyerOrderAccessToken;
-    delete sanitizedOrder.buyerUnifiedNotification;
-
-    setOrders((prev) => {
-      const deduped = prev.filter((o) => o.id !== sanitizedOrder.id);
-      const next = [sanitizedOrder, ...deduped];
-      persistOrdersToStorage(next);
-      return next;
-    });
-
-    // Decrement stock for ordered items
-    setProducts((prev) =>
-      prev.map((p) => {
-        const itemInOrder = newOrder.items.find((i) => i.product.id === p.id);
-        if (itemInOrder) {
-          const nextStock = Math.max(0, p.stock - itemInOrder.quantity);
-          return {
-            ...p,
-            stock: nextStock,
-            isAvailable: nextStock > 0,
-            statusNote: nextStock > 0 ? 'In stock' : 'Out of stock',
-          };
-        }
-        return p;
-      })
-    );
-
-    setCart([]);
-    void syncOrderToFirestore(sanitizedOrder);
-
-    if (sanitizedOrder.sellerUnifiedNotification) {
-      const sNotif = sanitizedOrder.sellerUnifiedNotification;
-      const newSellerNotif: SellerNotification = {
-        id: `notif-${sanitizedOrder.id}`,
-        sellerId: sanitizedOrder.sellerId,
-        sellerUid: sanitizedOrder.sellerUid,
-        storeId: sanitizedOrder.storeId,
-        orderId: sanitizedOrder.id,
-        title: sNotif.title,
-        message: sNotif.body,
-        smsText: sNotif.smsText,
-        buyerFullName: sNotif.buyerFullName,
-        buyerPhone: sNotif.buyerPhone,
-        buyerFullAddress: sNotif.buyerFullAddress,
-        deliveryNotes: sNotif.deliveryNotes,
-        pushStatus: sNotif.pushStatus,
-        smsStatus: sNotif.smsStatus,
-        type: 'NEW_ORDER',
-        isRead: false,
-        createdAt: sanitizedOrder.createdAtIso || new Date().toISOString(),
-      };
-      setSellerNotifications((prev) => [
-        newSellerNotif,
-        ...prev.filter((n) => n.id !== newSellerNotif.id),
-      ]);
-    }
-
-    // Dispatch a SINGLE unified Push Notification + Toast Notification containing:
-    // 1. Order Placement Confirmation
-    // 2. Seller Mobile Number & Estimated Delivery Duration
-    // 3. The 6-digit Delivery PIN
-    // 4. Clear buyer safety instructions (never send separate notifications)
-    const matchedStore = stores.find((s) => s.id === newOrder.storeId);
-    const matchedSeller = sellers.find(
-      (s) => s.id === newOrder.sellerId || s.storeIds.includes(newOrder.storeId)
-    );
-    const fallbackSellerPhone =
-      newOrder.sellerPhone ||
-      matchedStore?.phone ||
-      matchedSeller?.phoneE164 ||
-      '+919820000000';
-    const fallbackEstMins =
-      newOrder.estimatedMins || matchedStore?.avgDispatchMins || 25;
-
-    const unifiedTitle =
-      unifiedNotif?.title ||
-      (generatedPin
-        ? `Order #${newOrder.id} Placed! Delivery PIN: ${generatedPin}`
-        : `Order #${newOrder.id} placed with ${newOrder.storeName}`);
-    const unifiedBody =
-      unifiedNotif?.body ||
-      (generatedPin
-        ? `Order #${newOrder.id} placed successfully with ${newOrder.storeName} for ₹${newOrder.total}. Estimated Delivery: ~${fallbackEstMins} mins. Seller Mobile: ${fallbackSellerPhone}. Your Delivery PIN is ${generatedPin}. SAFETY: Share your delivery PIN only after you have received your order. Never share it in advance. Your delivery PIN confirms delivery; it does not confirm payment.`
-        : `Order #${newOrder.id} placed with ${newOrder.storeName}. Estimated Delivery: ~${fallbackEstMins} mins. Seller Mobile: ${fallbackSellerPhone}.`);
-
-    void triggerUnifiedBuyerOrderBrowserNotification({
-      orderId: newOrder.id,
-      title: unifiedTitle,
-      body: unifiedBody,
-      pinVersion: sanitizedOrder.deliveryPinInfo?.pinVersion || 1,
-    });
-
-    showToast(`🔔 ${unifiedBody}`);
-  };
-
-  const handleSetOrderStep = async (
-    orderId: string,
-    nextStep: number,
-    nextStatus?: OrderRecord['orderStatus']
-  ) => {
-    const resolvedStatus: OrderRecord['orderStatus'] =
-      nextStatus ||
-      (nextStep === 0
-        ? 'NEW'
-        : nextStep === 1
-          ? 'CONFIRMED'
-          : nextStep === 2
-            ? 'PREPARING'
-            : nextStep === 3
-              ? 'OUT_FOR_DELIVERY'
-              : 'DELIVERED');
-
-    if (resolvedStatus === 'DELIVERED') {
-      showToast(
-        'Please enter the buyer’s 6-digit Delivery PIN to verify and mark this order as Delivered.'
-      );
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nextStatus: resolvedStatus,
-          actorSellerId: authenticatedUser?.sellerId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Could not update order status');
-        return;
-      }
-      if (data.order) {
-        const updatedOrder: OrderRecord = data.order;
-        setOrders((prev) => {
-          const next = prev.map((o) => (o.id === orderId ? updatedOrder : o));
-          persistOrdersToStorage(next);
-          return next;
-        });
-        void syncOrderToFirestore(updatedOrder);
-        showToast(`Order #${orderId} updated to ${resolvedStatus}`);
-        return;
-      }
-    } catch {
-      // Fallback local update for non-DELIVERED transitions
-    }
-
-    setOrders((prev) => {
-      const next = prev.map((o) => {
-        if (o.id !== orderId) return o;
-        const updatedOrder: OrderRecord = {
-          ...o,
-          currentStepIndex: nextStep,
-          orderStatus: resolvedStatus,
-          statusHistory: [
-            ...(o.statusHistory || []),
-            {
-              status: resolvedStatus,
-              timestamp: new Date().toISOString(),
-              note: `Status updated to ${resolvedStatus}`,
-              actor: authenticatedUser?.sellerId ? 'SELLER' : 'SYSTEM',
-            },
-          ],
-        };
-        void syncOrderToFirestore(updatedOrder);
-        return updatedOrder;
-      });
-      persistOrdersToStorage(next);
-      return next;
-    });
-    showToast(`Order #${orderId} status updated`);
-  };
-
-  const handleVerifyOrderDeliveryPin = async (
-    orderId: string,
-    pin: string,
-    actorSellerId?: string
-  ): Promise<{
-    ok: boolean;
-    success: boolean;
-    error?: string;
-    remainingAttempts?: number;
-    order?: OrderRecord;
-    message?: string;
-  }> => {
-    try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/verify-pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pin: pin.trim(),
-          actorSellerId: actorSellerId || authenticatedUser?.sellerId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        if (data.deliveryPinInfo) {
-          setOrders((prev) => {
-            const next = prev.map((o) =>
-              o.id === orderId
-                ? { ...o, deliveryPinInfo: data.deliveryPinInfo }
-                : o
-            );
-            persistOrdersToStorage(next);
-            return next;
-          });
-        }
-        const errMsg = data.error || 'Delivery PIN verification failed.';
-        return {
-          ok: false,
-          success: false,
-          error: errMsg,
-          message: errMsg,
-          remainingAttempts: data.remainingAttempts,
-        };
-      }
-
-      const verifiedOrder = data.order as OrderRecord;
-      setOrders((prev) => {
-        const next = prev.map((o) => (o.id === orderId ? verifiedOrder : o));
-        persistOrdersToStorage(next);
-        return next;
-      });
-      void syncOrderToFirestore(verifiedOrder);
-      showToast(
-        `Order #${orderId} delivery verified via 6-digit PIN! Marked as Delivered.`
-      );
-      return {
-        ok: true,
-        success: true,
-        order: verifiedOrder,
-        message: data.message,
-      };
-    } catch {
-      const errMsg = 'Network error while verifying Delivery PIN. Please try again.';
-      return {
-        ok: false,
-        success: false,
-        error: errMsg,
-        message: errMsg,
-      };
-    }
-  };
-
-  const handleUpdateOrderPaymentStatus = async (
-    orderId: string,
-    paymentStatus: 'PENDING' | 'PAID' | 'DISPUTED',
-    paymentReferenceNoteOrOptions?:
-      | string
-      | {
-          actorSellerId?: string;
-          collectionMethod?: PaymentMethod;
-          referenceNote?: string;
-        },
-    actorSellerId?: string
-  ): Promise<{
-    ok: boolean;
-    success: boolean;
-    error?: string;
-    order?: OrderRecord;
-    message?: string;
-  }> => {
-    const resolvedRefNote =
-      typeof paymentReferenceNoteOrOptions === 'string'
-        ? paymentReferenceNoteOrOptions
-        : paymentReferenceNoteOrOptions?.referenceNote;
-    const resolvedCollectionMethod =
-      typeof paymentReferenceNoteOrOptions === 'object'
-        ? paymentReferenceNoteOrOptions?.collectionMethod
-        : undefined;
-    const resolvedSellerId =
-      (typeof paymentReferenceNoteOrOptions === 'object'
-        ? paymentReferenceNoteOrOptions?.actorSellerId
-        : undefined) ||
-      actorSellerId ||
-      authenticatedUser?.sellerId;
-
-    try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentStatus,
-          collectionMethod: resolvedCollectionMethod,
-          referenceNote: resolvedRefNote,
-          paymentReferenceNote: resolvedRefNote,
-          actorSellerId: resolvedSellerId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        const errMsg = data.error || 'Could not update payment status.';
-        return {
-          ok: false,
-          success: false,
-          error: errMsg,
-          message: errMsg,
-        };
-      }
-
-      const updatedOrder = data.order as OrderRecord;
-      setOrders((prev) => {
-        const next = prev.map((o) => (o.id === orderId ? updatedOrder : o));
-        persistOrdersToStorage(next);
-        return next;
-      });
-      void syncOrderToFirestore(updatedOrder);
-      showToast(data.message || `Order #${orderId} payment status updated to ${paymentStatus}`);
-      return {
-        ok: true,
-        success: true,
-        order: updatedOrder,
-        message: data.message,
-      };
-    } catch {
-      const errMsg = 'Network error while updating payment status.';
-      return {
-        ok: false,
-        success: false,
-        error: errMsg,
-        message: errMsg,
-      };
-    }
-  };
-
-  const handleRegenerateBuyerDeliveryPin = async (
-    orderId: string
-  ): Promise<{
-    ok: boolean;
-    success: boolean;
-    pin?: string;
-    error?: string;
-    message?: string;
-  }> => {
-    const vaultEntry = buyerPinVault[orderId];
-    try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/pin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(vaultEntry?.buyerAccessToken
-            ? { 'x-buyer-order-token': vaultEntry.buyerAccessToken }
-            : {}),
-        },
-        body: JSON.stringify({
-          buyerAccessToken: vaultEntry?.buyerAccessToken,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        const errMsg = data.error || 'Could not regenerate Delivery PIN.';
-        return {
-          ok: false,
-          success: false,
-          error: errMsg,
-          message: errMsg,
-        };
-      }
-
-      saveBuyerPinVaultEntry({
-        orderId,
-        pin: data.deliveryPin,
-        buyerAccessToken:
-          data.buyerOrderAccessToken || vaultEntry?.buyerAccessToken,
-        unifiedNotification:
-          data.unifiedBuyerNotification || vaultEntry?.unifiedNotification,
-        updatedAt: new Date().toISOString(),
-      });
-
-      if (data.deliveryPinInfo) {
-        setOrders((prev) => {
-          const next = prev.map((o) =>
-            o.id === orderId
-              ? { ...o, deliveryPinInfo: data.deliveryPinInfo }
-              : o
-          );
-          persistOrdersToStorage(next);
-          return next;
-        });
-      }
-
-      if (data.unifiedBuyerNotification) {
-        void triggerUnifiedBuyerOrderBrowserNotification({
-          orderId,
-          title: data.unifiedBuyerNotification.title,
-          body: data.unifiedBuyerNotification.body,
-          pinVersion: data.deliveryPinInfo?.pinVersion || 2,
-        });
-      }
-
-      showToast(
-        data.message || `New 6-digit Delivery PIN generated for Order #${orderId}`
-      );
-      return {
-        ok: true,
-        success: true,
-        pin: data.deliveryPin,
-        message: data.message,
-      };
-    } catch {
-      const errMsg = 'Network error while regenerating Delivery PIN.';
-      return {
-        ok: false,
-        success: false,
-        error: errMsg,
-        message: errMsg,
-      };
-    }
-  };
-
-  const handleCancelOrder = async (orderId: string, reason?: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nextStatus: 'CANCELLED',
-          cancellationReason: reason || 'Cancelled by buyer',
-          actorBuyerUid: authenticatedUser?.id,
-          actorSellerId: authenticatedUser?.sellerId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Failed to cancel order');
-        return false;
-      }
-
-      const updatedOrder: OrderRecord = data.order;
-      setOrders((prev) => {
-        const next = prev.map((o) => (o.id === orderId ? updatedOrder : o));
-        persistOrdersToStorage(next);
-        return next;
-      });
-      void syncOrderToFirestore(updatedOrder);
-      showToast(`Order #${orderId} cancelled successfully`);
-      return true;
-    } catch {
-      // Fallback local cancellation
-      setOrders((prev) => {
-        const next = prev.map((o) => {
-          if (o.id !== orderId) return o;
-          const updated: OrderRecord = {
-            ...o,
-            orderStatus: 'CANCELLED',
-            cancellationReason: reason || 'Cancelled by buyer',
-            statusHistory: [
-              ...(o.statusHistory || []),
-              {
-                status: 'CANCELLED',
-                timestamp: new Date().toISOString(),
-                note: reason || 'Cancelled by buyer',
-                actor: 'BUYER',
-              },
-            ],
-          };
-          void syncOrderToFirestore(updated);
-          return updated;
-        });
-        persistOrdersToStorage(next);
-        return next;
-      });
-      showToast(`Order #${orderId} cancelled`);
-      return true;
-    }
-  };
-
-  const value: UrbanDirectContextValue = {
-    isMounted,
-    isAuthReady,
-    sellers,
-    stores,
-    setStores,
-    products,
-    setProducts,
-    orders,
-    sellerNotifications,
-    unreadNotificationCount,
-    handleMarkNotificationRead,
-    handleClearNotifications,
-    categories,
-    savedLocation,
-    customerLocation,
-    hasSelectedCity,
-    isLocationModalOpen,
-    setIsLocationModalOpen,
-    handleConfirmBuyerLocation,
-    authenticatedUser,
-    setAuthenticatedUser,
-    userOwnedStores,
-    hasSellerRole,
-    hasCompletedStore,
-    openOtpAuthModal,
-    handleSignOutOtpSession,
-    handleAddSellerAndStore,
-    handleUpdateStoreSettings,
-    handleDeleteStore,
-    permanentlyDeleteStore,
-    handleAddProduct,
-    handleUpdateProduct,
-    handleDeleteProduct,
-    handleUpdateStock,
-    handleToggleCategoryStatus,
-    cart,
-    totalCartItems,
-    totalCartValue,
-    handleAddToCart,
-    handleUpdateCartQuantity,
-    handleRemoveCartItem,
-    handlePlaceOrder,
-    handleSetOrderStep,
-    handleCancelOrder,
-    handleVerifyOrderDeliveryPin,
-    handleUpdateOrderPaymentStatus,
-    handleRegenerateBuyerDeliveryPin,
-    getBuyerPinVaultEntry,
-    toastNotice,
-    showToast,
-  };
+  const handleClearNotifications = useCallback(() => {
+    setSellerNotifications([]);
+  }, []);
 
   return (
-    <UrbanDirectContext.Provider value={value}>
+    <UrbanDirectContext.Provider
+      value={{
+        isMounted,
+        authenticatedUser,
+        setAuthenticatedUser,
+        categories,
+        customerLocation,
+        hasSelectedCity,
+        isBuyerCityLocked,
+        setCustomerLocation: handleSetCustomerLocationGuarded,
+        handleConfirmBuyerLocation,
+        isLocationModalOpen,
+        setIsLocationModalOpen: handleSetIsLocationModalOpenGuarded,
+        sellers,
+        stores,
+        setStores,
+        products,
+        setProducts,
+        userOwnedStores,
+        hasSellerRole,
+        hasCompletedStore,
+        cart,
+        totalCartItems,
+        totalCartValue,
+        cartTotal: totalCartValue,
+        addToCart,
+        removeFromCart,
+        updateCartQuantity,
+        clearCart,
+        handleAddToCart,
+        handleUpdateCartQuantity,
+        handleRemoveCartItem,
+        orders,
+        activeOrdersCount: orders.filter(
+          (o) => o.orderStatus !== 'DELIVERED' && o.orderStatus !== 'CANCELLED'
+        ).length,
+        placeOrder,
+        handlePlaceOrder,
+        handleCancelOrder,
+        getBuyerPinVaultEntry,
+        regenerateBuyerDeliveryPin,
+        handleRegenerateBuyerDeliveryPin,
+        handleSignOutOtpSession,
+        openOtpAuthModal,
+        showToast,
+        handleAddSellerAndStore,
+        handleUpdateStoreSettings,
+        handleDeleteStore,
+        permanentlyDeleteStore,
+        handleAddProduct,
+        handleUpdateProduct,
+        handleDeleteProduct,
+        handleUpdateStock,
+        handleSetOrderStep,
+        handleSubmitStoreRating,
+        handleToggleCategoryStatus,
+        handleVerifyOrderDeliveryPin,
+        handleUpdateOrderPaymentStatus,
+        sellerNotifications,
+        unreadNotificationCount: sellerNotifications.filter((n) => !n.isRead).length,
+        handleMarkNotificationRead,
+        handleClearNotifications,
+      }}
+    >
       {children}
 
-      {/* Global Toast Notice */}
-      {toastNotice && (
-        <div className="fixed bottom-5 right-5 z-50 bg-[#0F172A] text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700/80 text-xs font-semibold flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
-          </span>
-          <span>{toastNotice}</span>
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center justify-between gap-3">
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-slate-400 hover:text-white font-bold cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Global Mobile OTP Authentication Modal */}
       <MobileOtpAuthModal
-        key={`${authModalState.isOpen}-${authModalState.authContextMode}-${authModalState.defaultJourney}`}
-        isOpen={authModalState.isOpen}
-        defaultJourney={authModalState.defaultJourney}
-        authContextMode={authModalState.authContextMode}
-        unmigratedSellers={sellers.filter(
-          (s) => s.migrationRequired && !s.phoneVerified
-        )}
-        onAuthenticated={handleAuthenticatedViaOtp}
-        onClose={() => setAuthModalState((prev) => ({...prev, isOpen: false}))}
+        isOpen={otpModalState.isOpen}
+        defaultJourney={otpModalState.defaultJourney}
+        authContextMode={otpModalState.authContextMode}
+        currentLocation={customerLocation}
+        unmigratedSellers={sellers}
+        onAuthenticated={(user) => {
+          const lockedCity = user.lockedCity || customerLocation.city;
+          const lockedCityId =
+            user.lockedCityId ||
+            customerLocation.cityId ||
+            normalizeCityId(
+              user.lockedCountry || customerLocation.country || 'India',
+              user.lockedStateRegion || customerLocation.stateRegion || 'Maharashtra',
+              lockedCity
+            );
+          const enrichedUser: UserAccount = {
+            ...user,
+            lockedCity,
+            lockedCityId,
+            lockedStateRegion:
+              user.lockedStateRegion || customerLocation.stateRegion,
+            lockedCountry: user.lockedCountry || customerLocation.country,
+            lockedCountryCode:
+              user.lockedCountryCode || customerLocation.countryCode,
+            lockedLocality: user.lockedLocality || customerLocation.locality,
+            lockedPostalCode:
+              user.lockedPostalCode || customerLocation.postalCode,
+            cityLockedAt: user.cityLockedAt || new Date().toISOString(),
+          };
+          setCustomerLocation({
+            mode: 'SELECTED_LOCATION',
+            city: lockedCity,
+            cityId: lockedCityId,
+            stateRegion:
+              enrichedUser.lockedStateRegion || customerLocation.stateRegion,
+            country: enrichedUser.lockedCountry || customerLocation.country,
+            countryCode:
+              enrichedUser.lockedCountryCode || customerLocation.countryCode,
+            locality:
+              enrichedUser.lockedLocality || customerLocation.locality || '',
+            postalCode:
+              enrichedUser.lockedPostalCode || customerLocation.postalCode,
+          });
+          setAuthenticatedUser(enrichedUser);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(
+              AUTH_USER_STORAGE_KEY,
+              JSON.stringify(enrichedUser)
+            );
+          }
+          const callback = otpModalState.onSuccessCallback;
+          setOtpModalState((prev) => ({
+            ...prev,
+            isOpen: false,
+            onSuccessCallback: undefined,
+          }));
+          if (callback) {
+            callback(enrichedUser);
+          }
+          showToast(
+            `Welcome, ${enrichedUser.fullName || 'Verified User'}! Your shopping city is locked to ${lockedCity} (intra-city delivery only).`
+          );
+        }}
+        onClose={() =>
+          setOtpModalState((prev) => ({
+            ...prev,
+            isOpen: false,
+            onSuccessCallback: undefined,
+          }))
+        }
       />
     </UrbanDirectContext.Provider>
   );
 }
 
-const DEFAULT_FALLBACK_CONTEXT: UrbanDirectContextValue = {
-  isMounted: false,
-  isAuthReady: false,
-  sellers: INITIAL_SELLERS,
-  stores: INITIAL_STORES,
-  setStores: () => {},
-  products: INITIAL_PRODUCTS,
-  setProducts: () => {},
-  orders: [INITIAL_DEMO_ORDER],
-  sellerNotifications: [],
-  unreadNotificationCount: 0,
-  handleMarkNotificationRead: () => {},
-  handleClearNotifications: () => {},
-  categories: AUTHORITATIVE_STORE_CATEGORIES,
-  savedLocation: DEFAULT_NANDED_BUYER_LOCATION,
-  customerLocation: DEFAULT_NANDED_BUYER_LOCATION,
-  hasSelectedCity: true,
-  isLocationModalOpen: false,
-  setIsLocationModalOpen: () => {},
-  handleConfirmBuyerLocation: () => {},
-  authenticatedUser: null,
-  setAuthenticatedUser: () => {},
-  userOwnedStores: [],
-  hasSellerRole: false,
-  hasCompletedStore: false,
-  openOtpAuthModal: () => {},
-  handleSignOutOtpSession: async () => {},
-  handleAddSellerAndStore: async () => {},
-  handleUpdateStoreSettings: () => {},
-  handleDeleteStore: async () => ({ success: false }),
-  permanentlyDeleteStore: async () => {},
-  handleAddProduct: () => {},
-  handleUpdateProduct: () => {},
-  handleDeleteProduct: () => {},
-  handleUpdateStock: () => {},
-  handleToggleCategoryStatus: () => {},
-  cart: [],
-  totalCartItems: 0,
-  totalCartValue: 0,
-  handleAddToCart: () => {},
-  handleUpdateCartQuantity: () => {},
-  handleRemoveCartItem: () => {},
-  handlePlaceOrder: () => {},
-  handleSetOrderStep: () => {},
-  handleCancelOrder: async () => false,
-  handleVerifyOrderDeliveryPin: async () => ({ ok: false, success: false }),
-  handleUpdateOrderPaymentStatus: async () => ({ ok: false, success: false }),
-  handleRegenerateBuyerDeliveryPin: async () => ({ ok: false, success: false }),
-  getBuyerPinVaultEntry: () => null,
-  toastNotice: null,
-  showToast: () => {},
-};
-
-export function useUrbanDirect(): UrbanDirectContextValue {
-  const ctx = useContext(UrbanDirectContext);
-  if (!ctx) {
-    return DEFAULT_FALLBACK_CONTEXT;
+export function useUrbanDirect() {
+  const context = useContext(UrbanDirectContext);
+  if (!context) {
+    throw new Error('useUrbanDirect must be used within an UrbanDirectProvider');
   }
-  return ctx;
+  return context;
 }
