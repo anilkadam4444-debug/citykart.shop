@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Ensure package-lock.json exists
         run: |
@@ -44,11 +44,7 @@ jobs:
 
       - name: Install dependencies using package-lock.json
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci --legacy-peer-deps --prefer-offline || npm install --legacy-peer-deps
-          else
-            npm install --legacy-peer-deps
-          fi
+          npm install --legacy-peer-deps --prefer-offline || npm install --legacy-peer-deps
 
       - name: Run ESLint static analysis
         run: npm run lint

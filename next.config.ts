@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ['firebase-admin', '@google-cloud/firestore'],
   experimental: {
     cpus: 1,
     webpackMemoryOptimizations: true,

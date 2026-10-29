@@ -10,6 +10,7 @@
     "test": "node --test scripts/audit-verification.test.mjs scripts/partner-program.test.mjs scripts/revenue-attribution-verification.test.mjs"
   },
   "dependencies": {
+    "@google-cloud/firestore": "^9.4.0",
     "clsx": "^2.1.1",
     "firebase": "^13.1.0",
     "firebase-admin": "^14.5.0",
