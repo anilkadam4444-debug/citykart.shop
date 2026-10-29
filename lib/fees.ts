@@ -1,3 +1,20 @@
+export const PLATFORM_FEE_INR = 10;
+
+export function calculateOrderFees(subtotalInr: number, deliveryFeeInr = 0, discountInr = 0) {
+  const safeSubtotal = Math.max(0, Number(subtotalInr) || 0);
+  const safeDelivery = Math.max(0, Number(deliveryFeeInr) || 0);
+  const safeDiscount = Math.max(0, Number(discountInr) || 0);
+  const platformFee = safeSubtotal > 0 ? PLATFORM_FEE_INR : 0;
+  const total = Math.max(0, safeSubtotal + safeDelivery + platformFee - safeDiscount);
+  return {
+    subtotal: safeSubtotal,
+    deliveryFee: safeDelivery,
+    platformFee,
+    discount: safeDiscount,
+    total,
+  };
+}
+
 export type FeeStatus =
   | 'COLLECTED'
   | 'PENDING'

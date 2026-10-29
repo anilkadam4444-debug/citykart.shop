@@ -1,6 +1,10 @@
 {
   "firestore": [
     {
+      "database": "(default)",
+      "rules": "firestore.rules"
+    },
+    {
       "database": "ai-studio-urbandirectgloba-e84b263b-d482-4469-8ff3-92b474ec82f9",
       "rules": "firestore.rules"
     }
@@ -10,6 +14,9 @@
   },
   "hosting": {
     "source": ".",
+    "frameworksBackend": {
+      "region": "asia-east1"
+    },
     "ignore": [
       "firebase.json",
       "**/.*",

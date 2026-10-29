@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: 1,
+    webpackMemoryOptimizations: true,
   },
   // Allow access to remote image placeholder.
   images: {

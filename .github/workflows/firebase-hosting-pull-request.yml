@@ -10,6 +10,9 @@ jobs:
   build_and_preview:
     if: '${{ github.event.pull_request.head.repo.full_name == github.repository }}'
     runs-on: ubuntu-latest
+    env:
+      NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +26,7 @@ jobs:
         run: |
           if [ ! -f package-lock.json ]; then
             echo "package-lock.json not found in repository. Generating lockfile..."
-            npm i --package-lock-only
+            npm i --package-lock-only --legacy-peer-deps
           else
             echo "Found existing package-lock.json"
           fi
@@ -42,9 +45,9 @@ jobs:
       - name: Install dependencies using package-lock.json
         run: |
           if [ -f package-lock.json ]; then
-            npm ci --prefer-offline || npm install
+            npm ci --legacy-peer-deps --prefer-offline || npm install --legacy-peer-deps
           else
-            npm install
+            npm install --legacy-peer-deps
           fi
 
       - name: Run ESLint static analysis
@@ -56,7 +59,8 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
-          NEXT_TELEMETRY_DISABLED: 1
+          NEXT_TELEMETRY_DISABLED: '1'
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Deploy to Firebase Hosting (Preview Channel)
         if: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_URBANDIRECTINTRACITY != '' || secrets.FIREBASE_SERVICE_ACCOUNT != '' || secrets.GCP_SA_KEY != '' || secrets.FIREBASE_CREDENTIALS != '' || secrets.SERVICE_ACCOUNT_KEY != '' }}"
@@ -67,3 +71,4 @@ jobs:
           projectId: urbandirectintracity
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
+          NPM_CONFIG_LEGACY_PEER_DEPS: 'true'

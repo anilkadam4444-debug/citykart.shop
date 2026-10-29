@@ -50,6 +50,12 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin();
     }
 
+    match /admin_audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin();
+    }
+
     // Users Collection
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -99,7 +105,7 @@ service cloud.firestore {
 
     // FCM Tokens
     match /fcm_tokens/{tokenId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn();
     }
 
     // Merchant Subscriptions
