@@ -68,10 +68,42 @@ export interface PlatformFeeLedgerEntry {
   paidByTransactionId?: string;
 }
 
+export function formatPlanSkuLimitLabel(maxActiveProducts: number): string {
+  if (maxActiveProducts === -1 || maxActiveProducts >= 100000) {
+    return 'Unlimited active products (SKUs)';
+  }
+  return `Up to ${maxActiveProducts.toLocaleString('en-IN')} active products (SKUs)`;
+}
+
+export function syncPlanHighlightedFeatures(plan: SubscriptionPlan): SubscriptionPlan {
+  const maxSkus = plan.entitlements?.maxActiveProducts ?? 50;
+  const skuFeatureText = formatPlanSkuLimitLabel(maxSkus);
+  const existingFeatures = Array.isArray(plan.highlightedFeatures)
+    ? [...plan.highlightedFeatures]
+    : [];
+  const skuIdx = existingFeatures.findIndex((f) =>
+    /active products|skus/i.test(f)
+  );
+  if (skuIdx >= 0) {
+    existingFeatures[skuIdx] = skuFeatureText;
+  } else {
+    existingFeatures.unshift(skuFeatureText);
+  }
+  const isUnlimited = maxSkus === -1 || maxSkus >= 100000;
+  return {
+    ...plan,
+    monthlyFee: plan.monthlyPriceInr,
+    badgeText: plan.badge ?? plan.badgeText ?? (plan.isPopular ? 'Most Popular' : ''),
+    productLimit: isUnlimited ? 'UNLIMITED' : maxSkus,
+    highlightedFeatures: existingFeatures,
+  };
+}
+
 const PLAN_FREE: SubscriptionPlan = {
   id: 'FREE',
   name: 'Free Tier',
   tagline: 'Start selling locally with zero upfront cost.',
+  productLimit: 50,
   monthlyFee: 0,
   monthlyPriceInr: 0,
   annualPriceInr: 0,
@@ -80,7 +112,7 @@ const PLAN_FREE: SubscriptionPlan = {
   commissionPct: 0,
   featuredListings: 0,
   highlightedFeatures: [
-    'Up to 20 active products (SKUs)',
+    'Up to 50 active products (SKUs)',
     '0% commission on all local orders',
     'Direct UPI QR & Cash-on-Delivery',
     'Verified 6-digit Delivery PIN security',
@@ -97,6 +129,7 @@ const PLAN_STARTER: SubscriptionPlan = {
   id: 'STARTER',
   name: 'Starter Tier',
   tagline: 'For growing neighborhood shops expanding their catalog.',
+  productLimit: 250,
   monthlyFee: 999,
   monthlyPriceInr: 999,
   annualPriceInr: 9990,
@@ -105,7 +138,7 @@ const PLAN_STARTER: SubscriptionPlan = {
   commissionPct: 0,
   featuredListings: 2,
   highlightedFeatures: [
-    'Up to 100 active products (SKUs)',
+    'Up to 250 active products (SKUs)',
     '0% commission on all local orders',
     '2 featured product placements',
     'Priority city category visibility',
@@ -125,6 +158,7 @@ const PLAN_GROWTH: SubscriptionPlan = {
   badge: 'Most Popular',
   badgeText: 'Most Popular',
   isPopular: true,
+  productLimit: 1000,
   monthlyFee: 2499,
   monthlyPriceInr: 2499,
   annualPriceInr: 24990,
@@ -133,7 +167,7 @@ const PLAN_GROWTH: SubscriptionPlan = {
   commissionPct: 0,
   featuredListings: 5,
   highlightedFeatures: [
-    'Up to 150 active products (SKUs)',
+    'Up to 1,000 active products (SKUs)',
     '0% commission on all local orders',
     'Priority city search & category boost',
     'Promotional banners & WhatsApp support',
@@ -150,6 +184,7 @@ const PLAN_BUSINESS_PRO: SubscriptionPlan = {
   id: 'BUSINESS_PRO',
   name: 'Business Pro',
   tagline: 'Full-scale hyperlocal merchandising & multi-staff access.',
+  productLimit: 'UNLIMITED',
   monthlyFee: 4999,
   monthlyPriceInr: 4999,
   annualPriceInr: 49990,
@@ -158,7 +193,7 @@ const PLAN_BUSINESS_PRO: SubscriptionPlan = {
   commissionPct: 0,
   featuredListings: 15,
   highlightedFeatures: [
-    'Up to 500 active products (SKUs)',
+    'Unlimited active products (SKUs)',
     'Citykart Gold Verified store badge',
     'Top city spotlight & 15 featured slots',
     'Up to 5 staff accounts & dedicated lead',
@@ -175,6 +210,7 @@ const PLAN_ENTERPRISE: SubscriptionPlan = {
   id: 'ENTERPRISE',
   name: 'Enterprise Tier',
   tagline: 'Custom multi-branch operations for regional chains.',
+  productLimit: 'UNLIMITED',
   monthlyFee: 5999,
   monthlyPriceInr: 5999,
   annualPriceInr: 59990,
@@ -591,6 +627,7 @@ export function calculatePlatformRevenueMetrics(
 
   let subscriptionRevenueCollected = 0;
   let adAndServiceRevenueCollected = 0;
+  let totalServiceOrdersRevenueInr = 0;
   let totalRefunds = 0;
   let successfulTxCount = 0;
   let failedTxCount = 0;
@@ -602,6 +639,9 @@ export function calculatePlatformRevenueMetrics(
       if (tx.type === 'SUBSCRIPTION') {
         subscriptionRevenueCollected += amt;
       } else {
+        if (tx.type === 'SERVICE_ORDER') {
+          totalServiceOrdersRevenueInr += amt;
+        }
         adAndServiceRevenueCollected += amt;
       }
     } else if (tx?.status === 'REFUNDED') {
@@ -613,7 +653,9 @@ export function calculatePlatformRevenueMetrics(
 
   const serviceOrdersList = Array.isArray(extra?.serviceOrders) ? extra!.serviceOrders : [];
   for (const so of serviceOrdersList) {
-    adAndServiceRevenueCollected += Number(so?.total || 0);
+    const soAmt = Number(so?.total ?? so?.amountInr ?? 0);
+    totalServiceOrdersRevenueInr += soAmt;
+    adAndServiceRevenueCollected += soAmt;
   }
 
   const grossPlatformRevenueInr = subscriptionRevenueCollected + adAndServiceRevenueCollected;
@@ -637,6 +679,7 @@ export function calculatePlatformRevenueMetrics(
     activePaidSubscriptions,
     subscriptionRevenueCollected,
     adAndServiceRevenueCollected,
+    totalServiceOrdersRevenueInr,
     totalRefunds,
     netPlatformCollections,
     successfulTxCount,

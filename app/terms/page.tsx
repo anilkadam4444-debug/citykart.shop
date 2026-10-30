@@ -3,15 +3,72 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
-import { getCanonicalUrl } from '@/lib/seo-config';
-import { generateBreadcrumbSchema } from '@/lib/seo-schema';
+import { getCanonicalUrl, SITE_CONFIG } from '@/lib/seo-config';
+import {
+  generateBreadcrumbSchema,
+  generateTermsWebPageSchema,
+} from '@/lib/seo-schema';
+
+const TERMS_URL = getCanonicalUrl('/terms');
+const TERMS_TITLE = 'Terms and Conditions & Marketplace Policies | Citykart';
+const TERMS_DESCRIPTION =
+  'Review the official Terms and Conditions governing customer orders, independent seller responsibilities, local delivery, and COD/UPI payments on Citykart.';
 
 export const metadata: Metadata = {
-  title: 'Terms and Conditions | Citykart',
-  description:
-    'Review the terms of service governing customer orders, merchant listings, delivery commitments, and doorstep payments on the Citykart intra-city platform.',
+  title: TERMS_TITLE,
+  description: TERMS_DESCRIPTION,
+  keywords: [
+    'Citykart terms and conditions',
+    'Citykart terms of service',
+    'local marketplace buyer agreement',
+    'independent seller obligations',
+    'hyperlocal delivery terms',
+    'cash on delivery policy',
+    'UPI doorstep payment terms',
+    'Citykart legal',
+  ],
+  authors: [{ name: SITE_CONFIG.name, url: SITE_CONFIG.siteUrl }],
+  creator: SITE_CONFIG.name,
+  publisher: SITE_CONFIG.name,
+  category: 'Legal & Marketplace Terms',
   alternates: {
-    canonical: getCanonicalUrl('/terms'),
+    canonical: TERMS_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: SITE_CONFIG.defaultLocale,
+    url: TERMS_URL,
+    siteName: SITE_CONFIG.name,
+    title: TERMS_TITLE,
+    description: TERMS_DESCRIPTION,
+    images: [
+      {
+        url: `${SITE_CONFIG.siteUrl}/citykart-logo.png`,
+        width: 1200,
+        height: 630,
+        alt: 'Citykart Marketplace Terms and Conditions',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: SITE_CONFIG.social.twitterHandle,
+    creator: SITE_CONFIG.social.twitterHandle,
+    title: TERMS_TITLE,
+    description:
+      'Read the official Terms of Service governing buyer orders, independent merchant responsibilities, local fulfillment, and doorstep payments on Citykart.',
+    images: [`${SITE_CONFIG.siteUrl}/citykart-logo.png`],
   },
 };
 
@@ -21,12 +78,17 @@ export default function TermsPage() {
     { name: 'Terms and Conditions', url: '/terms' },
   ];
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbs);
+  const termsPageSchema = generateTermsWebPageSchema();
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(termsPageSchema) }}
       />
 
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">

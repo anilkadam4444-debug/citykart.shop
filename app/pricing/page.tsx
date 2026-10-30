@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -17,7 +17,12 @@ import {
   Percent,
 } from 'lucide-react';
 import { TiltCard } from '@/components/tilt-card';
-import { SUBSCRIPTION_PLANS, VALUE_ADDED_SERVICES } from '@/lib/revenue-model';
+import {
+  SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
+  syncPlanHighlightedFeatures,
+  VALUE_ADDED_SERVICES,
+} from '@/lib/revenue-model';
 
 interface ComparisonFeature {
   name: string;
@@ -32,9 +37,9 @@ const COMPARISON_FEATURES: ComparisonFeature[] = [
   {
     category: 'Core Commerce & Catalog',
     name: 'Active Product Listings (SKUs)',
-    free: '20 products',
-    growth: '150 products',
-    pro: '500 SKUs',
+    free: '50 products',
+    growth: '1,000 products',
+    pro: 'Unlimited SKUs',
     tooltip: 'Number of active products displayed simultaneously in your store catalogue.',
   },
   {
@@ -137,11 +142,11 @@ const FAQS = [
   },
   {
     q: 'Can I start on the Free plan and upgrade later?',
-    a: 'Yes, absolutely. You can start completely free with up to 20 products. As your catalogue and local customer demand grow, you can upgrade to Growth or Business Pro instantly from your Seller Dashboard.',
+    a: 'Yes, absolutely. You can start completely free with up to 50 products. As your catalogue and local customer demand grow, you can upgrade to Starter, Growth, Business Pro, or Enterprise instantly from your Seller Dashboard.',
   },
   {
     q: 'What happens to my products if I downgrade?',
-    a: 'We never delete your product data. If you downgrade from Growth to Free with 40 products, all 40 products remain safe in your dashboard and visible. However, you will not be able to add new items until your catalogue is within the 20-product limit or you re-upgrade.',
+    a: 'We never delete your product data. If you downgrade from Growth to Free with 80 products, all 80 products remain safe in your dashboard and visible. However, you will not be able to add new items until your catalogue is within the 50-product limit or you re-upgrade.',
   },
   {
     q: 'Can I cancel or switch billing cycles anytime?',
@@ -156,16 +161,38 @@ const FAQS = [
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(() =>
+    [
+      SUBSCRIPTION_PLANS?.FREE,
+      SUBSCRIPTION_PLANS?.STARTER,
+      SUBSCRIPTION_PLANS?.GROWTH,
+      SUBSCRIPTION_PLANS?.BUSINESS_PRO,
+      SUBSCRIPTION_PLANS?.ENTERPRISE,
+    ].filter((p): p is NonNullable<typeof p> => Boolean(p))
+  );
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/billing/campaigns')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.ok || !Array.isArray(data.subscriptionPlans)) return;
+        const syncedList = (data.subscriptionPlans as SubscriptionPlan[])
+          .filter(Boolean)
+          .map((p) => syncPlanHighlightedFeatures(p));
+        if (syncedList.length > 0) {
+          setPlans(syncedList);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
-
-  const plans = [
-    SUBSCRIPTION_PLANS?.FREE,
-    SUBSCRIPTION_PLANS?.GROWTH,
-    SUBSCRIPTION_PLANS?.BUSINESS_PRO,
-  ].filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   return (
     <div className="w-full min-h-dvh flex flex-col bg-[#F8FAFC] text-slate-900">
@@ -256,7 +283,7 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 items-stretch">
           {plans.map((plan) => {
             const isGrowth = plan.id === 'GROWTH';
             const price = isAnnual ? plan.annualPriceInr : plan.monthlyPriceInr;

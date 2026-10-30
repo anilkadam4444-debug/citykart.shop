@@ -4029,11 +4029,15 @@ export function SuperAdminDashboard() {
           {activeSection === 'subscriptions-plans' && (
             <div className="space-y-6">
               {/* Authoritative Plans Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
                 {(dashboardData?.subscriptionPlans || []).map((plan) => (
                   <div
                     key={plan.id}
-                    className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-2xs"
+                    className={`bg-white rounded-2xl p-5 flex flex-col justify-between space-y-4 ${
+                      plan.id === 'GROWTH'
+                        ? 'border-2 border-[#003B8E] shadow-md'
+                        : 'border border-slate-200 shadow-2xs'
+                    }`}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -4061,8 +4065,21 @@ export function SuperAdminDashboard() {
                         Limit:{' '}
                         {plan.entitlements.maxActiveProducts === -1 || plan.entitlements.maxActiveProducts >= 100000
                           ? 'Unlimited'
-                          : plan.entitlements.maxActiveProducts}
+                          : plan.entitlements.maxActiveProducts.toLocaleString('en-IN')}
                       </div>
+                      {Array.isArray(plan.highlightedFeatures) &&
+                        plan.highlightedFeatures.length > 0 && (
+                          <ul className="pt-2 space-y-1.5 text-xs text-slate-700 border-t border-slate-100">
+                            {plan.highlightedFeatures.map((feat, idx) => (
+                              <li key={idx} className="flex items-start gap-1.5">
+                                <span className="text-emerald-600 font-bold shrink-0">
+                                  ✓
+                                </span>
+                                <span>{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                     </div>
 
                     <button

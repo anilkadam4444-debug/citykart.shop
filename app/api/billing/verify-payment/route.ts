@@ -14,6 +14,8 @@ import {
 } from '@/lib/revenue-model';
 import {
   getAuthoritativeSubscriptionPlansAsync,
+  serverBillingTransactionsRegistry,
+  serverSubscriptionsRegistry,
   verifyAdminRequest,
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
@@ -242,6 +244,18 @@ export async function POST(req: NextRequest) {
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     });
+
+    serverSubscriptionsRegistry.set(storeId, subscription);
+    serverBillingTransactionsRegistry.set(txId, transaction);
+    const existingRegStore = serverStoresRegistry.get(storeId) || targetStore;
+    if (existingRegStore) {
+      serverStoresRegistry.set(storeId, {
+        ...existingRegStore,
+        subscriptionTier: planId as SubscriptionTierId,
+        subscriptionStatus: 'ACTIVE',
+        subscriptionExpiry: subscription.currentPeriodEnd,
+      } as LocalStore);
+    }
 
     // Resilient Firestore persistence: try adminDb first, fall back to client SDK db
     try {

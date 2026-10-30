@@ -2,6 +2,7 @@ import {
   MerchantSubscription,
   PlanFeatureEntitlement,
   SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
   SubscriptionTierId,
 } from './revenue-model';
 
@@ -92,14 +93,15 @@ export interface ProductQuotaStatus {
 export function checkProductQuota(
   storeId: string,
   currentProductCount: number,
-  fallbackPlanId?: SubscriptionTierId
+  fallbackPlanId?: SubscriptionTierId,
+  planOverride?: SubscriptionPlan
 ): ProductQuotaStatus {
   const sub = getStoreSubscription(storeId);
   const planKey = (fallbackPlanId || sub.planId || 'FREE') as SubscriptionTierId;
-  const plan = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.FREE;
+  const plan = planOverride || SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.FREE;
   const maxAllowed = plan.entitlements.maxActiveProducts;
 
-  if (maxAllowed === -1) {
+  if (maxAllowed === -1 || maxAllowed >= 100000) {
     return {
       canAdd: true,
       maxAllowed: -1,

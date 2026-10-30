@@ -3,15 +3,72 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, ArrowRight, PackagePlus, Store, Truck } from 'lucide-react';
-import { getCanonicalUrl } from '@/lib/seo-config';
-import { generateBreadcrumbSchema } from '@/lib/seo-schema';
+import { getCanonicalUrl, SITE_CONFIG } from '@/lib/seo-config';
+import {
+  generateBreadcrumbSchema,
+  generateSellerGuideHowToSchema,
+} from '@/lib/seo-schema';
+
+const SELLER_GUIDE_URL = getCanonicalUrl('/seller-guide');
+const SELLER_GUIDE_TITLE = 'How to Open a Store & Sell Locally | Citykart Seller Guide';
+const SELLER_GUIDE_DESCRIPTION =
+  'Step-by-step guide for local retailers and shopkeepers to list their store on Citykart, set delivery radiuses, and receive 0% commission direct orders.';
 
 export const metadata: Metadata = {
-  title: 'How to Open a Store & Sell Locally | Citykart Seller Guide',
-  description:
-    'Step-by-step guide for local retailers and shopkeepers to list their business on Citykart, configure local delivery radiuses, and start receiving direct orders.',
+  title: SELLER_GUIDE_TITLE,
+  description: SELLER_GUIDE_DESCRIPTION,
+  keywords: [
+    'sell on Citykart',
+    'open online store locally',
+    'local merchant onboarding',
+    'hyperlocal seller guide',
+    '0% commission local marketplace',
+    'neighborhood shop online delivery',
+    'Citykart seller registration',
+    'intra-city commerce',
+  ],
+  authors: [{ name: SITE_CONFIG.name, url: SITE_CONFIG.siteUrl }],
+  creator: SITE_CONFIG.name,
+  publisher: SITE_CONFIG.name,
+  category: 'Ecommerce & Merchant Guide',
   alternates: {
-    canonical: getCanonicalUrl('/seller-guide'),
+    canonical: SELLER_GUIDE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    type: 'article',
+    locale: SITE_CONFIG.defaultLocale,
+    url: SELLER_GUIDE_URL,
+    siteName: SITE_CONFIG.name,
+    title: SELLER_GUIDE_TITLE,
+    description: SELLER_GUIDE_DESCRIPTION,
+    images: [
+      {
+        url: `${SITE_CONFIG.siteUrl}/citykart-logo.png`,
+        width: 1200,
+        height: 630,
+        alt: 'Citykart Seller Guide — Open and Grow Your Local Store Online',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: SITE_CONFIG.social.twitterHandle,
+    creator: SITE_CONFIG.social.twitterHandle,
+    title: SELLER_GUIDE_TITLE,
+    description:
+      'List your neighborhood shop on Citykart in under 3 minutes. Upload products, set your local delivery radius, and receive direct UPI or Cash payments.',
+    images: [`${SITE_CONFIG.siteUrl}/citykart-logo.png`],
   },
 };
 
@@ -21,12 +78,17 @@ export default function SellerGuidePage() {
     { name: 'Seller Guide', url: '/seller-guide' },
   ];
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbs);
+  const howToSchema = generateSellerGuideHowToSchema();
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
       />
 
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">

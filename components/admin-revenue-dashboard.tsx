@@ -147,7 +147,7 @@ export function AdminRevenueDashboard({ stores }: AdminRevenueDashboardProps) {
             <Users className="w-4 h-4 text-[#003B8E]" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900">
-            {metrics.activeSubscribersByPlan.GROWTH + metrics.activeSubscribersByPlan.BUSINESS_PRO}
+            {metrics.activePaidSubscriptions}
           </div>
           <div className="text-[11px] text-slate-500 tabular-nums">
             {metrics.activeSubscribersByPlan.FREE} Free stores · 0% Churn
@@ -189,39 +189,31 @@ export function AdminRevenueDashboard({ stores }: AdminRevenueDashboardProps) {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
           <h3 className="font-extrabold text-sm text-slate-900">Merchant Subscription Distribution</h3>
           <div className="space-y-3">
-            {[
-              {
-                tier: 'FREE' as SubscriptionTierId,
-                name: 'Starter Merchant',
-                count: metrics.activeSubscribersByPlan.FREE,
-                color: 'bg-slate-400',
-                price: '₹299/mo',
-              },
-              {
-                tier: 'GROWTH' as SubscriptionTierId,
-                name: 'Growth Merchant',
-                count: metrics.activeSubscribersByPlan.GROWTH,
-                color: 'bg-[#003B8E]',
-                price: '₹699/mo',
-              },
-              {
-                tier: 'BUSINESS_PRO' as SubscriptionTierId,
-                name: 'Business Pro',
-                count: metrics.activeSubscribersByPlan.BUSINESS_PRO,
-                color: 'bg-[#F96302]',
-                price: '₹1,499/mo',
-              },
-            ].map((p) => {
+            {(
+              [
+                { tier: 'FREE' as SubscriptionTierId, color: 'bg-slate-400' },
+                { tier: 'STARTER' as SubscriptionTierId, color: 'bg-sky-500' },
+                { tier: 'GROWTH' as SubscriptionTierId, color: 'bg-[#003B8E]' },
+                { tier: 'BUSINESS_PRO' as SubscriptionTierId, color: 'bg-[#F96302]' },
+                { tier: 'ENTERPRISE' as SubscriptionTierId, color: 'bg-emerald-600' },
+              ]
+            ).map(({ tier, color }) => {
+              const plan = SUBSCRIPTION_PLANS[tier];
+              const count = metrics.activeSubscribersByPlan[tier] || 0;
+              const priceLabel =
+                plan.monthlyPriceInr === 0
+                  ? '₹0/mo'
+                  : `₹${plan.monthlyPriceInr.toLocaleString('en-IN')}/mo`;
               const total = stores.length || 1;
-              const pct = Math.round((p.count / total) * 100);
+              const pct = Math.round((count / total) * 100);
               return (
-                <div key={p.tier} className="space-y-1 text-xs tabular-nums">
+                <div key={tier} className="space-y-1 text-xs tabular-nums">
                   <div className="flex items-center justify-between font-semibold">
-                    <span className="text-slate-800">{p.name} ({p.price})</span>
-                    <span className="font-bold text-slate-900">{p.count} stores ({pct}%)</span>
+                    <span className="text-slate-800">{plan.name} ({priceLabel})</span>
+                    <span className="font-bold text-slate-900">{count} stores ({pct}%)</span>
                   </div>
                   <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className={`h-full ${p.color} rounded-full`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );

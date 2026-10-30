@@ -49,9 +49,11 @@ import {
   getAuthoritativePlatformSettingsAsync,
   getAuthoritativeSubscriptionPlans,
   getAuthoritativeSubscriptionPlansAsync,
+  serverBillingTransactionsRegistry,
   serverBuyerOverridesRegistry,
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
+  serverSubscriptionsRegistry,
   serverSystemEventsRegistry,
   verifyAdminRequest,
 } from '@/lib/super-admin-auth';
@@ -266,15 +268,27 @@ export async function GET(req: NextRequest) {
 
   // 9. Subscriptions, Billing Transactions, Campaigns, Service Orders
   const subscriptionsMap = new Map<string, MerchantSubscription>();
+  for (const [storeId, sub] of serverSubscriptionsRegistry.entries()) {
+    if (sub?.storeId) subscriptionsMap.set(storeId, sub);
+  }
   fsSubsSnap?.forEach((d) => {
     const data = d.data() as MerchantSubscription;
-    if (data?.storeId) subscriptionsMap.set(data.storeId, data);
+    if (data?.storeId) {
+      subscriptionsMap.set(data.storeId, data);
+      serverSubscriptionsRegistry.set(data.storeId, data);
+    }
   });
 
   const transactionsMap = new Map<string, BillingTransaction>();
+  for (const [txId, tx] of serverBillingTransactionsRegistry.entries()) {
+    if (tx?.id) transactionsMap.set(txId, tx);
+  }
   fsTxSnap?.forEach((d) => {
     const data = d.data() as BillingTransaction;
-    if (data?.id) transactionsMap.set(data.id, data);
+    if (data?.id) {
+      transactionsMap.set(data.id, data);
+      serverBillingTransactionsRegistry.set(data.id, data);
+    }
   });
 
   const campaignsMap = new Map<string, FeaturedCampaign>();
@@ -312,23 +326,37 @@ export async function GET(req: NextRequest) {
     excludeDemo ? !u.id.startsWith('user-demo-nanded-') : true
   );
 
+  const authoritativePlansMap = await getAuthoritativeSubscriptionPlansAsync();
+
   // Ensure every store has a resolved subscription record
   const resolvedStoreSubscriptions: MerchantSubscription[] = allStores.map(
-    (st) =>
-      subscriptionsMap.get(st.id) ||
-      getDefaultFreeSubscription(st.id, st.sellerId)
+    (st) => {
+      const existingSub = subscriptionsMap.get(st.id);
+      if (existingSub) return existingSub;
+      const storeTier = (st as any).subscriptionTier as SubscriptionTierId | undefined;
+      if (storeTier && authoritativePlansMap[storeTier]) {
+        const defaultSub = getDefaultFreeSubscription(st.id, st.sellerId);
+        return {
+          ...defaultSub,
+          planId: storeTier,
+          currentPrice: authoritativePlansMap[storeTier].monthlyPriceInr,
+        };
+      }
+      return getDefaultFreeSubscription(st.id, st.sellerId);
+    }
   );
 
-  const authoritativePlansMap = await getAuthoritativeSubscriptionPlansAsync();
   const subscriptionPlansList = Object.values(authoritativePlansMap).map(
     (plan) => ({
       ...plan,
       productLimit:
+        plan.entitlements.maxActiveProducts === -1 ||
         plan.entitlements.maxActiveProducts >= 100000
           ? ('UNLIMITED' as const)
           : plan.entitlements.maxActiveProducts,
       badgeText:
         (plan as unknown as { badgeText?: string }).badgeText ||
+        plan.badge ||
         (plan.isPopular ? 'Most Popular' : ''),
     })
   );

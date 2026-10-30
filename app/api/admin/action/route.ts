@@ -739,12 +739,12 @@ export async function POST(req: NextRequest) {
     // 5. SUBSCRIPTION PLAN CONFIGURATION UPDATE
     // =========================================================================
     if (actionType === 'UPDATE_SUBSCRIPTION_PLAN') {
-      if (!authCheck.authorized) {
+      if (!authCheck.authorized || !authCheck.isSuperAdmin) {
         return NextResponse.json(
           {
             ok: false,
             error:
-              'Forbidden: Administrator authorization is required to modify subscription plan pricing and entitlements.',
+              'Forbidden: Super Admin privileges are required to modify subscription plan pricing and entitlements.',
           },
           { status: 403 }
         );
@@ -760,8 +760,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const monthlyPriceInr = Number(body.monthlyPriceInr);
-      const annualPriceInr = Number(body.annualPriceInr);
+      const monthlyPriceInr = Number(
+        body.monthlyPriceInr ?? currentPlan.monthlyPriceInr
+      );
+      const annualPriceInr = Number(
+        body.annualPriceInr ?? currentPlan.annualPriceInr
+      );
 
       const rawLimit =
         body.maxActiveProducts !== undefined
@@ -773,7 +777,11 @@ export async function POST(req: NextRequest) {
       const maxActiveProducts =
         rawLimit === 'UNLIMITED' || rawLimit === -1 || Number(rawLimit) >= 100000
           ? 999999
-          : Number(rawLimit ?? currentPlan.entitlements.maxActiveProducts);
+          : rawLimit !== undefined
+            ? Number(rawLimit)
+            : currentPlan.entitlements.maxActiveProducts === -1
+              ? 999999
+              : Number(currentPlan.entitlements.maxActiveProducts);
 
       if (
         !Number.isFinite(monthlyPriceInr) ||
@@ -801,8 +809,13 @@ export async function POST(req: NextRequest) {
           body.badge !== undefined
             ? String(body.badge).trim()
             : currentPlan.badge,
+        monthlyFee: Math.round(monthlyPriceInr),
         monthlyPriceInr: Math.round(monthlyPriceInr),
         annualPriceInr: Math.round(annualPriceInr),
+        featuredListings:
+          body.featuredListings !== undefined
+            ? Number(body.featuredListings)
+            : currentPlan.featuredListings,
         entitlements: {
           ...currentPlan.entitlements,
           ...(body.entitlements || {}),
@@ -812,29 +825,30 @@ export async function POST(req: NextRequest) {
 
       await setAuthoritativeSubscriptionPlan(planId, updatedPlan);
       const allPlansMap = await getAuthoritativeSubscriptionPlansAsync();
+      const syncedPlan = allPlansMap[planId] || updatedPlan;
 
       const audit = await recordAdminAuditLog({
         adminUid,
         actionType: 'UPDATE_SUBSCRIPTION_PLAN',
         targetEntityType: 'SUBSCRIPTION_PLAN',
         targetEntityId: planId,
-        targetEntityName: updatedPlan.name,
+        targetEntityName: syncedPlan.name,
         status: 'SUCCESS',
         reason,
         metadata: {
-          monthlyPriceInr: updatedPlan.monthlyPriceInr,
-          annualPriceInr: updatedPlan.annualPriceInr,
-          maxActiveProducts: updatedPlan.entitlements.maxActiveProducts,
+          monthlyPriceInr: syncedPlan.monthlyPriceInr,
+          annualPriceInr: syncedPlan.annualPriceInr,
+          maxActiveProducts: syncedPlan.entitlements.maxActiveProducts,
         },
       });
 
       return NextResponse.json({
         ok: true,
-        plan: updatedPlan,
+        plan: syncedPlan,
         plans: Object.values(allPlansMap),
         subscriptionPlans: Object.values(allPlansMap),
         audit,
-        message: `Subscription plan "${updatedPlan.name}" updated for new enrollments (existing active seller subscriptions remain protected until renewal).`,
+        message: `Subscription plan "${syncedPlan.name}" updated for new enrollments (existing active seller subscriptions remain protected until renewal).`,
       });
     }
 

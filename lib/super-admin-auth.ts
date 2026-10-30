@@ -1,5 +1,12 @@
 import { serverUserAccounts as initialServerUserAccounts } from './initial-data';
-import { SUBSCRIPTION_PLANS, SubscriptionPlan, SubscriptionTierId } from './revenue-model';
+import {
+  BillingTransaction,
+  MerchantSubscription,
+  SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
+  SubscriptionTierId,
+  syncPlanHighlightedFeatures,
+} from './revenue-model';
 
 export const DESIGNATED_OWNER_PHONE = '+918329306616';
 export const DESIGNATED_SUPER_ADMIN_PHONE = '+918329306616';
@@ -26,6 +33,11 @@ declare global {
   var __serverStoreOverridesRegistry: Map<string, any> | undefined;
   var __serverProductOverridesRegistry: Map<string, any> | undefined;
   var __serverBuyerOverridesRegistry: Map<string, any> | undefined;
+  var __serverSubscriptionsRegistry: Map<string, MerchantSubscription> | undefined;
+  var __serverBillingTransactionsRegistry: Map<string, BillingTransaction> | undefined;
+  var __serverSubscriptionPlans:
+    | (Record<SubscriptionTierId, SubscriptionPlan> & SubscriptionPlan[])
+    | undefined;
   var __serverSystemEventsRegistry: any[] | undefined;
   var __serverAdminAuditLogs: any[] | undefined;
   var __serverAdminAuthorizations: any[] | undefined;
@@ -78,10 +90,22 @@ if (!globalThis.__serverPlatformSettings) {
   };
 }
 
+if (!globalThis.__serverSubscriptionsRegistry) {
+  globalThis.__serverSubscriptionsRegistry = new Map<string, MerchantSubscription>();
+}
+if (!globalThis.__serverBillingTransactionsRegistry) {
+  globalThis.__serverBillingTransactionsRegistry = new Map<string, BillingTransaction>();
+}
+if (!globalThis.__serverSubscriptionPlans) {
+  globalThis.__serverSubscriptionPlans = SUBSCRIPTION_PLANS;
+}
+
 export const serverUserAccounts = initialServerUserAccounts;
 export const serverStoreOverridesRegistry = globalThis.__serverStoreOverridesRegistry;
 export const serverProductOverridesRegistry = globalThis.__serverProductOverridesRegistry;
 export const serverBuyerOverridesRegistry = globalThis.__serverBuyerOverridesRegistry;
+export const serverSubscriptionsRegistry = globalThis.__serverSubscriptionsRegistry;
+export const serverBillingTransactionsRegistry = globalThis.__serverBillingTransactionsRegistry;
 export const serverSystemEventsRegistry = globalThis.__serverSystemEventsRegistry;
 const adminAuditLogs = globalThis.__serverAdminAuditLogs;
 const adminAuthorizations = globalThis.__serverAdminAuthorizations;
@@ -468,13 +492,13 @@ export async function verifySuperAdminRequest(req: any) {
 }
 
 export function getAuthoritativeSubscriptionPlans(): Record<SubscriptionTierId, SubscriptionPlan> & SubscriptionPlan[] {
-  return SUBSCRIPTION_PLANS;
+  return globalThis.__serverSubscriptionPlans || SUBSCRIPTION_PLANS;
 }
 
 export async function getAuthoritativeSubscriptionPlansAsync(): Promise<
   Record<SubscriptionTierId, SubscriptionPlan> & SubscriptionPlan[]
 > {
-  return SUBSCRIPTION_PLANS;
+  return globalThis.__serverSubscriptionPlans || SUBSCRIPTION_PLANS;
 }
 
 export async function createAdminAuthorization(params: {
@@ -723,9 +747,21 @@ export function setAuthoritativeSubscriptionPlan(
   updates: Partial<SubscriptionPlan> | string
 ) {
   if (typeof updates === 'object' && updates !== null) {
-    const target = (SUBSCRIPTION_PLANS as any)[planId];
+    const plansStore = globalThis.__serverSubscriptionPlans || SUBSCRIPTION_PLANS;
+    const target = (plansStore as any)[planId] || (SUBSCRIPTION_PLANS as any)[planId];
     if (target) {
-      Object.assign(target, updates);
+      const merged = syncPlanHighlightedFeatures({
+        ...target,
+        ...updates,
+        entitlements: {
+          ...target.entitlements,
+          ...(updates.entitlements || {}),
+        },
+      });
+      Object.assign(target, merged);
+      if ((SUBSCRIPTION_PLANS as any)[planId] && (SUBSCRIPTION_PLANS as any)[planId] !== target) {
+        Object.assign((SUBSCRIPTION_PLANS as any)[planId], merged);
+      }
     }
   }
   return true;

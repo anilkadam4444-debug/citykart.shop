@@ -29,12 +29,15 @@ import {
   Product,
 } from '@/lib/catalog-data';
 import {
+  getAuthoritativeSubscriptionPlansAsync,
   recordAdminAuditLog,
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
+  serverSubscriptionsRegistry,
   verifyAdminRequest,
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
+import { MerchantSubscription } from '@/lib/revenue-model';
 
 export const dynamic = 'force-dynamic';
 
@@ -399,12 +402,35 @@ export async function GET(req: NextRequest) {
       (tier) => placementConfigs[tier]
     );
 
+    const authoritativePlans = await getAuthoritativeSubscriptionPlansAsync();
+    const subscriptionPlans = Object.values(authoritativePlans);
+
+    let storeSubscription: MerchantSubscription | null = null;
+    if (storeId) {
+      storeSubscription = serverSubscriptionsRegistry.get(storeId) || null;
+      if (!storeSubscription && !IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const subSnap = await getDoc(
+            doc(db, 'merchantSubscriptions', `sub_${storeId}`)
+          );
+          if (subSnap.exists()) {
+            storeSubscription = subSnap.data() as MerchantSubscription;
+            serverSubscriptionsRegistry.set(storeId, storeSubscription);
+          }
+        } catch {
+          // Fallback to null if not in Firestore
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       success: true,
       campaigns,
       placementConfigs,
       placementConfigsList,
+      subscriptionPlans,
+      storeSubscription,
       livePaymentsApproved,
       pricingStatus: livePaymentsApproved
         ? 'APPROVED_LIVE_PRICING'

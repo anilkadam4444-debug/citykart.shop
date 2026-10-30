@@ -12,6 +12,8 @@ import {
 } from '@/lib/revenue-model';
 import {
   getAuthoritativeSubscriptionPlansAsync,
+  serverBillingTransactionsRegistry,
+  serverSubscriptionsRegistry,
   verifyAdminRequest,
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
@@ -162,6 +164,17 @@ export async function POST(req: NextRequest) {
         updatedAt: now.toISOString(),
       });
 
+      serverSubscriptionsRegistry.set(storeId, freeSubscription);
+      const existingRegStore = serverStoresRegistry.get(storeId) || targetStore;
+      if (existingRegStore) {
+        serverStoresRegistry.set(storeId, {
+          ...existingRegStore,
+          subscriptionTier: planId as SubscriptionTierId,
+          subscriptionStatus: 'ACTIVE',
+          subscriptionExpiry: freeSubscription.currentPeriodEnd,
+        } as LocalStore);
+      }
+
       if (!IS_PREVIEW_DUMMY_FIREBASE) {
         try {
           const clientBatch = writeBatch(db);
@@ -201,7 +214,7 @@ export async function POST(req: NextRequest) {
       keyId.includes('your_');
 
     // Build sandbox preview records when live Razorpay keys are not yet configured
-    const buildSandboxFallback = () => {
+    const buildSandboxFallback = async () => {
       const txId = `tx_sub_sandbox_${Date.now()}`;
       const sandboxSubscription: MerchantSubscription = removeUndefined({
         id: `sub_${storeId}`,
@@ -238,12 +251,48 @@ export async function POST(req: NextRequest) {
         createdAt: now.toISOString(),
       });
 
+      serverSubscriptionsRegistry.set(storeId, sandboxSubscription);
+      serverBillingTransactionsRegistry.set(txId, sandboxTransaction);
+      const existingRegStore = serverStoresRegistry.get(storeId) || targetStore;
+      if (existingRegStore) {
+        serverStoresRegistry.set(storeId, {
+          ...existingRegStore,
+          subscriptionTier: planId as SubscriptionTierId,
+          subscriptionStatus: 'ACTIVE',
+          subscriptionExpiry: sandboxSubscription.currentPeriodEnd,
+        } as LocalStore);
+      }
+
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const clientBatch = writeBatch(db);
+          clientBatch.set(doc(db, 'billingTransactions', txId), sandboxTransaction);
+          clientBatch.set(
+            doc(db, 'merchantSubscriptions', sandboxSubscription.id),
+            sandboxSubscription,
+            { merge: true }
+          );
+          clientBatch.set(
+            doc(db, 'stores', storeId),
+            {
+              subscriptionTier: planId,
+              subscriptionStatus: 'ACTIVE',
+              subscriptionExpiry: sandboxSubscription.currentPeriodEnd,
+            },
+            { merge: true }
+          );
+          await clientBatch.commit();
+        } catch {
+          // Ignore Firestore error when using server registry
+        }
+      }
+
       return { sandboxSubscription, sandboxTransaction };
     };
 
     // If credentials are missing or placeholders, return 'needsConfig' along with sandbox preview records
     if (isPlaceholderCreds) {
-      const { sandboxSubscription, sandboxTransaction } = buildSandboxFallback();
+      const { sandboxSubscription, sandboxTransaction } = await buildSandboxFallback();
       return NextResponse.json({
         success: true,
         needsConfig: true,
@@ -292,7 +341,7 @@ export async function POST(req: NextRequest) {
     } catch (rzpErr: unknown) {
       const statusCode = (rzpErr as { statusCode?: number })?.statusCode;
       if (statusCode === 401) {
-        const { sandboxSubscription, sandboxTransaction } = buildSandboxFallback();
+        const { sandboxSubscription, sandboxTransaction } = await buildSandboxFallback();
         return NextResponse.json({
           success: true,
           needsConfig: true,

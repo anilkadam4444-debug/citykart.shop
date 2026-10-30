@@ -36,7 +36,9 @@ import {
   SponsoredPlacementConfig,
   SponsoredPlacementTier,
   SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
   SubscriptionTierId,
+  syncPlanHighlightedFeatures,
   VALUE_ADDED_SERVICES,
   ValueAddedServiceType,
   PlatformFeeLedgerEntry,
@@ -99,6 +101,16 @@ export function SellerPlansBilling({
   const [placementConfigs, setPlacementConfigs] = useState<
     Record<SponsoredPlacementTier, SponsoredPlacementConfig>
   >(DEFAULT_SPONSORED_PLACEMENT_CONFIGS);
+
+  const [plansMap, setPlansMap] = useState<
+    Record<SubscriptionTierId, SubscriptionPlan>
+  >(() => ({
+    FREE: SUBSCRIPTION_PLANS.FREE,
+    STARTER: SUBSCRIPTION_PLANS.STARTER,
+    GROWTH: SUBSCRIPTION_PLANS.GROWTH,
+    BUSINESS_PRO: SUBSCRIPTION_PLANS.BUSINESS_PRO,
+    ENTERPRISE: SUBSCRIPTION_PLANS.ENTERPRISE,
+  }));
 
   const [transactions, setTransactions] = useState<BillingTransaction[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -201,6 +213,26 @@ export function SellerPlansBilling({
         if (data.placementConfigs) {
           setPlacementConfigs(data.placementConfigs);
         }
+        if (Array.isArray(data.subscriptionPlans)) {
+          setPlansMap((prev) => {
+            const next = { ...prev };
+            for (const rawPlan of data.subscriptionPlans as SubscriptionPlan[]) {
+              if (rawPlan && rawPlan.id) {
+                const synced = syncPlanHighlightedFeatures(rawPlan);
+                next[rawPlan.id] = synced;
+                if (SUBSCRIPTION_PLANS[rawPlan.id]) {
+                  Object.assign(SUBSCRIPTION_PLANS[rawPlan.id], synced);
+                }
+              }
+            }
+            return next;
+          });
+        }
+        if (data.storeSubscription && data.storeSubscription.storeId === store.id) {
+          saveMerchantSubscriptionToStorage(data.storeSubscription);
+          setSubscription(data.storeSubscription);
+          setIsAnnualBilling(data.storeSubscription.billingCycle === 'ANNUAL');
+        }
         if (Array.isArray(data.campaigns)) {
           setCampaigns((prev) => {
             const map = new Map<string, FeaturedCampaign>();
@@ -253,13 +285,17 @@ export function SellerPlansBilling({
   const [activeReceipt, setActiveReceipt] =
     useState<BillingTransaction | null>(null);
 
+  const currentPlan =
+    plansMap[subscription.planId] ||
+    SUBSCRIPTION_PLANS[subscription.planId] ||
+    plansMap.FREE ||
+    SUBSCRIPTION_PLANS.FREE;
   const quota = checkProductQuota(
     store.id,
     products.length,
-    subscription.planId
+    subscription.planId,
+    currentPlan
   );
-  const currentPlan =
-    SUBSCRIPTION_PLANS[subscription.planId] || SUBSCRIPTION_PLANS.FREE;
 
   // Ensure Razorpay Checkout SDK is loaded before opening modal
   const ensureRazorpaySdkLoaded = async (): Promise<boolean> => {
@@ -1025,16 +1061,26 @@ export function SellerPlansBilling({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
               {(
-                ['FREE', 'GROWTH', 'BUSINESS_PRO'] as SubscriptionTierId[]
+                [
+                  'FREE',
+                  'STARTER',
+                  'GROWTH',
+                  'BUSINESS_PRO',
+                  'ENTERPRISE',
+                ] as SubscriptionTierId[]
               ).map((tierId) => {
-                const plan = SUBSCRIPTION_PLANS[tierId];
+                const plan = plansMap[tierId] || SUBSCRIPTION_PLANS[tierId];
+                if (!plan) return null;
                 const isCurrent = subscription.planId === tierId;
                 const price = isAnnualBilling
                   ? plan.annualPriceInr
                   : plan.monthlyPriceInr;
                 const isUpgrading = isProcessingUpgrade === tierId;
+                const isUnlimitedSkus =
+                  plan.entitlements.maxActiveProducts === -1 ||
+                  plan.entitlements.maxActiveProducts >= 100000;
 
                 return (
                   <div
@@ -1048,10 +1094,10 @@ export function SellerPlansBilling({
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-extrabold text-base text-slate-900">
-                          {plan.name}
-                        </h4>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[11px] font-mono uppercase font-bold text-[#003B8E]">
+                          {plan.id}
+                        </span>
                         {isCurrent && (
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 text-slate-800">
                             Active
@@ -1063,6 +1109,15 @@ export function SellerPlansBilling({
                           </span>
                         )}
                       </div>
+
+                      <h4 className="font-extrabold text-base text-slate-900">
+                        {plan.name}
+                      </h4>
+                      {plan.tagline && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          {plan.tagline}
+                        </p>
+                      )}
 
                       <div className="mt-4 flex items-baseline gap-1">
                         <span className="text-2xl font-extrabold font-mono tabular-nums text-slate-900">
@@ -1077,6 +1132,13 @@ export function SellerPlansBilling({
                               ? '/year'
                               : '/month'}
                         </span>
+                      </div>
+
+                      <div className="mt-1 text-[11px] font-mono text-slate-500">
+                        Annual: ₹{plan.annualPriceInr.toLocaleString('en-IN')}/yr · SKU Limit:{' '}
+                        {isUnlimitedSkus
+                          ? 'Unlimited'
+                          : plan.entitlements.maxActiveProducts.toLocaleString('en-IN')}
                       </div>
 
                       <ul className="mt-4 space-y-2 text-xs text-slate-700">
