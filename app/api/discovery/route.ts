@@ -1,5 +1,6 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {
+  AUTHORITATIVE_STORE_CATEGORIES,
   CustomerShoppingLocation,
   INITIAL_PRODUCTS,
   INITIAL_STORES,
@@ -17,6 +18,7 @@ import {
   serverStoresRegistry,
 } from '@/lib/stores-registry';
 import {
+  serverCategoryOverridesRegistry,
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
 } from '@/lib/super-admin-auth';
@@ -168,11 +170,32 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const disabledCategoryIds = new Set<string>();
+  const disabledCategoryNames = new Set<string>();
+  for (const cat of AUTHORITATIVE_STORE_CATEGORIES) {
+    const override = serverCategoryOverridesRegistry.get(cat.id);
+    const isActive = override !== undefined ? override.isActive : cat.isActive;
+    if (isActive === false) {
+      disabledCategoryIds.add(cat.id);
+      disabledCategoryNames.add(cat.name);
+    }
+  }
+
   const eligibleStores = Array.from(storesMap.values()).filter(
-    (s) => !s.isSuspended && s.isActive !== false
+    (s) =>
+      !s.isSuspended &&
+      s.isActive !== false &&
+      (!s.categoryId || !disabledCategoryIds.has(s.categoryId)) &&
+      (!s.category || !disabledCategoryNames.has(s.category))
   );
+  const eligibleStoreIds = new Set(eligibleStores.map((s) => s.id));
   const eligibleProducts = Array.from(productsMap.values()).filter(
-    (p) => !p.adminUnpublished && p.isAvailable !== false
+    (p) =>
+      !p.adminUnpublished &&
+      p.isAvailable !== false &&
+      eligibleStoreIds.has(p.storeId) &&
+      (!p.categoryId || !disabledCategoryIds.has(p.categoryId)) &&
+      (!p.category || !disabledCategoryNames.has(p.category))
   );
 
   const result = queryCityScopedCatalog({

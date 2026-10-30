@@ -24,24 +24,32 @@ import {
   Product,
 } from '@/lib/catalog-data';
 import {
+  INITIAL_ORDERS,
   INITIAL_PRODUCTS,
   INITIAL_STORES,
   serverUserAccounts,
 } from '@/lib/initial-data';
 
-import { recordStoreDeletedServer } from '@/lib/stores-registry';
+import {
+  recordStoreDeletedServer,
+  serverProductsRegistry,
+  serverStoresRegistry,
+} from '@/lib/stores-registry';
 import { serverOrdersRegistry } from '@/lib/orders-registry';
 import { SubscriptionPlan, SubscriptionTierId } from '@/lib/revenue-model';
 import {
   createAdminAuthorization,
   getAuthoritativeAdminAuthorizations,
-  getAuthoritativeSubscriptionPlans,
+  getAuthoritativePlatformSettings,
   getAuthoritativeSubscriptionPlansAsync,
+  normalizePhoneE164,
   reactivateAdminAuthorization,
   recordAdminAuditLog,
   revokeAdminAuthorization,
   serverBuyerOverridesRegistry,
+  serverCategoryOverridesRegistry,
   serverProductOverridesRegistry,
+  serverSessionTokensMap,
   serverStoreOverridesRegistry,
   setAuthoritativeSubscriptionPlan,
   updateAdminAuthorization,
@@ -223,7 +231,9 @@ export async function POST(req: NextRequest) {
       const isSuspending = actionType === 'SUSPEND_STORE';
       const nowIso = new Date().toISOString();
 
+      const existingStoreOverride = serverStoreOverridesRegistry.get(storeId);
       serverStoreOverridesRegistry.set(storeId, {
+        ...existingStoreOverride,
         storeId,
         isSuspended: isSuspending,
         isActive: !isSuspending,
@@ -232,6 +242,18 @@ export async function POST(req: NextRequest) {
         suspendedByUid: isSuspending ? adminUid : undefined,
         updatedAt: nowIso,
       });
+
+      const existingRegistryStore = serverStoresRegistry.get(storeId);
+      if (existingRegistryStore) {
+        serverStoresRegistry.set(storeId, {
+          ...existingRegistryStore,
+          isActive: !isSuspending,
+          isSuspended: isSuspending,
+          suspensionReason: isSuspending ? reason : undefined,
+          suspendedAt: isSuspending ? nowIso : undefined,
+        });
+      }
+      globalThis.__discoveryCatalogCache = undefined;
 
       if (!IS_PREVIEW_DUMMY_FIREBASE) {
         try {
@@ -295,6 +317,7 @@ export async function POST(req: NextRequest) {
       const existingOverride = serverStoreOverridesRegistry.get(storeId);
       const nowIso = new Date().toISOString();
       serverStoreOverridesRegistry.set(storeId, {
+        ...existingOverride,
         storeId,
         isSuspended: existingOverride?.isSuspended ?? false,
         isActive: existingOverride?.isActive ?? true,
@@ -302,6 +325,16 @@ export async function POST(req: NextRequest) {
         verificationStatus: 'VERIFIED',
         updatedAt: nowIso,
       });
+
+      const existingRegistryStore = serverStoresRegistry.get(storeId);
+      if (existingRegistryStore) {
+        serverStoresRegistry.set(storeId, {
+          ...existingRegistryStore,
+          locationVerified: true,
+          verificationStatus: 'VERIFIED',
+        });
+      }
+      globalThis.__discoveryCatalogCache = undefined;
 
       if (!IS_PREVIEW_DUMMY_FIREBASE) {
         try {
@@ -336,6 +369,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         storeId,
+        locationVerified: true,
+        verificationStatus: 'VERIFIED',
         audit,
         message: `Store "${storeName}" location marked as VERIFIED.`,
       });
@@ -364,8 +399,12 @@ export async function POST(req: NextRequest) {
       }
       const storeId = String(body.storeId || '').trim();
       const storeNameConfirmation = String(
-        body.storeNameConfirmation || ''
+        body.storeNameConfirmation ||
+          body.confirmationStoreName ||
+          body.confirmStoreName ||
+          ''
       ).trim();
+      const fallbackStoreName = String(body.storeName || '').trim();
 
       if (!storeId || !storeNameConfirmation) {
         return NextResponse.json(
@@ -389,7 +428,16 @@ export async function POST(req: NextRequest) {
         }
       }
       if (!storeRecord) {
-        storeRecord = INITIAL_STORES.find((s) => s.id === storeId) || null;
+        storeRecord =
+          serverStoresRegistry.get(storeId) ||
+          INITIAL_STORES.find((s) => s.id === storeId) ||
+          null;
+      }
+      if (!storeRecord && fallbackStoreName) {
+        storeRecord = {
+          id: storeId,
+          name: fallbackStoreName,
+        } as LocalStore;
       }
 
       if (!storeRecord) {
@@ -439,15 +487,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      serverStoreOverridesRegistry.delete(storeId);
       await recordStoreDeletedServer(storeId, {
         storeName: storeRecord.name,
         deletedByUid: adminUid,
         deletedByPhone: authCheck.phoneE164 || undefined,
         reason,
       });
+      globalThis.__discoveryCatalogCache = undefined;
 
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'DELETE_STORE',
         targetEntityType: 'STORE',
         targetEntityId: storeId,
@@ -511,14 +563,46 @@ export async function POST(req: NextRequest) {
       if (userId) serverBuyerOverridesRegistry.set(userId, overrideRecord);
       if (phoneE164) serverBuyerOverridesRegistry.set(phoneE164, overrideRecord);
 
-      if (phoneE164 && serverUserAccounts.has(phoneE164)) {
-        const current = serverUserAccounts.get(phoneE164)!;
-        serverUserAccounts.set(phoneE164, {
+      const normPhone = phoneE164 ? normalizePhoneE164(phoneE164) : '';
+      if (normPhone && serverUserAccounts.has(normPhone)) {
+        const current = serverUserAccounts.get(normPhone)!;
+        serverUserAccounts.set(normPhone, {
           ...current,
           accountStatus: isSuspending ? 'SUSPENDED' : 'ACTIVE',
           suspensionReason: isSuspending ? reason : undefined,
           suspendedAt: isSuspending ? nowIso : undefined,
         });
+      }
+
+      if (isSuspending) {
+        for (const [tokenKey, cachedSession] of serverSessionTokensMap.entries()) {
+          if (
+            cachedSession &&
+            ((userId && cachedSession.uid === userId) ||
+              (normPhone && normalizePhoneE164(cachedSession.phoneE164) === normPhone))
+          ) {
+            serverSessionTokensMap.delete(tokenKey);
+          }
+        }
+      }
+
+      if (!IS_PREVIEW_DUMMY_FIREBASE && userId) {
+        try {
+          const snap = await getDoc(doc(db, 'users', userId));
+          if (snap.exists()) {
+            await setDoc(
+              doc(db, 'users', userId),
+              {
+                accountStatus: isSuspending ? 'SUSPENDED' : 'ACTIVE',
+                suspensionReason: isSuspending ? reason : '',
+                suspendedAt: isSuspending ? nowIso : '',
+              },
+              { merge: true }
+            );
+          }
+        } catch {
+          // Handled via serverBuyerOverridesRegistry
+        }
       }
 
       const audit = await recordAdminAuditLog({
@@ -574,6 +658,18 @@ export async function POST(req: NextRequest) {
         updatedAt: nowIso,
       });
 
+      const existingRegistryProduct = serverProductsRegistry.get(productId);
+      if (existingRegistryProduct) {
+        serverProductsRegistry.set(productId, {
+          ...existingRegistryProduct,
+          adminUnpublished: isUnpublishing,
+          isAvailable: !isUnpublishing,
+          unpublishReason: isUnpublishing ? reason : undefined,
+          unpublishedAt: isUnpublishing ? nowIso : undefined,
+        });
+      }
+      globalThis.__discoveryCatalogCache = undefined;
+
       if (!IS_PREVIEW_DUMMY_FIREBASE) {
         try {
           const snap = await getDoc(doc(db, 'products', productId));
@@ -624,13 +720,15 @@ export async function POST(req: NextRequest) {
 
     if (actionType === 'TOGGLE_CATEGORY') {
       const categoryId = String(body.categoryId || '').trim();
-      const cat = AUTHORITATIVE_STORE_CATEGORIES.find(
-        (c) =>
-          c.id === categoryId ||
-          c.slug === categoryId ||
-          c.id.includes(categoryId) ||
-          c.slug.includes(categoryId)
-      );
+      const cat =
+        AUTHORITATIVE_STORE_CATEGORIES.find(
+          (c) => c.id === categoryId || c.slug === categoryId
+        ) ||
+        AUTHORITATIVE_STORE_CATEGORIES.find(
+          (c) =>
+            Boolean(categoryId) &&
+            (c.id.includes(categoryId) || c.slug.includes(categoryId))
+        );
       if (!cat) {
         return NextResponse.json(
           { ok: false, error: 'Category not found.' },
@@ -639,6 +737,12 @@ export async function POST(req: NextRequest) {
       }
 
       cat.isActive = !cat.isActive;
+      serverCategoryOverridesRegistry.set(cat.id, {
+        categoryId: cat.id,
+        isActive: cat.isActive,
+        updatedAt: new Date().toISOString(),
+      });
+      globalThis.__discoveryCatalogCache = undefined;
 
       const audit = await recordAdminAuditLog({
         adminUid,
@@ -688,11 +792,15 @@ export async function POST(req: NextRequest) {
         adminUid,
       };
 
-      const existingOrder = serverOrdersRegistry.get(orderId);
-      if (existingOrder) {
-        const updatedOrder: OrderRecord = {
-          ...existingOrder,
-          adminNotes: [...(existingOrder.adminNotes || []), noteEntry],
+      const baseOrder =
+        serverOrdersRegistry.get(orderId) ||
+        INITIAL_ORDERS.find((o) => o.id === orderId) ||
+        null;
+      let updatedOrder: OrderRecord | null = null;
+      if (baseOrder) {
+        updatedOrder = {
+          ...baseOrder,
+          adminNotes: [...(baseOrder.adminNotes || []), noteEntry],
         };
         serverOrdersRegistry.set(orderId, updatedOrder);
       }
@@ -702,13 +810,22 @@ export async function POST(req: NextRequest) {
           const snap = await getDoc(doc(db, 'orders', orderId));
           if (snap.exists()) {
             const data = snap.data() as OrderRecord;
+            const mergedNotes = [...(data.adminNotes || []), noteEntry];
             await setDoc(
               doc(db, 'orders', orderId),
               {
-                adminNotes: [...(data.adminNotes || []), noteEntry],
+                adminNotes: mergedNotes,
               },
               { merge: true }
             );
+            if (!updatedOrder) {
+              updatedOrder = {
+                ...data,
+                id: orderId,
+                adminNotes: mergedNotes,
+              };
+              serverOrdersRegistry.set(orderId, updatedOrder);
+            }
           }
         } catch {
           // Ignore Firestore write fallback
@@ -730,6 +847,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         orderId,
         noteEntry,
+        order: updatedOrder,
         audit,
         message: `Administrative oversight note recorded on Order #${orderId}.`,
       });
@@ -827,8 +945,20 @@ export async function POST(req: NextRequest) {
       const allPlansMap = await getAuthoritativeSubscriptionPlansAsync();
       const syncedPlan = allPlansMap[planId] || updatedPlan;
 
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          await setDoc(doc(db, 'subscriptionPlans', planId), syncedPlan, {
+            merge: true,
+          });
+        } catch {
+          // Fallback in-memory registry already updated
+        }
+      }
+
       const audit = await recordAdminAuditLog({
         adminUid,
+        adminPhone,
+        adminRole,
         actionType: 'UPDATE_SUBSCRIPTION_PLAN',
         targetEntityType: 'SUBSCRIPTION_PLAN',
         targetEntityId: planId,
@@ -870,93 +1000,110 @@ export async function POST(req: NextRequest) {
         body.settings && typeof body.settings === 'object'
           ? (body.settings as Record<string, unknown>)
           : (body as Record<string, unknown>);
+      const currentSettings = getAuthoritativePlatformSettings();
 
       const updated = updateAuthoritativePlatformSettings(
         {
           platformName:
             typeof settingsInput.platformName === 'string'
               ? settingsInput.platformName
-              : undefined,
+              : currentSettings.platformName,
           publicWebsiteUrl:
             typeof settingsInput.publicWebsiteUrl === 'string'
               ? settingsInput.publicWebsiteUrl
-              : undefined,
+              : currentSettings.publicWebsiteUrl,
           domain:
             typeof settingsInput.domain === 'string'
               ? settingsInput.domain
-              : undefined,
+              : currentSettings.domain,
           supportPhone:
             typeof settingsInput.supportPhone === 'string'
               ? settingsInput.supportPhone
-              : undefined,
+              : currentSettings.supportPhone,
           supportEmail:
             typeof settingsInput.supportEmail === 'string'
               ? settingsInput.supportEmail
-              : undefined,
+              : currentSettings.supportEmail,
           merchantSupportEmail:
             typeof settingsInput.merchantSupportEmail === 'string'
               ? settingsInput.merchantSupportEmail
-              : undefined,
+              : currentSettings.merchantSupportEmail,
           defaultCurrency:
             typeof settingsInput.defaultCurrency === 'string'
               ? settingsInput.defaultCurrency
-              : undefined,
+              : currentSettings.defaultCurrency,
           marketplaceAvailable:
             typeof settingsInput.marketplaceAvailable === 'boolean'
               ? settingsInput.marketplaceAvailable
-              : true,
+              : Boolean(currentSettings.marketplaceAvailable ?? true),
           allowNewSellerRegistrations:
             typeof settingsInput.allowNewSellerRegistrations === 'boolean'
               ? settingsInput.allowNewSellerRegistrations
-              : true,
+              : Boolean(currentSettings.allowNewSellerRegistrations ?? true),
           requireLocationVerificationForNewStores:
             typeof settingsInput.requireLocationVerificationForNewStores ===
             'boolean'
               ? settingsInput.requireLocationVerificationForNewStores
-              : false,
+              : Boolean(
+                  currentSettings.requireLocationVerificationForNewStores ?? true
+                ),
           maintenanceBannerEnabled:
             typeof settingsInput.maintenanceBannerEnabled === 'boolean'
               ? settingsInput.maintenanceBannerEnabled
-              : false,
+              : Boolean(currentSettings.maintenanceBannerEnabled ?? false),
           maintenanceBannerText: String(
             settingsInput.maintenanceBannerText ??
               settingsInput.maintenanceBannerMessage ??
+              currentSettings.maintenanceBannerText ??
               ''
           ),
           maintenanceBannerMessage: String(
             settingsInput.maintenanceBannerMessage ??
               settingsInput.maintenanceBannerText ??
+              currentSettings.maintenanceBannerMessage ??
               ''
           ),
-          defaultFreeDeliveryThresholdInr: Math.max(
-            0,
-            Number(settingsInput.defaultFreeDeliveryThresholdInr) || 199
-          ),
-          defaultStandardDeliveryFeeInr: Math.max(
-            0,
-            Number(settingsInput.defaultStandardDeliveryFeeInr) || 25
-          ),
-          maxProductImageSizeMb: Math.min(
-            20,
-            Math.max(1, Number(settingsInput.maxProductImageSizeMb) || 5)
-          ),
+          defaultFreeDeliveryThresholdInr:
+            settingsInput.defaultFreeDeliveryThresholdInr !== undefined
+              ? Math.max(0, Number(settingsInput.defaultFreeDeliveryThresholdInr) || 0)
+              : Number(currentSettings.defaultFreeDeliveryThresholdInr ?? 199),
+          defaultStandardDeliveryFeeInr:
+            settingsInput.defaultStandardDeliveryFeeInr !== undefined
+              ? Math.max(0, Number(settingsInput.defaultStandardDeliveryFeeInr) || 0)
+              : Number(currentSettings.defaultStandardDeliveryFeeInr ?? 25),
+          maxProductImageSizeMb:
+            settingsInput.maxProductImageSizeMb !== undefined
+              ? Math.min(20, Math.max(1, Number(settingsInput.maxProductImageSizeMb) || 5))
+              : Number(currentSettings.maxProductImageSizeMb ?? 5),
           fcmPushNotificationsEnabled:
             typeof settingsInput.fcmPushNotificationsEnabled === 'boolean'
               ? settingsInput.fcmPushNotificationsEnabled
-              : true,
+              : Boolean(currentSettings.fcmPushNotificationsEnabled ?? true),
           excludeDemoFromProductionMetricsByDefault: Boolean(
             settingsInput.excludeDemoFromProductionMetricsByDefault ??
               settingsInput.excludeDemoRecordsFromProductionMetrics ??
+              currentSettings.excludeDemoFromProductionMetricsByDefault ??
               true
           ),
           excludeDemoRecordsFromProductionMetrics: Boolean(
             settingsInput.excludeDemoRecordsFromProductionMetrics ??
               settingsInput.excludeDemoFromProductionMetricsByDefault ??
+              currentSettings.excludeDemoRecordsFromProductionMetrics ??
               true
           ),
         },
         adminUid
       );
+
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          await setDoc(doc(db, 'platformSettings', 'global'), updated, {
+            merge: true,
+          });
+        } catch {
+          // Handled via in-memory platformSettings
+        }
+      }
 
       const audit = await recordAdminAuditLog({
         adminUid,

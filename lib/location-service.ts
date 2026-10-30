@@ -84,8 +84,16 @@ export function getDistrictsByCountryAndRegion(
   // 2. Discover districts embedded within curated and custom-approved cities
   const customApproved = loadCustomApprovedCities();
   const combinedCities = [...CURATED_CANONICAL_CITIES, ...customApproved];
-  const derivedDistrictNames = new Set<string>(staticDistricts.map((d) => d.name.toLowerCase()));
-  const extraDistricts: DistrictDef[] = [];
+  const derivedDistrictNames = new Set<string>();
+  const dedupedDistricts: DistrictDef[] = [];
+
+  for (const d of staticDistricts) {
+    const dLower = d.name.toLowerCase();
+    if (!derivedDistrictNames.has(dLower)) {
+      derivedDistrictNames.add(dLower);
+      dedupedDistricts.push(d);
+    }
+  }
 
   for (const c of combinedCities) {
     if (
@@ -99,7 +107,7 @@ export function getDistrictsByCountryAndRegion(
       const dLower = dName.toLowerCase();
       if (!derivedDistrictNames.has(dLower)) {
         derivedDistrictNames.add(dLower);
-        extraDistricts.push({
+        dedupedDistricts.push({
           code: `${country.code}-${dLower.replace(/\s+/g, '-').substring(0, 10)}`,
           name: dName,
           stateRegion: c.stateRegion,
@@ -110,7 +118,7 @@ export function getDistrictsByCountryAndRegion(
     }
   }
 
-  return [...staticDistricts, ...extraDistricts];
+  return dedupedDistricts;
 }
 
 export function loadCustomApprovedCities(): CityDef[] {

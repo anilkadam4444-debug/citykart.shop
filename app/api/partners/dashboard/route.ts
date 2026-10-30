@@ -51,8 +51,13 @@ export async function GET(req: NextRequest) {
 
   const assignedCity = approvedApp?.cityName || 'Nanded';
   const assignedCityId = approvedApp?.cityId || 'india-maharashtra-nanded';
-  const partnerId = approvedApp?.id || 'PART-001';
+  const partnerId = approvedApp?.id ? `partner_${approvedApp.id}` : 'PART-001';
   const partnerRefCode = approvedApp?.referenceId || 'CK-PARTNER-2026-0001';
+  const lifecycleOverride =
+    globalThis.__serverPartnerLifecycleOverrides?.get(partnerId) ||
+    (approvedApp?.id
+      ? globalThis.__serverPartnerLifecycleOverrides?.get(approvedApp.id)
+      : undefined);
 
   // Compute live territory metrics from server registries
   const cityStores = Array.from(serverStoresRegistry.values()).filter(
@@ -87,10 +92,11 @@ export async function GET(req: NextRequest) {
       phoneE164: callerPhone,
       fullName: approvedApp?.fullName || session.fullName || 'City Partner',
       role: 'partner',
-      cityId: assignedCityId,
-      cityName: assignedCity,
-      stateRegion: approvedApp?.stateRegion || 'Maharashtra',
-      country: approvedApp?.countryCode === 'IN' ? 'India' : approvedApp?.countryCode || 'India',
+      status: lifecycleOverride?.status || 'ACTIVE',
+      cityId: lifecycleOverride?.assignedCityId || assignedCityId,
+      cityName: lifecycleOverride?.assignedCityName || assignedCity,
+      stateRegion: lifecycleOverride?.assignedStateRegion || approvedApp?.stateRegion || 'Maharashtra',
+      country: lifecycleOverride?.assignedCountry || (approvedApp?.countryCode === 'IN' ? 'India' : approvedApp?.countryCode || 'India'),
       exclusivityModel: 'ONE_CITY_ONE_PARTNER',
       exclusivityStatus: 'ASSIGNED_EXCLUSIVE',
       revenueSharePct,

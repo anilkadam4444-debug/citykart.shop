@@ -19,7 +19,8 @@ interface DeleteStoreRequestBody {
   requesterUid?: string;
   requesterPhone?: string;
   sellerId?: string;
-  storeNameConfirmation: string;
+  storeNameConfirmation?: string;
+  confirmationStoreName?: string;
   reason?: string;
   isAdmin?: boolean;
 }
@@ -94,7 +95,9 @@ export async function DELETE(
       );
     }
 
-    const { storeNameConfirmation, reason } = body;
+    const storeNameConfirmation =
+      body.storeNameConfirmation || body.confirmationStoreName || '';
+    const { reason } = body;
 
     // 0. Cryptographic Caller & Admin Verification (Never trust body.isAdmin or raw body IDs)
     const [caller, adminCheck] = await Promise.all([

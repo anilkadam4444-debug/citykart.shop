@@ -715,7 +715,7 @@ export function CascadingLocationSelector({
                     ) : (
                       filteredDistricts.map((d) => (
                         <button
-                          key={d.name}
+                          key={d.code || d.name}
                           type="button"
                           onClick={() => handleSelectDistrict(d.name)}
                           className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${

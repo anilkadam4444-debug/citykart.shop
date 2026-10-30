@@ -785,26 +785,6 @@ export const GLOBAL_DISTRICTS: DistrictDef[] = [
   { code: 'WB-PBD', name: 'Paschim Bardhaman (Durgapur/Asansol)', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
   { code: 'WB-S24', name: 'South 24 Parganas', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
 
-  // --- INDIA -> KARNATAKA ---
-  { code: 'KA-BU', name: 'Bengaluru Urban', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
-  { code: 'KA-BR', name: 'Bengaluru Rural', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
-  { code: 'KA-MY', name: 'Mysuru District', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
-  { code: 'KA-DK', name: 'Dakshina Kannada', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
-  { code: 'KA-BG', name: 'Belagavi District', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
-
-  // --- INDIA -> DELHI ---
-  { code: 'DL-ND', name: 'New Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
-  { code: 'DL-SD', name: 'South Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
-  { code: 'DL-CD', name: 'Central Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
-
-  // --- INDIA -> TELANGANA ---
-  { code: 'TG-HYD', name: 'Hyderabad District', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
-  { code: 'TG-MED', name: 'Medchal-Malkajgiri', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
-
-  // --- INDIA -> TAMIL NADU ---
-  { code: 'TN-CHN', name: 'Chennai District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
-  { code: 'TN-CBE', name: 'Coimbatore District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
-
   // --- UNITED STATES -> CALIFORNIA ---
   { code: 'US-CA-LA', name: 'Los Angeles County', stateRegion: 'California', countryCode: 'US', districtType: 'County' },
   { code: 'US-CA-SF', name: 'San Francisco County', stateRegion: 'California', countryCode: 'US', districtType: 'County' },

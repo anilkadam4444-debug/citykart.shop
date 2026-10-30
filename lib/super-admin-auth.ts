@@ -33,6 +33,7 @@ declare global {
   var __serverStoreOverridesRegistry: Map<string, any> | undefined;
   var __serverProductOverridesRegistry: Map<string, any> | undefined;
   var __serverBuyerOverridesRegistry: Map<string, any> | undefined;
+  var __serverCategoryOverridesRegistry: Map<string, { categoryId: string; isActive: boolean; updatedAt: string }> | undefined;
   var __serverSubscriptionsRegistry: Map<string, MerchantSubscription> | undefined;
   var __serverBillingTransactionsRegistry: Map<string, BillingTransaction> | undefined;
   var __serverSubscriptionPlans:
@@ -54,6 +55,9 @@ if (!globalThis.__serverProductOverridesRegistry) {
 if (!globalThis.__serverBuyerOverridesRegistry) {
   globalThis.__serverBuyerOverridesRegistry = new Map<string, any>();
 }
+if (!globalThis.__serverCategoryOverridesRegistry) {
+  globalThis.__serverCategoryOverridesRegistry = new Map<string, { categoryId: string; isActive: boolean; updatedAt: string }>();
+}
 if (!globalThis.__serverSystemEventsRegistry) {
   globalThis.__serverSystemEventsRegistry = [];
 }
@@ -69,8 +73,14 @@ if (!globalThis.__serverAdminAuthorizations) {
       designation: 'Founder & Super Admin',
       role: 'super_admin',
       status: 'ACTIVE',
+      isPermanentSuperAdmin: true,
       authorizedByUid: 'system',
       authorizedByPhone: DESIGNATED_OWNER_PHONE,
+      invitedByUid: 'system',
+      invitedByPhone: DESIGNATED_OWNER_PHONE,
+      invitedAt: '2025-01-01T00:00:00.000Z',
+      activatedAt: '2025-01-01T00:00:00.000Z',
+      customClaimsSynced: true,
       createdAt: '2025-01-01T00:00:00.000Z',
       updatedAt: new Date().toISOString(),
     },
@@ -81,12 +91,33 @@ if (!globalThis.__serverSessionTokensMap) {
 }
 if (!globalThis.__serverPlatformSettings) {
   globalThis.__serverPlatformSettings = {
+    platformName: 'Citykart',
+    publicWebsiteUrl: 'https://citykart.shop',
+    domain: 'https://citykart.shop',
+    supportPhone: DESIGNATED_OWNER_PHONE,
+    supportEmail: 'support@citykart.shop',
+    merchantSupportEmail: 'merchants@citykart.shop',
+    defaultCurrency: 'INR',
+    marketplaceAvailable: true,
+    allowNewSellerRegistrations: true,
+    allowNewStoreRegistrations: true,
+    allowNewPartnerApplications: true,
+    requireLocationVerificationForNewStores: true,
+    excludeDemoRecordsFromProductionMetrics: true,
+    excludeDemoFromProductionMetricsByDefault: true,
+    maintenanceMode: false,
+    maintenanceBannerEnabled: false,
+    maintenanceBannerMessage: '',
+    maintenanceBannerText: '',
+    defaultFreeDeliveryThresholdInr: 199,
+    defaultStandardDeliveryFeeInr: 25,
+    maxProductImageSizeMb: 5,
+    fcmPushNotificationsEnabled: true,
     commissionPct: 0,
     platformFeeFixed: 5,
-    maintenanceMode: false,
-    allowNewPartnerApplications: true,
-    allowNewStoreRegistrations: true,
     defaultPartnerRevenueSharePct: 50,
+    updatedAt: new Date().toISOString(),
+    updatedBy: DESIGNATED_OWNER_PHONE,
   };
 }
 
@@ -104,9 +135,11 @@ export const serverUserAccounts = initialServerUserAccounts;
 export const serverStoreOverridesRegistry = globalThis.__serverStoreOverridesRegistry;
 export const serverProductOverridesRegistry = globalThis.__serverProductOverridesRegistry;
 export const serverBuyerOverridesRegistry = globalThis.__serverBuyerOverridesRegistry;
+export const serverCategoryOverridesRegistry = globalThis.__serverCategoryOverridesRegistry;
 export const serverSubscriptionsRegistry = globalThis.__serverSubscriptionsRegistry;
 export const serverBillingTransactionsRegistry = globalThis.__serverBillingTransactionsRegistry;
 export const serverSystemEventsRegistry = globalThis.__serverSystemEventsRegistry;
+export const serverSessionTokensMap = globalThis.__serverSessionTokensMap;
 const adminAuditLogs = globalThis.__serverAdminAuditLogs;
 const adminAuthorizations = globalThis.__serverAdminAuthorizations;
 const sessionTokensMap = globalThis.__serverSessionTokensMap;
@@ -701,11 +734,26 @@ export function recordAdminAuditLog(
   const actorUid = payload.actorUid || payload.adminUid || 'uid-8329306616';
   const actorPhone = payload.adminPhone || payload.actorPhone || DESIGNATED_OWNER_PHONE;
   const actorRole = payload.adminRole || payload.actorRole || 'super_admin';
-  const targetType = payload.targetType || payload.targetEntityType || 'SYSTEM';
+  const inferredTargetType =
+    payload.targetType ||
+    payload.targetEntityType ||
+    (actionStr.includes('ADMIN')
+      ? 'ADMIN_USER'
+      : actionStr.includes('PARTNER') && actionStr.includes('SETTLEMENT')
+        ? 'PARTNER_SETTLEMENT'
+        : actionStr.includes('PARTNER') && actionStr.includes('APPLICATION')
+          ? 'PARTNER_APPLICATION'
+          : actionStr.includes('PARTNER')
+            ? 'PARTNER'
+            : 'SYSTEM');
+  const targetType = inferredTargetType;
   const targetId =
     payload.targetId ||
     payload.targetEntityId ||
     payload.targetPhone ||
+    payload.partnerId ||
+    payload.applicationId ||
+    payload.settlementId ||
     payload.storeId ||
     'system';
   const targetLabel =
@@ -713,7 +761,10 @@ export function recordAdminAuditLog(
     payload.targetEntityName ||
     payload.name ||
     targetId;
-  const reason = payload.reason || actionStr;
+  const reason =
+    payload.reason ||
+    payload.summary ||
+    `${actionStr.replace(/_/g, ' ')} on ${targetType} (${targetId})`;
 
   const entry = {
     id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -777,8 +828,13 @@ export async function getAuthoritativePlatformSettingsAsync() {
 
 export function updateAuthoritativePlatformSettings(
   settings: Record<string, any>,
-  _adminUid?: string
+  adminUid?: string
 ) {
-  Object.assign(globalThis.__serverPlatformSettings!, settings);
-  return globalThis.__serverPlatformSettings!;
+  const current = globalThis.__serverPlatformSettings!;
+  const definedEntries = Object.entries(settings).filter(([, val]) => val !== undefined);
+  Object.assign(current, Object.fromEntries(definedEntries), {
+    updatedAt: new Date().toISOString(),
+    updatedBy: adminUid || current.updatedBy || DESIGNATED_OWNER_PHONE,
+  });
+  return current;
 }

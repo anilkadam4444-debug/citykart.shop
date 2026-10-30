@@ -636,28 +636,42 @@ export function SuperAdminDashboard() {
     }
   };
 
+  const deletedStoreIdsSet = useMemo(() => {
+    return new Set(
+      (dashboardData?.deletedStores || []).map((d) => d.storeId)
+    );
+  }, [dashboardData?.deletedStores]);
+
   // Merge live client provider state with server dashboard snapshot so real-time creations are reflected
   const mergedStores = useMemo(() => {
     const map = new Map<string, LocalStore>();
     for (const s of providerStores) {
-      map.set(s.id, s);
+      if (!deletedStoreIdsSet.has(s.id)) {
+        map.set(s.id, s);
+      }
     }
     for (const s of dashboardData?.stores || []) {
-      map.set(s.id, { ...(map.get(s.id) || {}), ...s });
+      if (!deletedStoreIdsSet.has(s.id)) {
+        map.set(s.id, { ...(map.get(s.id) || {}), ...s });
+      }
     }
     return Array.from(map.values());
-  }, [providerStores, dashboardData?.stores]);
+  }, [providerStores, dashboardData?.stores, deletedStoreIdsSet]);
 
   const mergedProducts = useMemo(() => {
     const map = new Map<string, Product>();
     for (const p of providerProducts) {
-      map.set(p.id, p);
+      if (!deletedStoreIdsSet.has(p.storeId)) {
+        map.set(p.id, p);
+      }
     }
     for (const p of dashboardData?.products || []) {
-      map.set(p.id, { ...(map.get(p.id) || {}), ...p });
+      if (!deletedStoreIdsSet.has(p.storeId)) {
+        map.set(p.id, { ...(map.get(p.id) || {}), ...p });
+      }
     }
     return Array.from(map.values());
-  }, [providerProducts, dashboardData?.products]);
+  }, [providerProducts, dashboardData?.products, deletedStoreIdsSet]);
 
   const mergedOrders = useMemo(() => {
     const map = new Map<string, OrderRecord>();
@@ -937,11 +951,14 @@ export function SuperAdminDashboard() {
         setConfirmModal(null);
       }
     } else if (confirmModal.type === 'DELETE_STORE') {
+      const trimmedConfirmation = confirmStoreNameInput.trim();
       const ok = await executeAdminAction(
         {
           action: 'DELETE_STORE',
           storeId: confirmModal.targetId,
-          confirmationStoreName: confirmStoreNameInput.trim(),
+          storeName: confirmModal.targetName,
+          storeNameConfirmation: trimmedConfirmation,
+          confirmationStoreName: trimmedConfirmation,
           reason:
             confirmReason.trim() ||
             'Permanently deleted by Citykart Platform Owner.',
@@ -949,11 +966,20 @@ export function SuperAdminDashboard() {
         `Permanently deleted store "${confirmModal.targetName}".`
       );
       if (ok) {
+        if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+          try {
+            await deleteDoc(doc(db, 'stores', confirmModal.targetId));
+          } catch {
+            // Server registry and tombstone updated
+          }
+        }
         try {
           await permanentlyDeleteStore(confirmModal.targetId);
         } catch {
           // Handled by server tombstone
         }
+        setConfirmStoreNameInput('');
+        setConfirmReason('');
         setInspectedStoreId(null);
         setConfirmModal(null);
       }
@@ -2871,18 +2897,6 @@ export function SuperAdminDashboard() {
           )}
 
           {/* ================================================================
-              SECTION: CITY PARTNER PROGRAM GOVERNANCE & 50/50 REVENUE SETTLEMENTS
-             ================================================================ */}
-          {activeSection === 'partners' && (
-            <AdminPartnerManagement
-              isSuperAdmin={isSuperAdmin}
-              onActionCompleted={(msg) =>
-                setActionBanner({ type: 'success', message: msg })
-              }
-            />
-          )}
-
-          {/* ================================================================
               SECTION 3: SELLERS & STORES MANAGEMENT
              ================================================================ */}
           {activeSection === 'sellers-stores' && (
@@ -3185,15 +3199,39 @@ export function SuperAdminDashboard() {
                         {!inspectedStore.locationVerified && (
                           <button
                             type="button"
-                            onClick={() =>
-                              executeAdminAction(
+                            onClick={async () => {
+                              const ok = await executeAdminAction(
                                 {
                                   action: 'VERIFY_STORE_LOCATION',
                                   storeId: inspectedStore.id,
+                                  storeName: inspectedStore.name,
                                 },
                                 `Verified location for ${inspectedStore.name}.`
-                              )
-                            }
+                              );
+                              if (ok) {
+                                if (!IS_PREVIEW_DUMMY_FIREBASE && auth.currentUser) {
+                                  try {
+                                    await updateDoc(doc(db, 'stores', inspectedStore.id), {
+                                      locationVerified: true,
+                                      verificationStatus: 'VERIFIED',
+                                    });
+                                  } catch {
+                                    // Server registry updated
+                                  }
+                                }
+                                setProviderStores((prev) =>
+                                  prev.map((s) =>
+                                    s.id === inspectedStore.id
+                                      ? {
+                                          ...s,
+                                          locationVerified: true,
+                                          verificationStatus: 'VERIFIED',
+                                        }
+                                      : s
+                                  )
+                                );
+                              }
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-[#003B8E] text-white font-semibold cursor-pointer"
                           >
                             Verify Location
@@ -3915,6 +3953,34 @@ export function SuperAdminDashboard() {
                     </tbody>
                   </table>
                 </div>
+                {scopedOrders.length > 20 && (
+                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                    <span>
+                      Page <strong className="font-mono">{orderPage}</strong> of{' '}
+                      <strong className="font-mono">
+                        {Math.max(1, Math.ceil(scopedOrders.length / 20))}
+                      </strong>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={orderPage <= 1}
+                        onClick={() => setOrderPage((p) => Math.max(1, p - 1))}
+                        className="px-3 py-1 rounded-lg border border-slate-300 bg-white font-semibold disabled:opacity-40 cursor-pointer"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        disabled={orderPage * 20 >= scopedOrders.length}
+                        onClick={() => setOrderPage((p) => p + 1)}
+                        className="px-3 py-1 rounded-lg border border-slate-300 bg-white font-semibold disabled:opacity-40 cursor-pointer"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Order Inspection & Admin Note Panel */}
@@ -4001,16 +4067,35 @@ export function SuperAdminDashboard() {
                       <button
                         type="button"
                         onClick={async () => {
-                          if (!orderNoteDraft.trim()) return;
+                          const trimmedNote = orderNoteDraft.trim();
+                          if (!trimmedNote) return;
                           const ok = await executeAdminAction(
                             {
                               action: 'ADD_ORDER_ADMIN_NOTE',
                               orderId: inspectedOrder.id,
-                              note: orderNoteDraft.trim(),
+                              note: trimmedNote,
                             },
                             `Added oversight note to order ${inspectedOrder.id}.`
                           );
-                          if (ok) setOrderNoteDraft('');
+                          if (ok) {
+                            const optimisticNote = {
+                              id: `note_${Date.now()}`,
+                              note: trimmedNote.slice(0, 500),
+                              createdAt: new Date().toISOString(),
+                              adminUid: authenticatedUser?.id || 'super-admin',
+                            };
+                            setProviderOrders((prev) =>
+                              prev.map((o) =>
+                                o.id === inspectedOrder.id
+                                  ? {
+                                      ...o,
+                                      adminNotes: [...(o.adminNotes || []), optimisticNote],
+                                    }
+                                  : o
+                              )
+                            );
+                            setOrderNoteDraft('');
+                          }
                         }}
                         className="px-4 py-2 rounded-xl bg-[#003B8E] text-white font-bold cursor-pointer"
                       >
@@ -4785,19 +4870,27 @@ export function SuperAdminDashboard() {
                         'Gateway',
                         'Created At',
                       ],
-                      scopedTransactions.map((t) => [
-                        String(t.invoiceNumber || ''),
-                        String(t.id || ''),
-                        String(t.storeId || ''),
-                        String(t.type || ''),
-                        String(t.description || ''),
-                        String(t.amount ?? 0),
-                        String(t.taxAmount ?? 0),
-                        String(t.totalAmount ?? 0),
-                        String(t.status || ''),
-                        String(t.paymentGateway || ''),
-                        String(t.createdAt || ''),
-                      ])
+                      scopedTransactions
+                        .filter((tx) => {
+                          if (txStatusFilter !== 'ALL' && tx.status !== txStatusFilter)
+                            return false;
+                          if (txTypeFilter !== 'ALL' && tx.type !== txTypeFilter)
+                            return false;
+                          return true;
+                        })
+                        .map((t) => [
+                          String(t.invoiceNumber || ''),
+                          String(t.id || ''),
+                          String(t.storeId || ''),
+                          String(t.type || ''),
+                          String(t.description || ''),
+                          String(t.amount ?? 0),
+                          String(t.taxAmount ?? 0),
+                          String(t.totalAmount ?? 0),
+                          String(t.status || ''),
+                          String(t.paymentGateway || ''),
+                          String(t.createdAt || ''),
+                        ])
                     )
                   }
                   className="px-3.5 py-2 rounded-xl bg-[#003B8E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
@@ -5011,6 +5104,11 @@ export function SuperAdminDashboard() {
                     <option value="CATEGORY">Category Actions</option>
                     <option value="ORDER">Order Notes</option>
                     <option value="SUBSCRIPTION_PLAN">Subscription Plans</option>
+                    <option value="SPONSORED_CAMPAIGN">Sponsored Campaigns</option>
+                    <option value="PARTNER">City Partners</option>
+                    <option value="PARTNER_APPLICATION">Partner Applications</option>
+                    <option value="PARTNER_SETTLEMENT">Partner Settlements</option>
+                    <option value="ADMIN_USER">Admin Authorizations</option>
                     <option value="PLATFORM_SETTINGS">Platform Settings</option>
                     <option value="SYSTEM">System / Bootstrap</option>
                   </select>
@@ -5029,15 +5127,30 @@ export function SuperAdminDashboard() {
                           'Target ID',
                           'Summary',
                         ],
-                        (dashboardData?.auditLogs || []).map((l) => [
-                          l.id,
-                          l.createdAt,
-                          l.action,
-                          l.actorPhone,
-                          l.targetType,
-                          l.targetId,
-                          l.summary,
-                        ])
+                        (dashboardData?.auditLogs || [])
+                          .filter((l) => {
+                            if (
+                              auditTargetFilter !== 'ALL' &&
+                              l.targetType !== auditTargetFilter
+                            )
+                              return false;
+                            const q = auditSearch.trim().toLowerCase();
+                            if (!q) return true;
+                            return (
+                              l.action.toLowerCase().includes(q) ||
+                              l.summary.toLowerCase().includes(q) ||
+                              l.targetId.toLowerCase().includes(q)
+                            );
+                          })
+                          .map((l) => [
+                            l.id,
+                            l.createdAt,
+                            l.action,
+                            l.actorPhone,
+                            l.targetType,
+                            l.targetId,
+                            l.summary,
+                          ])
                       )
                     }
                     className="px-3.5 py-2 rounded-xl bg-[#003B8E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"

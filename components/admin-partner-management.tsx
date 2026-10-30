@@ -344,8 +344,25 @@ export function AdminPartnerManagement({
   }, [applications]);
 
   const filteredApplications = useMemo(() => {
+    const normalizeStatusBucket = (rawStatus?: string): string => {
+      const st = String(rawStatus || '').trim().toLowerCase();
+      if (st === 'pending' || st === 'submitted' || st === 'under_review' || st === 'pending_review') {
+        return 'pending_review';
+      }
+      if (st === 'needs_more_info' || st === 'additional_information_required') {
+        return 'additional_information_required';
+      }
+      if (st === 'approved') return 'approved';
+      if (st === 'rejected') return 'rejected';
+      if (st === 'withdrawn') return 'withdrawn';
+      return st;
+    };
+
     return applications.filter((app) => {
-      if (appStatusFilter !== 'ALL' && app.status !== appStatusFilter) {
+      if (
+        appStatusFilter !== 'ALL' &&
+        normalizeStatusBucket(app.status) !== normalizeStatusBucket(appStatusFilter)
+      ) {
         return false;
       }
       if (appCityFilter !== 'ALL' && app.cityId !== appCityFilter) {
