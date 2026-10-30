@@ -1,6 +1,20 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { disableNetwork, getFirestore, setLogLevel } from 'firebase/firestore';
-import { getAuth, ConfirmationResult } from 'firebase/auth';
+import {
+  disableNetwork,
+  doc,
+  getDocFromServer,
+  getDocs,
+  getFirestore,
+  collection,
+  setDoc,
+  setLogLevel,
+} from 'firebase/firestore';
+import {
+  getAuth,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult,
+} from 'firebase/auth';
 
 import firebaseAppletConfig from '../firebase-applet-config.json';
 
@@ -9,6 +23,7 @@ const firebaseConfig = {
   authDomain: firebaseAppletConfig.authDomain,
   projectId: firebaseAppletConfig.projectId,
   storageBucket: firebaseAppletConfig.storageBucket,
+  messagingSenderId: firebaseAppletConfig.messagingSenderId,
   appId: firebaseAppletConfig.appId,
 };
 
@@ -39,6 +54,7 @@ if (IS_PREVIEW_DUMMY_FIREBASE) {
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 export const FIRESTORE_DATABASE_ID = firebaseAppletConfig.firestoreDatabaseId || '(default)';
 
+export { RecaptchaVerifier, signInWithPhoneNumber };
 export type { ConfirmationResult };
 
 export enum OperationType {
@@ -104,15 +120,49 @@ export function removeUndefined<T extends Record<string, any>>(obj: T): T {
   return clean as T;
 }
 
-export async function syncUserAccountToFirestore(_user: any) {
-  return true;
+export async function syncUserAccountToFirestore(user: Record<string, any> | null | undefined) {
+  if (!user || IS_PREVIEW_DUMMY_FIREBASE) return false;
+  const userId = String(user.id || user.uid || auth.currentUser?.uid || '').trim();
+  if (!userId || !auth.currentUser) return false;
+  try {
+    await setDoc(
+      doc(db, 'users', userId),
+      removeUndefined({
+        ...user,
+        id: userId,
+        uid: auth.currentUser.uid,
+        updatedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchStoresAndProductsFromFirestore(): Promise<{
   stores: import('./catalog-data').LocalStore[];
   products: import('./catalog-data').Product[];
 }> {
-  return { stores: [], products: [] };
+  if (IS_PREVIEW_DUMMY_FIREBASE) {
+    return { stores: [], products: [] };
+  }
+  try {
+    const [storesSnap, productsSnap] = await Promise.all([
+      getDocs(collection(db, 'stores')),
+      getDocs(collection(db, 'products')),
+    ]);
+    const stores = storesSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as import('./catalog-data').LocalStore
+    );
+    const products = productsSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as import('./catalog-data').Product
+    );
+    return { stores, products };
+  } catch {
+    return { stores: [], products: [] };
+  }
 }
 
 function encodeClientFallbackToken(payload: {
@@ -230,47 +280,14 @@ export async function buildAuthenticatedHeaders(
   }
 }
 
-export async function testFirestoreConnection() {
-  return true;
-}
-
-export class RecaptchaVerifier {
-  constructor(
-    _authInstance?: unknown,
-    _containerOrId?: unknown,
-    _parameters?: unknown
-  ) {}
-  clear() {}
-  render() {
-    return Promise.resolve(0);
+export async function testFirestoreConnection(): Promise<boolean> {
+  if (IS_PREVIEW_DUMMY_FIREBASE || typeof window === 'undefined') return true;
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
+  } catch {
+    return false;
   }
-}
-
-export async function signInWithPhoneNumber(
-  _authInstance?: unknown,
-  phoneNumber?: string,
-  _appVerifier?: unknown
-): Promise<ConfirmationResult> {
-  const cleanPhone = String(phoneNumber || '+919876543210').trim();
-  return {
-    verificationId: `preview_vid_${Date.now()}`,
-    confirm: async (verificationCode: string) => {
-      const code = String(verificationCode || '').trim();
-      if (code !== '123456' && !/^\d{6}$/.test(code)) {
-        const err = new Error('Invalid verification code. In preview mode, use test OTP 123456.') as Error & { code?: string };
-        err.code = 'auth/invalid-verification-code';
-        throw err;
-      }
-      const uid = `user_${cleanPhone.replace(/[^\d]/g, '')}`;
-      return {
-        user: {
-          uid,
-          phoneNumber: cleanPhone,
-          getIdToken: async () => `preview_id_token_${uid}`,
-        },
-      } as unknown as import('firebase/auth').UserCredential;
-    },
-  };
 }
 
 export function saveClientSessionToken(token: string) {

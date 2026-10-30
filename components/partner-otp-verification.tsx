@@ -93,9 +93,6 @@ export function PartnerOtpVerification() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [consoleNotice, setConsoleNotice] = useState<string | null>(null);
-  const [isPreviewTestFallback, setIsPreviewTestFallback] =
-    useState<boolean>(false);
-  const [serverOtpCode, setServerOtpCode] = useState<string>('');
   const [isOtpExpired, setIsOtpExpired] = useState<boolean>(false);
   const [resendSeconds, setResendSeconds] = useState<number>(0);
   const [verifiedSuccessBanner, setVerifiedSuccessBanner] = useState<
@@ -185,13 +182,13 @@ export function PartnerOtpVerification() {
       if (
         activeConfirmation &&
         activeConfirmation.phoneE164 &&
+        activeConfirmation.confirmationResult &&
         (!saved.phoneE164 || activeConfirmation.phoneE164 === saved.phoneE164)
       ) {
         setPhoneE164(activeConfirmation.phoneE164);
         setMaskedPhone(activeConfirmation.maskedPhone);
         setMobileNumber(activeConfirmation.mobileNumber);
         setFirebaseConfirmation(activeConfirmation.confirmationResult);
-        setIsPreviewTestFallback(activeConfirmation.isPreviewTestFallback);
         setConsoleNotice(activeConfirmation.consoleNotice);
         const remainingCooldown = Math.max(
           0,
@@ -251,6 +248,9 @@ export function PartnerOtpVerification() {
       'partner-firebase-recaptcha-container',
       {
         size: 'invisible',
+        'expired-callback': () => {
+          cleanupRecaptcha();
+        },
       }
     );
     recaptchaVerifierRef.current = verifier;
@@ -285,6 +285,9 @@ export function PartnerOtpVerification() {
 
       if (!validateRes.ok || !validateData.ok) {
         setErrorMsg(validateData.error || 'Could not validate phone number.');
+        if (typeof validateData?.retryAfterSeconds === 'number') {
+          setResendSeconds(validateData.retryAfterSeconds);
+        }
         setIsSubmitting(false);
         return;
       }
@@ -294,35 +297,27 @@ export function PartnerOtpVerification() {
       const cooldownSec: number = validateData.resendCooldownSeconds || 30;
       const resendAvailableAtMs = Date.now() + cooldownSec * 1000;
 
-      let confirmationResult: ConfirmationResult | null = null;
-      let previewFallback = false;
-      let noticeText: string | null = null;
-
-      const issuedOtp = validateData.otpCode ? String(validateData.otpCode) : '';
-      setServerOtpCode(issuedOtp);
-      const deliveryNotice = `SMS Verification Code Sent to ${targetMasked}. If SMS delivery is delayed by your mobile carrier network, your 6-digit verification code is: ${issuedOtp || '123456'}`;
-
+      let confirmationResult: ConfirmationResult;
       try {
         const appVerifier = getOrInitRecaptcha();
+        await appVerifier.render();
         confirmationResult = await signInWithPhoneNumber(
           auth,
           targetE164,
           appVerifier
         );
-        noticeText = deliveryNotice;
       } catch (firebaseErr: unknown) {
         cleanupRecaptcha();
-        previewFallback = true;
-        if (issuedOtp) {
-          noticeText = deliveryNotice;
-        } else {
-          const formatted = formatFirebasePhoneAuthError(firebaseErr);
-          noticeText = formatted.userMessage;
-        }
+        setFirebaseConfirmation(null);
+        const formatted = formatFirebasePhoneAuthError(firebaseErr);
+        setErrorMsg(formatted.userMessage);
+        setIsSubmitting(false);
+        return;
       }
 
+      const noticeText = `SMS verification code sent to ${targetMasked} via Firebase Phone Authentication.`;
+
       setFirebaseConfirmation(confirmationResult);
-      setIsPreviewTestFallback(previewFallback);
       setConsoleNotice(noticeText);
       setPhoneE164(targetE164);
       setMaskedPhone(targetMasked);
@@ -336,7 +331,7 @@ export function PartnerOtpVerification() {
         dialCode: targetCountry.dialCode,
         mobileNumber: validation.digitsOnly,
         confirmationResult,
-        isPreviewTestFallback: previewFallback,
+        isPreviewTestFallback: false,
         consoleNotice: noticeText,
         resendAvailableAtMs,
         createdAtMs: Date.now(),
@@ -366,8 +361,8 @@ export function PartnerOtpVerification() {
                 residentialOrBusinessAddress: '',
                 countryCode: targetCountry.code,
                 stateRegion: 'Maharashtra',
-                cityId: 'india-maharashtra-nanded',
-                postalCode: '431601',
+                cityId: 'india-maharashtra-mumbai',
+                postalCode: '400001',
                 relevantExperience: '',
                 localGrowthPlan: '',
                 identityDocType: 'PAN_CARD',
@@ -421,60 +416,43 @@ export function PartnerOtpVerification() {
       return;
     }
 
-    if (
-      reloadedWithoutLiveConfirmation &&
-      !firebaseConfirmation &&
-      !isPreviewTestFallback
-    ) {
-      // If page was reloaded, allow 123456 in preview test fallback or prompt resend if real Firebase session expired
-      if (trimmedCode !== '123456') {
-        setErrorMsg(
-          'Your browser page was refreshed during verification. Please tap "Send Fresh OTP Code" below or enter preview test code 123456.'
-        );
-        return;
-      }
+    if (reloadedWithoutLiveConfirmation || !firebaseConfirmation) {
+      setErrorMsg(
+        'Your verification session expired or the page was refreshed. Please tap "Send Fresh OTP Code" or "Resend OTP Code" below to receive a new SMS verification code.'
+      );
+      return;
     }
 
     setIsSubmitting(true);
     try {
-      let firebaseUid = `partner_applicant_${phoneE164.replace(/[^\d]/g, '')}`;
+      let firebaseUid: string;
       let firebaseIdToken: string | undefined;
 
-      if (firebaseConfirmation && !isPreviewTestFallback) {
-        try {
-          const userCredential = await firebaseConfirmation.confirm(trimmedCode);
-          firebaseUid = userCredential.user.uid;
-          firebaseIdToken = await userCredential.user.getIdToken();
-        } catch (confirmErr: unknown) {
-          if (serverOtpCode && trimmedCode === serverOtpCode) {
-            firebaseUid = `partner_applicant_${phoneE164.replace(/[^\d]/g, '')}`;
-          } else {
-            const formatted = formatFirebasePhoneAuthError(confirmErr);
-            if (formatted.isExpired) {
-              setIsOtpExpired(true);
-            }
-            setErrorMsg(formatted.userMessage);
-            setIsSubmitting(false);
-            return;
-          }
+      try {
+        const userCredential = await firebaseConfirmation.confirm(trimmedCode);
+        firebaseUid = userCredential.user.uid;
+        firebaseIdToken = await userCredential.user
+          .getIdToken(true)
+          .catch(() => undefined);
+      } catch (confirmErr: unknown) {
+        const formatted = formatFirebasePhoneAuthError(confirmErr);
+        if (formatted.isExpired) {
+          setIsOtpExpired(true);
         }
-      } else {
-        const isMatch =
-          (serverOtpCode && trimmedCode === serverOtpCode) ||
-          trimmedCode === '123456';
-        if (!isMatch) {
-          setErrorMsg(
-            'Incorrect 6-digit verification code. Please check the code and try again.'
-          );
-          setIsSubmitting(false);
-          return;
-        }
+        setErrorMsg(formatted.userMessage);
+        setIsSubmitting(false);
+        return;
       }
 
       // First check if this phone already has a user profile or is a new partner applicant
       const resolveRes = await fetch('/api/auth/otp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(firebaseIdToken
+            ? { Authorization: `Bearer ${firebaseIdToken}` }
+            : {}),
+        },
         body: JSON.stringify({
           action: 'RESOLVE_FIREBASE_USER',
           phoneE164,
@@ -1040,7 +1018,7 @@ export function PartnerOtpVerification() {
                 </div>
 
                 {/* Page refresh recovery notice */}
-                {reloadedWithoutLiveConfirmation && !isPreviewTestFallback && (
+                {reloadedWithoutLiveConfirmation && (
                   <div
                     data-testid="partner-refresh-recovery-notice"
                     className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start justify-between gap-3 text-xs text-amber-900"
@@ -1115,15 +1093,6 @@ export function PartnerOtpVerification() {
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                       Enter 6-Digit Verification Code *
                     </label>
-                    {(serverOtpCode || '123456') && (
-                      <button
-                        type="button"
-                        onClick={() => setOtpCode(serverOtpCode || '123456')}
-                        className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer flex items-center gap-1"
-                      >
-                        <span>Auto-fill Code ({serverOtpCode || '123456'})</span>
-                      </button>
-                    )}
                   </div>
                   <input
                     type="text"

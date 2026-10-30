@@ -558,7 +558,7 @@ export default function SellerEntryPage() {
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>
-                      Register in any city, town, district, or village worldwide
+                      Register in Mumbai and approved medium &amp; large cities
                     </span>
                   </li>
                   <li className="flex items-center gap-2">

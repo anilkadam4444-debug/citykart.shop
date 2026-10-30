@@ -76,62 +76,98 @@ function formatFirebasePhoneAuthError(err: unknown): {
       : '';
   const rawMessage = err instanceof Error ? err.message : String(err || '');
 
-  if (code === 'auth/invalid-phone-number') {
+  if (code === 'auth/invalid-phone-number' || code === 'auth/missing-phone-number') {
     return {
       userMessage:
-        'Please enter a valid mobile phone number in international format.',
+        'Please enter a valid mobile phone number in international E.164 format (e.g., +919876543210).',
       isConsoleConfigNotice: false,
     };
   }
-  if (code === 'auth/invalid-verification-code') {
+  if (code === 'auth/invalid-verification-code' || code === 'auth/missing-verification-code') {
     return {
       userMessage:
-        'Incorrect 6-digit verification code. Please check the SMS code and try again.',
+        'Incorrect 6-digit verification code. Please check the SMS code sent to your mobile number and try again.',
       isConsoleConfigNotice: false,
     };
   }
-  if (code === 'auth/code-expired') {
+  if (code === 'auth/code-expired' || code === 'auth/session-expired') {
     return {
       userMessage:
-        'Your verification code has expired. Tap "Resend code" to receive a new one.',
+        'Your verification code has expired. Tap "Resend code" to receive a fresh SMS verification code.',
       isConsoleConfigNotice: false,
     };
   }
   if (code === 'auth/too-many-requests') {
     return {
       userMessage:
-        'Too many verification attempts from this device or number. Please wait a few minutes and try again.',
+        'Too many verification attempts from this device or phone number. Firebase has temporarily throttled requests — please wait a few minutes and try again.',
       isConsoleConfigNotice: false,
     };
   }
-  if (
-    code === 'auth/operation-not-allowed' ||
-    code === 'auth/unauthorized-domain' ||
-    code === 'auth/billing-not-enabled' ||
-    code === 'auth/quota-exceeded' ||
-    code === 'auth/captcha-check-failed' ||
-    code === 'auth/internal-error' ||
-    rawMessage.includes('BILLING_NOT_ENABLED') ||
-    rawMessage.includes('OPERATION_NOT_ALLOWED')
-  ) {
+  if (code === 'auth/quota-exceeded' || rawMessage.includes('QUOTA_EXCEEDED')) {
     return {
       userMessage:
-        'Firebase Phone Authentication requires enabling the Phone provider, adding this preview domain to Authorized Domains, or configuring test phone numbers / Blaze SMS billing in Firebase Console (project: urbandirectintracity). Preview test mode is active so you can verify the flow using test code 123456.',
+        'SMS verification quota for project urbandirectintracity has been exceeded for today. Please try again later or contact support.',
+      isConsoleConfigNotice: true,
+    };
+  }
+  if (code === 'auth/captcha-check-failed') {
+    return {
+      userMessage:
+        'Firebase reCAPTCHA verification failed or expired. Please ensure this domain is listed in Firebase Console -> Authentication -> Settings -> Authorized domains and try again.',
+      isConsoleConfigNotice: true,
+    };
+  }
+  if (code === 'auth/unauthorized-domain' || code === 'auth/app-not-authorized') {
+    const currentDomain =
+      typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+    return {
+      userMessage: `Domain "${currentDomain}" is not authorized for Firebase Phone Authentication in project "urbandirectintracity". Add "${currentDomain}" and "citykart.shop" in Firebase Console -> Authentication -> Settings -> Authorized domains.`,
+      isConsoleConfigNotice: true,
+    };
+  }
+  if (code === 'auth/operation-not-allowed' || rawMessage.includes('OPERATION_NOT_ALLOWED')) {
+    return {
+      userMessage:
+        'Phone Authentication or SMS regional delivery (+91 India) is not enabled in Firebase Console (project: urbandirectintracity). Enable the Phone Sign-In provider and permit India (+91) in SMS Region Policy.',
+      isConsoleConfigNotice: true,
+    };
+  }
+  if (code === 'auth/billing-not-enabled' || rawMessage.includes('BILLING_NOT_ENABLED')) {
+    return {
+      userMessage:
+        'Real SMS OTP delivery in Firebase Phone Authentication requires the Blaze (pay-as-you-go) billing plan on Firebase project "urbandirectintracity". Upgrade project billing in Firebase Console to enable carrier SMS dispatch.',
+      isConsoleConfigNotice: true,
+    };
+  }
+  if (code === 'auth/network-request-failed') {
+    return {
+      userMessage:
+        'Network connection failed while reaching Firebase Authentication. Please check your internet connection or ad-blocker settings and try again.',
+      isConsoleConfigNotice: false,
+    };
+  }
+  if (code === 'auth/internal-error') {
+    return {
+      userMessage:
+        'Firebase Authentication encountered an internal error during reCAPTCHA or SMS initialization. Please refresh the page and try again.',
       isConsoleConfigNotice: true,
     };
   }
 
   return {
     userMessage:
-      'Could not complete phone verification right now. Please check your number and try again.',
+      rawMessage && rawMessage.length < 180
+        ? `Phone verification failed (${code || 'error'}): ${rawMessage}`
+        : 'Could not complete phone verification right now. Please check your number and try again.',
     isConsoleConfigNotice: false,
   };
 }
 
 const LOGIN_QUICK_CITIES = [
-  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Nanded', locality: 'Vazirabad', postalCode: '431601' },
-  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Pune', locality: 'Kothrud', postalCode: '411038' },
   { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Mumbai', locality: 'Bandra West', postalCode: '400050' },
+  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Pune', locality: 'Kothrud', postalCode: '411038' },
+  { country: 'India', countryCode: 'IN', stateRegion: 'Maharashtra', city: 'Nanded', locality: 'Vazirabad', postalCode: '431601' },
   { country: 'United Kingdom', countryCode: 'GB', stateRegion: 'England', city: 'London', locality: 'Shoreditch', postalCode: 'E1 6JE' },
   { country: 'Japan', countryCode: 'JP', stateRegion: 'Tokyo Metropolis', city: 'Tokyo', locality: 'Shibuya', postalCode: '150-0002' },
   { country: 'United States', countryCode: 'US', stateRegion: 'New York', city: 'New York', locality: 'SoHo', postalCode: '10012' },
@@ -156,24 +192,24 @@ export function MobileOtpAuthModal({
     useState<boolean>(false);
   const [countrySearch, setCountrySearch] = useState<string>('');
 
-  // Hyperlocal City Lock Selection during Login
+  // Hyperlocal City Lock Selection during Login (Mumbai initial onboarding market default)
   const [loginCitySelection, setLoginCitySelection] =
     useState<SelectedLocationPayload>({
       country: currentLocation?.country || 'India',
       countryCode: currentLocation?.countryCode || 'IN',
       stateRegion: currentLocation?.stateRegion || 'Maharashtra',
-      district: currentLocation?.district || 'Nanded',
+      district: currentLocation?.district || 'Mumbai Suburban',
       localityType: currentLocation?.localityType || 'CITY',
-      city: currentLocation?.city || 'Nanded',
+      city: currentLocation?.city || 'Mumbai',
       cityId:
         currentLocation?.cityId ||
         normalizeCityId(
           currentLocation?.country || 'India',
           currentLocation?.stateRegion || 'Maharashtra',
-          currentLocation?.city || 'Nanded'
+          currentLocation?.city || 'Mumbai'
         ),
-      locality: currentLocation?.locality || 'Vazirabad',
-      postalCode: currentLocation?.postalCode || '431601',
+      locality: currentLocation?.locality || 'Bandra West',
+      postalCode: currentLocation?.postalCode || '400050',
     });
   const [showFullCityPicker, setShowFullCityPicker] = useState<boolean>(false);
   const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
@@ -253,10 +289,7 @@ export function MobileOtpAuthModal({
   const [verificationToken, setVerificationToken] = useState<string>('');
   const [firebaseConfirmation, setFirebaseConfirmation] =
     useState<ConfirmationResult | null>(null);
-  const [isPreviewTestFallback, setIsPreviewTestFallback] =
-    useState<boolean>(false);
   const [consoleNotice, setConsoleNotice] = useState<string | null>(null);
-  const [serverOtpCode, setServerOtpCode] = useState<string>('');
 
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
@@ -305,16 +338,26 @@ export function MobileOtpAuthModal({
     return () => window.clearInterval(timer);
   }, [resendSeconds]);
 
+  const clearRecaptchaInstance = () => {
+    if (recaptchaVerifierRef.current) {
+      try {
+        recaptchaVerifierRef.current.clear();
+      } catch {
+        // Ignore cleanup errors
+      }
+      recaptchaVerifierRef.current = null;
+    }
+    if (typeof document !== 'undefined') {
+      const container = document.getElementById('firebase-recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
+      }
+    }
+  };
+
   useEffect(() => {
     return () => {
-      if (recaptchaVerifierRef.current) {
-        try {
-          recaptchaVerifierRef.current.clear();
-        } catch {
-          // Ignore cleanup errors
-        }
-        recaptchaVerifierRef.current = null;
-      }
+      clearRecaptchaInstance();
     };
   }, []);
 
@@ -329,25 +372,16 @@ export function MobileOtpAuthModal({
   if (!isOpen) return null;
 
   const getOrCreateRecaptchaVerifier = (): RecaptchaVerifier => {
-    if (recaptchaVerifierRef.current) {
-      try {
-        recaptchaVerifierRef.current.clear();
-      } catch {
-        // Ignore clear error before recreating
-      }
-      recaptchaVerifierRef.current = null;
-    }
-
-    const container = document.getElementById('firebase-recaptcha-container');
-    if (container) {
-      container.innerHTML = '';
-    }
+    clearRecaptchaInstance();
 
     const verifier = new RecaptchaVerifier(
       auth,
       'firebase-recaptcha-container',
       {
         size: 'invisible',
+        'expired-callback': () => {
+          clearRecaptchaInstance();
+        },
       }
     );
     recaptchaVerifierRef.current = verifier;
@@ -398,39 +432,33 @@ export function MobileOtpAuthModal({
 
       const targetE164 = String(data.phoneE164);
       const targetMasked = String(data.maskedPhone);
-      const issuedOtp = data.otpCode ? String(data.otpCode) : '';
-      setServerOtpCode(issuedOtp);
 
-      const deliveryNotice = `SMS Verification Code Sent to ${targetMasked}. If SMS delivery is delayed by your mobile carrier network, your 6-digit verification code is: ${issuedOtp || '123456'}`;
-
-      // 2. Dispatch OTP via native Firebase Phone Authentication (`urbandirectintracity`)
+      // 2. Dispatch real OTP via native Firebase Phone Authentication (`urbandirectintracity`)
       try {
         const appVerifier = getOrCreateRecaptchaVerifier();
+        await appVerifier.render();
         const confirmationResult = await signInWithPhoneNumber(
           auth,
           targetE164,
           appVerifier
         );
         setFirebaseConfirmation(confirmationResult);
-        setIsPreviewTestFallback(false);
-        setConsoleNotice(deliveryNotice);
+        setPhoneE164(targetE164);
+        setMaskedPhone(targetMasked);
+        setResendSeconds(Number(data.resendCooldownSeconds) || 30);
+        setOtpCode('');
+        setConsoleNotice(
+          `SMS verification code sent to ${targetMasked} via Firebase Phone Authentication.`
+        );
+        setStep('VERIFY_OTP');
+        setIsSubmitting(false);
       } catch (firebaseErr) {
+        clearRecaptchaInstance();
         setFirebaseConfirmation(null);
-        setIsPreviewTestFallback(true);
-        if (issuedOtp) {
-          setConsoleNotice(deliveryNotice);
-        } else {
-          const formatted = formatFirebasePhoneAuthError(firebaseErr);
-          setConsoleNotice(formatted.userMessage);
-        }
+        const formatted = formatFirebasePhoneAuthError(firebaseErr);
+        setErrorMsg(formatted.userMessage);
+        setIsSubmitting(false);
       }
-
-      setPhoneE164(targetE164);
-      setMaskedPhone(targetMasked);
-      setResendSeconds(Number(data.resendCooldownSeconds) || 30);
-      setOtpCode('');
-      setStep('VERIFY_OTP');
-      setIsSubmitting(false);
     } catch {
       setIsSubmitting(false);
       setErrorMsg(
@@ -449,41 +477,29 @@ export function MobileOtpAuthModal({
       return;
     }
 
+    if (!firebaseConfirmation) {
+      setErrorMsg(
+        'Your verification session has expired or was not initialized. Please tap "Resend code" to request a fresh SMS OTP.'
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      let firebaseUid: string | undefined;
+      let firebaseUid: string;
       let idToken: string | undefined;
 
-      if (firebaseConfirmation) {
-        try {
-          const userCredential = await firebaseConfirmation.confirm(cleanOtp);
-          firebaseUid = userCredential.user.uid;
-          idToken = await userCredential.user
-            .getIdToken()
-            .catch(() => undefined);
-        } catch (confirmErr) {
-          if (serverOtpCode && cleanOtp === serverOtpCode) {
-            firebaseUid = `verified-${phoneE164.replace(/\D/g, '')}`;
-          } else {
-            const formatted = formatFirebasePhoneAuthError(confirmErr);
-            setErrorMsg(formatted.userMessage);
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      } else if (serverOtpCode || isPreviewTestFallback) {
-        const isValid =
-          (serverOtpCode && cleanOtp === serverOtpCode) || cleanOtp === '123456';
-        if (!isValid) {
-          setErrorMsg(
-            'Incorrect verification code. Please check the 6-digit code and try again.'
-          );
-          setIsSubmitting(false);
-          return;
-        }
-        firebaseUid =
-          auth.currentUser?.uid ||
-          `verified-phone-${phoneE164.replace(/[^0-9]/g, '')}`;
+      try {
+        const userCredential = await firebaseConfirmation.confirm(cleanOtp);
+        firebaseUid = userCredential.user.uid;
+        idToken = await userCredential.user
+          .getIdToken(true)
+          .catch(() => undefined);
+      } catch (confirmErr) {
+        const formatted = formatFirebasePhoneAuthError(confirmErr);
+        setErrorMsg(formatted.userMessage);
+        setIsSubmitting(false);
+        return;
       }
 
       const lockedLocPayload = {
@@ -491,13 +507,13 @@ export function MobileOtpAuthModal({
         countryCode: loginCitySelection.countryCode || 'IN',
         stateRegion: loginCitySelection.stateRegion.trim() || 'Maharashtra',
         district: loginCitySelection.district,
-        city: loginCitySelection.city.trim() || 'Nanded',
+        city: loginCitySelection.city.trim() || 'Mumbai',
         cityId:
           loginCitySelection.cityId ||
           normalizeCityId(
             loginCitySelection.country || 'India',
             loginCitySelection.stateRegion || 'Maharashtra',
-            loginCitySelection.city || 'Nanded'
+            loginCitySelection.city || 'Mumbai'
           ),
         locality: (loginCitySelection.locality || '').trim(),
         postalCode: loginCitySelection.postalCode,
@@ -505,7 +521,10 @@ export function MobileOtpAuthModal({
 
       const response = await fetch('/api/auth/otp', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? {Authorization: `Bearer ${idToken}`} : {}),
+        },
         body: JSON.stringify({
           action: 'RESOLVE_FIREBASE_USER',
           phoneE164,
@@ -593,13 +612,13 @@ export function MobileOtpAuthModal({
       countryCode: loginCitySelection.countryCode || 'IN',
       stateRegion: loginCitySelection.stateRegion.trim() || 'Maharashtra',
       district: loginCitySelection.district,
-      city: loginCitySelection.city.trim() || 'Nanded',
+      city: loginCitySelection.city.trim() || 'Mumbai',
       cityId:
         loginCitySelection.cityId ||
         normalizeCityId(
           loginCitySelection.country || 'India',
           loginCitySelection.stateRegion || 'Maharashtra',
-          loginCitySelection.city || 'Nanded'
+          loginCitySelection.city || 'Mumbai'
         ),
       locality: (loginCitySelection.locality || '').trim(),
       postalCode: loginCitySelection.postalCode,
@@ -1074,15 +1093,6 @@ export function MobileOtpAuthModal({
                   >
                     6-digit verification code
                   </label>
-                  {(serverOtpCode || '123456') && (
-                    <button
-                      type="button"
-                      onClick={() => setOtpCode(serverOtpCode || '123456')}
-                      className="text-[11px] font-bold text-[#003B8E] hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      <span>Auto-fill Code ({serverOtpCode || '123456'})</span>
-                    </button>
-                  )}
                 </div>
                 <input
                   id="otp-code-input"

@@ -3,7 +3,9 @@ import {
   NANDED_DEMO_SELLERS,
   NANDED_DEMO_STORES,
 } from './nanded-demo-data';
-import { SellerProfile, UserAccount, LocalStore, Product } from './catalog-data';
+import { SellerProfile, UserAccount, LocalStore, Product, OrderRecord } from './catalog-data';
+
+export const INITIAL_ORDERS: OrderRecord[] = [];
 
 export const INITIAL_SELLERS: SellerProfile[] = [
   {

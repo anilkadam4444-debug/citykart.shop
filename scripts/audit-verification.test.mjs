@@ -106,4 +106,45 @@ describe('Security, RBAC & Audit Verification Suite', () => {
     assert.ok(bulkRouteSrc.includes('skipFirestore: true'), 'Bulk upload API route must avoid N sequential Firestore roundtrips before batch commit');
     assert.ok(registrySrc.includes('removeUndefined'), 'Stores registry must sanitize Firestore writes with removeUndefined');
   });
+
+  it('OTP-001: /lib/firebase.ts exports genuine Firebase Auth RecaptchaVerifier and signInWithPhoneNumber with zero fake preview stubs', () => {
+    const firebaseSrc = readSource('lib/firebase.ts');
+    assert.ok(!firebaseSrc.includes('preview_vid_'), 'lib/firebase.ts must not contain fake preview_vid_ verification stub');
+    assert.ok(!firebaseSrc.includes('class RecaptchaVerifier'), 'lib/firebase.ts must not override RecaptchaVerifier with a local mock class');
+    assert.ok(firebaseSrc.includes('RecaptchaVerifier,') || firebaseSrc.includes('RecaptchaVerifier'), 'lib/firebase.ts must import and export real RecaptchaVerifier from firebase/auth');
+    assert.ok(firebaseSrc.includes('signInWithPhoneNumber'), 'lib/firebase.ts must import and export real signInWithPhoneNumber from firebase/auth');
+  });
+
+  it('OTP-002: OTP authentication components enforce real Firebase ConfirmationResult and eliminate fake OTP banners and auto-fill buttons', () => {
+    const modalSrc = readSource('components/mobile-otp-auth-modal.tsx');
+    const partnerOtpSrc = readSource('components/partner-otp-verification.tsx');
+    const otpApiSrc = readSource('app/api/auth/otp/route.ts');
+
+    assert.ok(!modalSrc.includes('Auto-fill Code'), 'MobileOtpAuthModal must not render fake Auto-fill Code button');
+    assert.ok(!partnerOtpSrc.includes('Auto-fill Code'), 'PartnerOtpVerification must not render fake Auto-fill Code button');
+    assert.ok(modalSrc.includes('firebaseConfirmation.confirm'), 'MobileOtpAuthModal must verify OTP via firebaseConfirmation.confirm');
+    assert.ok(partnerOtpSrc.includes('firebaseConfirmation.confirm'), 'PartnerOtpVerification must verify OTP via firebaseConfirmation.confirm');
+    assert.ok(!otpApiSrc.includes('generatedOtp'), '/api/auth/otp must not generate or return fake server OTP codes');
+    assert.ok(otpApiSrc.includes('adminAuth.verifyIdToken'), '/api/auth/otp must verify Firebase ID tokens server-side when provided');
+  });
+
+  it('OTP-003: /lib/countries-data.ts enforces strict Indian +91 E.164 mobile validation without debug console spam', () => {
+    const countriesSrc = readSource('lib/countries-data.ts');
+    assert.ok(!countriesSrc.includes("console.log('Validation Debug:'"), 'lib/countries-data.ts must not contain debug console.log spam');
+    assert.ok(countriesSrc.includes('/^[6-9]\\d{9}$/'), 'lib/countries-data.ts must validate Indian 10-digit mobile numbers starting with 6-9');
+  });
+
+  it('BIZ-001: CityKart enforces medium/large city eligibility, blocks villages/talukas, and sets Mumbai as initial onboarding market', () => {
+    const missingRouteSrc = readSource('app/api/locations/missing-request/route.ts');
+    const locationServiceSrc = readSource('lib/location-service.ts');
+    const partnerPortalSrc = readSource('components/city-partner-portal.tsx');
+    const sellerPageSrc = readSource('app/seller/page.tsx');
+
+    assert.ok(missingRouteSrc.includes('isVillageOrTalukaPlace'), '/api/locations/missing-request must block villages and talukas');
+    assert.ok(missingRouteSrc.includes("status: 'PENDING'"), '/api/locations/missing-request must set new city requests to PENDING for Admin review');
+    assert.ok(locationServiceSrc.includes("req.status === 'APPROVED'"), 'saveMissingLocationRequest must only activate custom cities when APPROVED by Admin');
+    assert.ok(partnerPortalSrc.includes('india-maharashtra-mumbai'), 'CityPartnerPortal must default initial market selection to Mumbai');
+    assert.ok(!sellerPageSrc.includes('village worldwide'), 'Seller onboarding page must not advertise village registration');
+  });
 });
+

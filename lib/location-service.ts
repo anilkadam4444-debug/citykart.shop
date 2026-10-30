@@ -159,18 +159,23 @@ export function saveMissingLocationRequest(req: MissingLocationRequest): void {
     const updated = [req, ...existing.filter((r) => r.id !== req.id)];
     window.localStorage.setItem(MISSING_LOCATIONS_STORAGE_KEY, JSON.stringify(updated));
 
-    // Also auto-record into custom approved cities so user can immediately proceed
-    saveCustomApprovedCity({
-      cityId: req.canonicalCityId,
-      cityName: req.cityName,
-      stateRegion: req.stateRegion,
-      country: req.country,
-      countryCode: req.countryCode,
-      district: req.district,
-      postalCode: req.postalCode,
-      localityType: req.localityType || 'TOWN',
-      defaultLocality: req.cityName,
-    });
+    // Only record into custom approved cities when explicitly approved by Super Admin / Admin
+    if (
+      req.status === 'APPROVED' &&
+      !isVillageOrTalukaPlace(req.localityType, req.cityName, req.district)
+    ) {
+      saveCustomApprovedCity({
+        cityId: req.canonicalCityId,
+        cityName: req.cityName,
+        stateRegion: req.stateRegion,
+        country: req.country,
+        countryCode: req.countryCode,
+        district: req.district,
+        postalCode: req.postalCode,
+        localityType: req.localityType || 'CITY',
+        defaultLocality: req.cityName,
+      });
+    }
   } catch {}
 }
 

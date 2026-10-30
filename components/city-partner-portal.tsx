@@ -89,7 +89,7 @@ function CityPartnerPortalContent() {
 
   const [fullName, setFullName] = useState('');
   const [phoneE164, setPhoneE164] = useState('');
-  const [selectedCityId, setSelectedCityId] = useState('india-maharashtra-nanded');
+  const [selectedCityId, setSelectedCityId] = useState('india-maharashtra-mumbai');
   const [localGrowthPlan, setLocalGrowthPlan] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);

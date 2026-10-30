@@ -206,6 +206,8 @@ export function CascadingLocationSelector({
   const [customPostalInput, setCustomPostalInput] = useState('');
   const [customPhoneInput, setCustomPhoneInput] = useState('');
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
+  const [customLocationError, setCustomLocationError] = useState<string | null>(null);
+  const [customLocationNotice, setCustomLocationNotice] = useState<string | null>(null);
 
   // Active Country Definition
   const currentCountry = useMemo(() => {
@@ -410,10 +412,20 @@ export function CascadingLocationSelector({
     });
   };
 
-  // Submit controlled missing location request
+  // Submit controlled missing location request for Admin review
   const handleSubmitMissingLocation = async (e?: React.SyntheticEvent) => {
     if (e) e.preventDefault();
     if (!customCityInput.trim()) return;
+
+    setCustomLocationError(null);
+    setCustomLocationNotice(null);
+
+    if (isVillageOrTalukaPlace('CITY', customCityInput.trim(), customDistrictInput.trim())) {
+      setCustomLocationError(
+        'CityKart focuses on medium and large cities. Small villages, hamlets, and taluka blocks cannot be independently activated.'
+      );
+      return;
+    }
 
     setIsSubmittingCustom(true);
     try {
@@ -429,16 +441,23 @@ export function CascadingLocationSelector({
           cityName: targetCity,
           district: customDistrictInput.trim(),
           postalCode: customPostalInput.trim(),
+          localityType: 'CITY',
           requesterRole,
           requesterPhone: customPhoneInput.trim(),
         }),
       });
 
       const data = await res.json();
-      if (res.ok && data.canonicalCity) {
-        saveMissingLocationRequest(data.request);
+      if (!res.ok) {
+        setCustomLocationError(data.error || 'Could not submit city expansion request.');
+        return;
+      }
 
-        // Auto select the new location
+      if (data.request) {
+        saveMissingLocationRequest(data.request);
+      }
+
+      if (data.request?.status === 'APPROVED' && data.canonicalCity) {
         setSelectedCityName(data.canonicalCity.cityName);
         setSelectedCityId(data.canonicalCity.cityId);
         setSelectedRegionName(data.canonicalCity.stateRegion);
@@ -454,26 +473,19 @@ export function CascadingLocationSelector({
           district: data.canonicalCity.district || '',
           postalCode: data.canonicalCity.postalCode || selectedPostalCode,
         });
-
         setIsMissingModalOpen(false);
-        setCustomCityInput('');
-        setCustomDistrictInput('');
-        setCustomPostalInput('');
+      } else {
+        setCustomLocationNotice(
+          data.message ||
+            `Request for "${targetCity}" submitted. New city activation is controlled by Admin review. Meanwhile, please select Mumbai or another active medium/large city.`
+        );
       }
+
+      setCustomCityInput('');
+      setCustomDistrictInput('');
+      setCustomPostalInput('');
     } catch {
-      // Fallback: local canonical generation
-      const canonicalId = normalizeCanonicalLocationId(
-        currentCountry.name,
-        selectedRegionName,
-        customCityInput.trim()
-      );
-      setSelectedCityName(customCityInput.trim());
-      setSelectedCityId(canonicalId);
-      emitChange({
-        city: customCityInput.trim(),
-        cityId: canonicalId,
-      });
-      setIsMissingModalOpen(false);
+      setCustomLocationError('Network error while submitting city expansion request. Please try again.');
     } finally {
       setIsSubmittingCustom(false);
     }
@@ -909,31 +921,47 @@ export function CascadingLocationSelector({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h4 className="font-bold text-sm text-slate-900">Add Missing City or Town</h4>
+                <h4 className="font-bold text-sm text-slate-900">Request Medium or Large City Activation</h4>
                 <p className="text-[11px] text-slate-500">
-                  Register any valid city or town in {currentCountry.name} to start shopping or selling.
+                  Request activation of a medium or large city in {currentCountry.name}. New city activation is controlled by Admin approval.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsMissingModalOpen(false)}
+                onClick={() => {
+                  setIsMissingModalOpen(false);
+                  setCustomLocationError(null);
+                  setCustomLocationNotice(null);
+                }}
                 className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {customLocationError && (
+              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+                {customLocationError}
+              </div>
+            )}
+
+            {customLocationNotice && (
+              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
+                {customLocationNotice}
+              </div>
+            )}
+
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
-                  City or Town Name *
+                  Medium or Large City Name *
                 </label>
                 <input
                   type="text"
                   required
                   value={customCityInput}
                   onChange={(e) => setCustomCityInput(e.target.value)}
-                  placeholder="e.g. Mudkhed, Loha, Whitby, Hakuba"
+                  placeholder="e.g. Mumbai, Pune, Thane, Nashik"
                   className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
                 />
               </div>
@@ -998,10 +1026,14 @@ export function CascadingLocationSelector({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsMissingModalOpen(false)}
+                  onClick={() => {
+                    setIsMissingModalOpen(false);
+                    setCustomLocationError(null);
+                    setCustomLocationNotice(null);
+                  }}
                   className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="button"
@@ -1009,7 +1041,7 @@ export function CascadingLocationSelector({
                   disabled={isSubmittingCustom}
                   className="px-5 py-2 rounded-lg bg-[#003B8E] text-white font-semibold hover:bg-[#002D6E] disabled:opacity-50 cursor-pointer"
                 >
-                  {isSubmittingCustom ? 'Registering...' : 'Save & Select Location'}
+                  {isSubmittingCustom ? 'Submitting...' : 'Submit for Admin Approval'}
                 </button>
               </div>
             </div>

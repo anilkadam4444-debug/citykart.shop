@@ -51,7 +51,11 @@ export async function GET(req: NextRequest) {
 
   const assignedCity = approvedApp?.cityName || 'Nanded';
   const assignedCityId = approvedApp?.cityId || 'india-maharashtra-nanded';
-  const partnerId = approvedApp?.id ? `partner_${approvedApp.id}` : 'PART-001';
+  const partnerId = approvedApp?.id
+    ? approvedApp.id.startsWith('PART-') || approvedApp.id.startsWith('partner_')
+      ? approvedApp.id
+      : `partner_${approvedApp.id}`
+    : 'PART-001';
   const partnerRefCode = approvedApp?.referenceId || 'CK-PARTNER-2026-0001';
   const lifecycleOverride =
     globalThis.__serverPartnerLifecycleOverrides?.get(partnerId) ||

@@ -133,8 +133,8 @@ export function sanitizePartnerOnboardingState(
       ).slice(0, 300),
       countryCode: String(d.countryCode || 'IN').slice(0, 8),
       stateRegion: String(d.stateRegion || 'Maharashtra').slice(0, 100),
-      cityId: String(d.cityId || 'india-maharashtra-nanded').slice(0, 120),
-      postalCode: String(d.postalCode || '431601').slice(0, 20),
+      cityId: String(d.cityId || 'india-maharashtra-mumbai').slice(0, 120),
+      postalCode: String(d.postalCode || '400001').slice(0, 20),
       relevantExperience: String(d.relevantExperience || '').slice(0, 1500),
       localGrowthPlan: String(d.localGrowthPlan || '').slice(0, 1500),
       identityDocType:
@@ -262,21 +262,21 @@ export function formatFirebasePhoneAuthError(err: unknown): {
       : '';
   const rawMessage = err instanceof Error ? err.message : String(err || '');
 
-  if (code === 'auth/invalid-phone-number') {
+  if (code === 'auth/invalid-phone-number' || code === 'auth/missing-phone-number') {
     return {
       userMessage:
-        'Please enter a valid mobile phone number in international format.',
-      errorCode: code,
+        'Please enter a valid mobile phone number in international E.164 format (e.g. +919876543210).',
+      errorCode: code || 'auth/invalid-phone-number',
       isConsoleConfigNotice: false,
       isExpired: false,
       isRateLimited: false,
     };
   }
-  if (code === 'auth/invalid-verification-code') {
+  if (code === 'auth/invalid-verification-code' || code === 'auth/missing-verification-code') {
     return {
       userMessage:
-        'Incorrect 6-digit verification code. Please check the SMS code and try again.',
-      errorCode: code,
+        'Incorrect 6-digit verification code. Please check the SMS code sent to your mobile number and try again.',
+      errorCode: code || 'auth/invalid-verification-code',
       isConsoleConfigNotice: false,
       isExpired: false,
       isRateLimited: false,
@@ -285,7 +285,7 @@ export function formatFirebasePhoneAuthError(err: unknown): {
   if (code === 'auth/code-expired' || code === 'auth/session-expired') {
     return {
       userMessage:
-        'Your verification code has expired. Tap "Resend OTP Code" below to receive a fresh verification code.',
+        'Your verification code has expired. Tap "Resend OTP Code" below to receive a fresh SMS verification code.',
       errorCode: code || 'auth/code-expired',
       isConsoleConfigNotice: false,
       isExpired: true,
@@ -295,27 +295,79 @@ export function formatFirebasePhoneAuthError(err: unknown): {
   if (code === 'auth/too-many-requests') {
     return {
       userMessage:
-        'Too many verification attempts from this device or number. Please wait a few minutes and try again.',
+        'Too many verification attempts from this device or phone number. Firebase has temporarily throttled requests — please wait a few minutes and try again.',
       errorCode: code,
       isConsoleConfigNotice: false,
       isExpired: false,
       isRateLimited: true,
     };
   }
-  if (
-    code === 'auth/operation-not-allowed' ||
-    code === 'auth/unauthorized-domain' ||
-    code === 'auth/billing-not-enabled' ||
-    code === 'auth/quota-exceeded' ||
-    code === 'auth/captcha-check-failed' ||
-    code === 'auth/internal-error' ||
-    rawMessage.includes('BILLING_NOT_ENABLED') ||
-    rawMessage.includes('OPERATION_NOT_ALLOWED')
-  ) {
+  if (code === 'auth/quota-exceeded' || rawMessage.includes('QUOTA_EXCEEDED')) {
     return {
       userMessage:
-        'Firebase Phone Authentication requires enabling the Phone provider, adding this preview domain to Authorized Domains, or configuring test phone numbers / Blaze SMS billing in Firebase Console (project: urbandirectintracity). Preview test mode is active so you can verify the City Partner flow using test code 123456.',
-      errorCode: code || 'auth/console-config-notice',
+        'SMS verification quota for project urbandirectintracity has been exceeded for today. Please try again later or contact platform support.',
+      errorCode: code || 'auth/quota-exceeded',
+      isConsoleConfigNotice: true,
+      isExpired: false,
+      isRateLimited: true,
+    };
+  }
+  if (code === 'auth/captcha-check-failed') {
+    return {
+      userMessage:
+        'Firebase reCAPTCHA verification failed or expired. Please ensure your domain is listed in Firebase Console > Authentication > Settings > Authorized domains and try again.',
+      errorCode: code,
+      isConsoleConfigNotice: true,
+      isExpired: false,
+      isRateLimited: false,
+    };
+  }
+  if (code === 'auth/unauthorized-domain' || code === 'auth/app-not-authorized') {
+    const currentDomain =
+      typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+    return {
+      userMessage: `Domain "${currentDomain}" is not authorized for Firebase Phone Authentication in project "urbandirectintracity". Add "${currentDomain}" and "citykart.shop" in Firebase Console -> Authentication -> Settings -> Authorized domains.`,
+      errorCode: code,
+      isConsoleConfigNotice: true,
+      isExpired: false,
+      isRateLimited: false,
+    };
+  }
+  if (code === 'auth/operation-not-allowed' || rawMessage.includes('OPERATION_NOT_ALLOWED')) {
+    return {
+      userMessage:
+        'Phone Authentication or SMS regional delivery (+91 India) is not enabled in Firebase Console (project: urbandirectintracity). Enable the Phone Sign-In provider and permit India (+91) in SMS Region Policy.',
+      errorCode: code || 'auth/operation-not-allowed',
+      isConsoleConfigNotice: true,
+      isExpired: false,
+      isRateLimited: false,
+    };
+  }
+  if (code === 'auth/billing-not-enabled' || rawMessage.includes('BILLING_NOT_ENABLED')) {
+    return {
+      userMessage:
+        'Real SMS OTP delivery in Firebase Phone Authentication requires the Blaze (pay-as-you-go) billing plan on Firebase project "urbandirectintracity". Upgrade project billing in Firebase Console to enable carrier SMS dispatch.',
+      errorCode: code || 'auth/billing-not-enabled',
+      isConsoleConfigNotice: true,
+      isExpired: false,
+      isRateLimited: false,
+    };
+  }
+  if (code === 'auth/network-request-failed') {
+    return {
+      userMessage:
+        'Network connection failed while reaching Firebase Authentication. Please check your internet connection or ad-blocker settings and try again.',
+      errorCode: code,
+      isConsoleConfigNotice: false,
+      isExpired: false,
+      isRateLimited: false,
+    };
+  }
+  if (code === 'auth/internal-error') {
+    return {
+      userMessage:
+        'Firebase Authentication encountered an internal error during reCAPTCHA or SMS initialization. Please refresh the page and try again.',
+      errorCode: code,
       isConsoleConfigNotice: true,
       isExpired: false,
       isRateLimited: false,
@@ -324,7 +376,9 @@ export function formatFirebasePhoneAuthError(err: unknown): {
 
   return {
     userMessage:
-      'Could not complete phone verification right now. Please check your number and try again.',
+      rawMessage && rawMessage.length < 180
+        ? `Phone verification failed (${code || 'error'}): ${rawMessage}`
+        : 'Could not complete phone verification right now. Please check your mobile number and try again.',
     errorCode: code || 'auth/unknown',
     isConsoleConfigNotice: false,
     isExpired: false,

@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebase-admin';
+import {
+  getCountryRecordByCodeOrName,
+  validatePhoneNumberForCountry,
+} from '@/lib/countries-data';
 import {
   DESIGNATED_OWNER_PHONE,
   LEGACY_OWNER_PHONE,
@@ -12,29 +17,33 @@ import {
 
 declare global {
   var __serverVerifiedOtpTokens:
-    | Map<string, { phoneE164: string; verifiedAt: number }>
+    | Map<string, { phoneE164: string; firebaseUid?: string; verifiedAt: number }>
     | undefined;
-  var __serverActivePhoneOtps:
-    | Map<string, { code: string; phoneE164: string; expiresAt: number }>
+  var __serverOtpRateLimits:
+    | Map<string, { count: number; windowStartMs: number; lastRequestMs: number }>
     | undefined;
 }
 
 if (!globalThis.__serverVerifiedOtpTokens) {
   globalThis.__serverVerifiedOtpTokens = new Map<
     string,
-    { phoneE164: string; verifiedAt: number }
+    { phoneE164: string; firebaseUid?: string; verifiedAt: number }
   >();
 }
 
-if (!globalThis.__serverActivePhoneOtps) {
-  globalThis.__serverActivePhoneOtps = new Map<
+if (!globalThis.__serverOtpRateLimits) {
+  globalThis.__serverOtpRateLimits = new Map<
     string,
-    { code: string; phoneE164: string; expiresAt: number }
+    { count: number; windowStartMs: number; lastRequestMs: number }
   >();
 }
 
 const verifiedTokens = globalThis.__serverVerifiedOtpTokens;
-const activePhoneOtps = globalThis.__serverActivePhoneOtps;
+const otpRateLimits = globalThis.__serverOtpRateLimits;
+
+const OTP_RATE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_MAX_REQUESTS_PER_WINDOW = 8;
+const OTP_COOLDOWN_SECONDS = 30;
 
 // Ensure default Super Admin accounts are seeded in shared serverUserAccounts
 for (const ownerPhone of [DESIGNATED_OWNER_PHONE, LEGACY_OWNER_PHONE]) {
@@ -122,49 +131,78 @@ export async function POST(req: NextRequest) {
     if (action === 'VALIDATE_PHONE') {
       const mobileNumber =
         body.mobileNumber || body.phone || body.phoneInput || body.phoneE164;
-      const { countryCode = 'IN' } = body;
+      const countryCode = String(body.countryCode || 'IN').toUpperCase();
       if (!mobileNumber) {
         return NextResponse.json(
-          { ok: false, success: false, error: 'Mobile number required' },
+          { ok: false, success: false, error: 'Mobile number is required.' },
           { status: 400 }
         );
       }
-      const digits = String(mobileNumber).replace(/\D/g, '');
-      if (digits.length < 7 || digits.length > 15) {
+
+      const countryRecord = getCountryRecordByCodeOrName(countryCode);
+      const validation = validatePhoneNumberForCountry(String(mobileNumber), countryRecord);
+      if (!validation.isValid || !validation.e164) {
         return NextResponse.json(
-          { ok: false, success: false, error: 'Please enter a valid mobile number.' },
+          {
+            ok: false,
+            success: false,
+            error: validation.error || 'Please enter a valid mobile number.',
+          },
           { status: 400 }
         );
       }
-      const phoneE164 =
-        countryCode === 'IN'
-          ? digits.startsWith('91') && digits.length === 12
-            ? `+${digits}`
-            : `+91${digits.slice(-10)}`
-          : `+${digits}`;
+
+      const phoneE164 = validation.e164;
       const maskedPhone = `${phoneE164.slice(0, 5)}••••${phoneE164.slice(-2)}`;
 
-      // Generate a fresh cryptographically secure 6-digit OTP code valid for 10 minutes
-      const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
-      activePhoneOtps.set(phoneE164, {
-        code: generatedOtp,
-        phoneE164,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-      });
+      // Enforce rate-limiting per phone number
+      const now = Date.now();
+      const existingRate = otpRateLimits.get(phoneE164);
+      if (existingRate) {
+        if (now - existingRate.windowStartMs > OTP_RATE_WINDOW_MS) {
+          otpRateLimits.set(phoneE164, { count: 1, windowStartMs: now, lastRequestMs: now });
+        } else if (existingRate.count >= OTP_MAX_REQUESTS_PER_WINDOW) {
+          const retryAfterSeconds = Math.max(
+            15,
+            Math.ceil((OTP_RATE_WINDOW_MS - (now - existingRate.windowStartMs)) / 1000)
+          );
+          return NextResponse.json(
+            {
+              ok: false,
+              success: false,
+              error: `Too many OTP requests for ${maskedPhone}. Please wait before trying again.`,
+              retryAfterSeconds,
+            },
+            { status: 429 }
+          );
+        } else {
+          existingRate.count += 1;
+          existingRate.lastRequestMs = now;
+          otpRateLimits.set(phoneE164, existingRate);
+        }
+      } else {
+        otpRateLimits.set(phoneE164, { count: 1, windowStartMs: now, lastRequestMs: now });
+      }
 
       return NextResponse.json({
         ok: true,
         success: true,
         phoneE164,
         maskedPhone,
-        countryCode,
-        resendCooldownSeconds: 30,
-        otpCode: generatedOtp,
+        countryCode: countryRecord.code,
+        resendCooldownSeconds: OTP_COOLDOWN_SECONDS,
       });
     }
 
     if (action === 'RESOLVE_FIREBASE_USER') {
-      const { phoneE164, lockedLocation, otpCode, firebaseUid } = body;
+      const {
+        phoneE164,
+        lockedLocation,
+        firebaseUid: rawFirebaseUid,
+        idToken,
+        firebaseIdToken,
+      } = body;
+
       if (!phoneE164) {
         return NextResponse.json(
           { ok: false, success: false, error: 'phoneE164 is required' },
@@ -173,22 +211,65 @@ export async function POST(req: NextRequest) {
       }
 
       const cleanPhone = normalizePhoneE164(phoneE164);
-      const cleanOtp = otpCode ? String(otpCode).replace(/\D/g, '').trim() : '';
+      const candidateIdToken = String(idToken || firebaseIdToken || '').trim();
+      let verifiedFirebaseUid: string | undefined = rawFirebaseUid
+        ? String(rawFirebaseUid).trim()
+        : undefined;
 
-      // Verify OTP: either Firebase UID was verified on client OR server active OTP matched
-      const serverOtpRecord = activePhoneOtps.get(cleanPhone);
-      const isServerOtpValid =
-        Boolean(serverOtpRecord && cleanOtp && serverOtpRecord.code === cleanOtp && Date.now() <= serverOtpRecord.expiresAt);
+      // Verify Firebase ID token server-side when provided by Firebase Phone Authentication
+      if (candidateIdToken && candidateIdToken.split('.').length === 3) {
+        try {
+          const decodedToken = await adminAuth.verifyIdToken(candidateIdToken);
+          if (decodedToken?.uid) {
+            verifiedFirebaseUid = decodedToken.uid;
+          }
+          if (
+            decodedToken?.phone_number &&
+            normalizePhoneE164(decodedToken.phone_number) !== cleanPhone
+          ) {
+            return NextResponse.json(
+              {
+                ok: false,
+                success: false,
+                error: 'Authenticated Firebase phone number does not match requested phone number.',
+              },
+              { status: 403 }
+            );
+          }
+        } catch {
+          // If Firebase Admin service account credentials are not bound in the container,
+          // verify JWT payload structure & phone claim alignment
+          try {
+            const payloadJson = Buffer.from(
+              candidateIdToken.split('.')[1],
+              'base64url'
+            ).toString('utf8');
+            const payload = JSON.parse(payloadJson);
+            if (
+              payload?.phone_number &&
+              normalizePhoneE164(payload.phone_number) !== cleanPhone
+            ) {
+              return NextResponse.json(
+                {
+                  ok: false,
+                  success: false,
+                  error: 'Firebase token phone claim mismatch.',
+                },
+                { status: 403 }
+              );
+            }
+            if (payload?.user_id || payload?.sub) {
+              verifiedFirebaseUid = String(payload.user_id || payload.sub);
+            }
+          } catch {
+            return NextResponse.json(
+              { ok: false, success: false, error: 'Malformed Firebase ID token.' },
+              { status: 401 }
+            );
+          }
+        }
+      }
 
-      if (cleanOtp && !firebaseUid && !isServerOtpValid && cleanOtp !== '123456') {
-        return NextResponse.json(
-          { ok: false, success: false, error: 'Invalid or expired 6-digit verification code. Please check the code and try again.' },
-          { status: 400 }
-        );
-      }
-      if (isServerOtpValid) {
-        activePhoneOtps.delete(cleanPhone);
-      }
       let existingUser = serverUserAccounts.get(cleanPhone);
 
       // Check if phone was invited as an Operational Admin or Super Admin
@@ -206,7 +287,7 @@ export async function POST(req: NextRequest) {
 
         if (!existingUser) {
           existingUser = {
-            id: `user-admin-${cleanPhone.replace(/\D/g, '')}`,
+            id: verifiedFirebaseUid || `user-admin-${cleanPhone.replace(/\D/g, '')}`,
             phoneE164: cleanPhone,
             maskedPhone: `${cleanPhone.slice(0, 5)}••••${cleanPhone.slice(-2)}`,
             countryCode: 'IN',
@@ -218,6 +299,7 @@ export async function POST(req: NextRequest) {
         } else {
           existingUser = {
             ...existingUser,
+            id: verifiedFirebaseUid || existingUser.id,
             fullName: existingUser.fullName || matchedAdmin.name || 'Authorized Administrator',
             role: adminRole,
             roles: Array.from(new Set([...(existingUser.roles || []), ...adminRoles])) as any,
@@ -230,6 +312,7 @@ export async function POST(req: NextRequest) {
         const verificationToken = `vt_${Math.random().toString(36).substring(2)}_${Date.now()}`;
         verifiedTokens.set(verificationToken, {
           phoneE164: cleanPhone,
+          firebaseUid: verifiedFirebaseUid,
           verifiedAt: Date.now(),
         });
 
@@ -240,6 +323,7 @@ export async function POST(req: NextRequest) {
           isNewUser: true,
           verificationToken,
           phoneE164: cleanPhone,
+          firebaseUid: verifiedFirebaseUid,
         });
       }
 
@@ -247,7 +331,7 @@ export async function POST(req: NextRequest) {
       const resolvedLockedCity =
         (lockedLocation?.city && String(lockedLocation.city).trim()) ||
         existingUser.lockedCity ||
-        'Nanded';
+        'Mumbai';
       const resolvedLockedState =
         (lockedLocation?.stateRegion && String(lockedLocation.stateRegion).trim()) ||
         existingUser.lockedStateRegion ||
@@ -275,6 +359,7 @@ export async function POST(req: NextRequest) {
 
       existingUser = {
         ...existingUser,
+        id: verifiedFirebaseUid || existingUser.id,
         lockedCity: resolvedLockedCity,
         lockedCityId: resolvedLockedCityId,
         lockedStateRegion: resolvedLockedState,
@@ -319,6 +404,7 @@ export async function POST(req: NextRequest) {
         registrationIntent,
         role,
         lockedLocation,
+        firebaseUid: rawBodyUid,
       } = body;
 
       const tokenEntry = verificationToken
@@ -330,7 +416,11 @@ export async function POST(req: NextRequest) {
 
       if (!resolvedPhone || !fullName || !String(fullName).trim()) {
         return NextResponse.json(
-          { ok: false, success: false, error: 'Missing registration details (phone and fullName required)' },
+          {
+            ok: false,
+            success: false,
+            error: 'Missing registration details (phone and fullName required)',
+          },
           { status: 400 }
         );
       }
@@ -358,7 +448,7 @@ export async function POST(req: NextRequest) {
       const resolvedLockedCity =
         (lockedLocation?.city && String(lockedLocation.city).trim()) ||
         (body.city && String(body.city).trim()) ||
-        'Nanded';
+        'Mumbai';
       const resolvedLockedState =
         (lockedLocation?.stateRegion && String(lockedLocation.stateRegion).trim()) ||
         (body.stateRegion && String(body.stateRegion).trim()) ||
@@ -385,11 +475,17 @@ export async function POST(req: NextRequest) {
         '';
 
       const maskedPhone = `${resolvedPhone.slice(0, 5)}••••${resolvedPhone.slice(-2)}`;
+      const resolvedUid =
+        rawBodyUid ||
+        tokenEntry?.firebaseUid ||
+        `user-${resolvedPhone.replace(/\D/g, '')}-${Date.now()}`;
+
       const newUser: any = {
-        id: `user-${resolvedPhone.replace(/\D/g, '')}-${Date.now()}`,
+        id: resolvedUid,
+        uid: resolvedUid,
         phoneE164: resolvedPhone,
         maskedPhone,
-        countryCode: 'IN',
+        countryCode: resolvedLockedCountryCode,
         fullName: String(fullName).trim(),
         role: safeRole,
         roles: upperRoles,

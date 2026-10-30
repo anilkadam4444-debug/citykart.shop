@@ -510,28 +510,45 @@ export function validatePhoneNumberForCountry(
   subscriberNumber: string,
   country: CountryCallingRecord
 ): {isValid: boolean; digitsOnly: string; e164: string; error?: string} {
-  const digitsOnly = subscriberNumber.replace(/\D/g, '').replace(/^0+/, '');
-  console.log('Validation Debug:', { subscriberNumber, digitsOnly, countryDialCode: country.dialCode });
-
-  // If the number starts with the country dial code, remove it for validation
-  const dialDigits = country.dialCode.replace(/\D/g, '');
-  let cleanedDigits = digitsOnly;
-  if (digitsOnly.startsWith(dialDigits)) {
-    cleanedDigits = digitsOnly.slice(dialDigits.length);
-  } else if (digitsOnly.startsWith(dialDigits.slice(1))) {
-    cleanedDigits = digitsOnly.slice(dialDigits.slice(1).length);
+  const rawInput = String(subscriberNumber || '').trim();
+  if (!rawInput) {
+    return {
+      isValid: false,
+      digitsOnly: '',
+      e164: '',
+      error: `Please enter your mobile number for ${country.name}.`,
+    };
   }
 
-  // Use the length that matches criteria better, fallback to digitsOnly if stripped length is invalid
-  const finalDigits = (cleanedDigits.length >= country.minDigits && cleanedDigits.length <= country.maxDigits) 
-    ? cleanedDigits 
-    : digitsOnly;
+  // Reject alphabetic or invalid symbol characters (allow digits, spaces, hyphens, parentheses, leading +)
+  if (/[^\d\s\-()+.]/.test(rawInput)) {
+    return {
+      isValid: false,
+      digitsOnly: '',
+      e164: '',
+      error: 'Phone number can only contain digits, spaces, or standard formatting symbols.',
+    };
+  }
 
-  console.log('Validation Debug Final:', { finalDigits, min: country.minDigits, max: country.maxDigits });
+  const dialDigits = country.dialCode.replace(/\D/g, '');
+  let digitsOnly = rawInput.replace(/\D/g, '');
+
+  // If the user included the country code prefix (e.g. +91XXXXXXXXXX or 91XXXXXXXXXX)
+  if (
+    digitsOnly.startsWith(dialDigits) &&
+    digitsOnly.length >= dialDigits.length + country.minDigits
+  ) {
+    digitsOnly = digitsOnly.slice(dialDigits.length);
+  }
+
+  // Strip trunk prefix '0' if present (e.g., 09876543210 -> 9876543210)
+  if (digitsOnly.startsWith('0') && digitsOnly.length > country.minDigits) {
+    digitsOnly = digitsOnly.replace(/^0+/, '');
+  }
 
   if (
-    finalDigits.length < country.minDigits ||
-    finalDigits.length > country.maxDigits
+    digitsOnly.length < country.minDigits ||
+    digitsOnly.length > country.maxDigits
   ) {
     const lengthDesc =
       country.minDigits === country.maxDigits
@@ -539,16 +556,26 @@ export function validatePhoneNumberForCountry(
         : `${country.minDigits} to ${country.maxDigits} digits`;
     return {
       isValid: false,
-      digitsOnly: finalDigits,
+      digitsOnly,
       e164: '',
       error: `Please enter a valid mobile number for ${country.name} (must be ${lengthDesc}).`,
     };
   }
 
+  // India (+91) specific mobile numbering plan check: must start with 6, 7, 8, or 9
+  if (country.code === 'IN' && !/^[6-9]\d{9}$/.test(digitsOnly)) {
+    return {
+      isValid: false,
+      digitsOnly,
+      e164: '',
+      error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.',
+    };
+  }
+
   return {
     isValid: true,
-    digitsOnly: finalDigits,
-    e164: `+${dialDigits}${finalDigits}`,
+    digitsOnly,
+    e164: `+${dialDigits}${digitsOnly}`,
   };
 }
 

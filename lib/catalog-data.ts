@@ -1123,8 +1123,10 @@ export const CITY_HUBS: string[] = [
 
 // Initial static data moved to dedicated library to reduce file size and parsing overhead
 export {
+  INITIAL_ORDERS,
   INITIAL_SELLERS,
   INITIAL_STORES,
   INITIAL_PRODUCTS,
   INITIAL_USER_ACCOUNTS,
 } from './initial-data';
+

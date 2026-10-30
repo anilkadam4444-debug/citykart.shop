@@ -21,174 +21,202 @@ service cloud.firestore {
       );
     }
 
+    function isAdmin() {
+      return isSuperAdmin();
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Connection Health Check Collection
+    // Connection Health Check Collection (Read-only diagnostic ping)
     match /test/{testId} {
       allow read: if true;
-      allow create, update: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
     }
 
-    // Admins Registry & Authorizations
+    // Admins Registry & Authorizations — strictly restricted to Super Admin / Admin
     match /admins/{adminUid} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isAdmin() || isOwner(adminUid);
+      allow create, update, delete: if isSuperAdmin();
     }
 
     match /adminAuthorizations/{phoneId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
     }
 
-    // Audit Logs
+    // Immutable Audit Logs — only Admin can read/append; nobody can mutate or delete
     match /auditLogs/{logId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /admin_audit_logs/{logId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // Users Collection
+    // Users Collection — owner or admin read; prevent privilege self-escalation on write
     match /users/{userId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isSuperAdmin() || (
+        isOwner(userId) &&
+        !('SUPER_ADMIN' in request.resource.data.get('roles', [])) &&
+        !('ADMIN' in request.resource.data.get('roles', [])) &&
+        request.resource.data.get('role', 'buyer') != 'super_admin' &&
+        request.resource.data.get('role', 'buyer') != 'admin'
+      );
+      allow delete: if isSuperAdmin();
     }
 
     // Sellers Collection
     match /sellers/{sellerId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
     }
 
-    // Stores Collection
+    // Stores Collection — public marketplace discovery read; authenticated merchant/admin write
     match /stores/{storeId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || (
+        isSignedIn() && (
+          resource.data.ownerId == request.auth.uid ||
+          resource.data.sellerPhone == request.auth.token.phone_number
+        )
+      );
+      allow delete: if isAdmin();
     }
 
-    // Products Collection
+    // Products Collection — public marketplace catalog read; authenticated merchant/admin write
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn() || isAdmin();
     }
 
-    // Orders Collection
+    // Orders Collection — authenticated buyers, sellers, and admins only
     match /orders/{orderId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create, update: if isSignedIn() || isAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     // Seller Notifications
     match /sellerNotifications/{notificationId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, create, update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Deleted Stores Tombstones
     match /deleted_stores/{storeId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // FCM Tokens
     match /fcm_tokens/{tokenId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, create, update, delete: if isSignedIn();
     }
 
     // Merchant Subscriptions & Billing
     match /merchantSubscriptions/{subscriptionId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create, update: if isSignedIn() || isAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     match /billingTransactions/{transactionId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create: if isSignedIn() || isAdmin();
+      allow update, delete: if isSuperAdmin();
     }
 
     match /featuredCampaigns/{campaignId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /merchantServiceOrders/{orderId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, create, update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    // Location Directory
+    // Location Directory — public read; admin-controlled activation/writes
     match /locationCountries/{countryId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     match /locationRegions/{regionId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     match /locationCities/{cityId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     match /locationImportRuns/{importId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, create, update, delete: if isAdmin();
     }
 
     match /locationMissingRequests/{requestId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     match /locationRequests/{requestId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     // Platform Settings
     match /platformSettings/{settingId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isSuperAdmin();
     }
 
     // Partner Applications
     match /partnerApplications/{applicationId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, create: if isSignedIn() || isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     match /partner_applications/{applicationId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, create: if isSignedIn() || isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     // City Partners & Allocations
     match /cityPartners/{partnerId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /cityPartnerAllocations/{cityId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     match /partnerSettlements/{settlementId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isSignedIn() || isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /partnerNotifications/{notificationId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read, update: if isSignedIn() || isAdmin();
+      allow create, delete: if isAdmin();
     }
   }
 }
+
