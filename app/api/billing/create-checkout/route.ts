@@ -60,14 +60,13 @@ export async function POST(req: NextRequest) {
 
     if (
       caller.authenticated &&
-      caller.sellerId &&
-      caller.sellerId !== sellerId &&
-      !adminCheck.authorized
+      !adminCheck.authorized &&
+      (!caller.sellerId || caller.sellerId !== sellerId)
     ) {
       return NextResponse.json(
         {
           error:
-            'Forbidden: Authenticated seller session does not match the requested sellerId.',
+            'Forbidden: Authenticated user session is not authorized to manage subscriptions for this seller.',
         },
         { status: 403 }
       );
@@ -170,11 +169,15 @@ export async function POST(req: NextRequest) {
       if (existingRegStore) {
         serverStoresRegistry.set(storeId, {
           ...existingRegStore,
+          status: 'active',
+          isPublished: true,
+          publicationEligible: true,
           subscriptionTier: planId as SubscriptionTierId,
           subscriptionStatus: 'ACTIVE',
           subscriptionExpiry: freeSubscription.currentPeriodEnd,
         } as LocalStore);
       }
+      globalThis.__discoveryCatalogCache = undefined;
 
       if (!IS_PREVIEW_DUMMY_FIREBASE) {
         try {
@@ -187,6 +190,9 @@ export async function POST(req: NextRequest) {
           clientBatch.set(
             doc(db, 'stores', storeId),
             {
+              status: 'active',
+              isPublished: true,
+              publicationEligible: true,
               subscriptionTier: planId,
               subscriptionStatus: 'ACTIVE',
               subscriptionExpiry: freeSubscription.currentPeriodEnd,
@@ -211,9 +217,10 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
+        published: true,
         directActivation: true,
         subscription: freeSubscription,
-        message: `Your store has been switched to ${plan.name}.`,
+        message: `Your store has been switched to ${plan.name} and published in the marketplace.`,
       });
     }
 
@@ -224,120 +231,21 @@ export async function POST(req: NextRequest) {
       keySecret.includes('placeholder') ||
       keyId.includes('your_');
 
-    // Build sandbox preview records when live Razorpay keys are not yet configured
-    const buildSandboxFallback = async () => {
-      const txId = `tx_sub_sandbox_${Date.now()}`;
-      const sandboxSubscription: MerchantSubscription = removeUndefined({
-        id: `sub_${storeId}`,
-        sellerId,
-        storeId,
-        planId: planId as SubscriptionTierId,
-        billingCycle: billingCycle as BillingCycle,
-        status: 'ACTIVE',
-        currency: currency as 'INR' | 'USD',
-        currentPrice: totalAmount,
-        currentPeriodStart: now.toISOString(),
-        currentPeriodEnd: periodEnd.toISOString(),
-        cancelAtPeriodEnd: false,
-        paymentMethodSnippet: 'Sandbox Preview (No Live Charge)',
-        lastPaymentDate: now.toISOString(),
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      });
-
-      const sandboxTransaction: BillingTransaction = removeUndefined({
-        id: txId,
-        sellerId,
-        storeId,
-        type: 'SUBSCRIPTION',
-        description: `[Sandbox Preview — No Live Charge] Citykart ${plan.name} (${billingCycle}) Plan Subscription`,
-        amount: Math.round((basePrice + outstandingFees) * 100) / 100,
-        taxAmount,
-        totalAmount,
-        currency: currency as 'INR' | 'USD',
-        status: 'SUCCESS',
-        paymentGateway: 'RAZORPAY',
-        gatewayTransactionId: `sandbox_${Date.now().toString(36)}`,
-        invoiceNumber,
-        createdAt: now.toISOString(),
-      });
-
-      serverSubscriptionsRegistry.set(storeId, sandboxSubscription);
-      serverBillingTransactionsRegistry.set(txId, sandboxTransaction);
-      const existingRegStore = serverStoresRegistry.get(storeId) || targetStore;
-      if (existingRegStore) {
-        serverStoresRegistry.set(storeId, {
-          ...existingRegStore,
-          subscriptionTier: planId as SubscriptionTierId,
-          subscriptionStatus: 'ACTIVE',
-          subscriptionExpiry: sandboxSubscription.currentPeriodEnd,
-        } as LocalStore);
-      }
-
-      if (!IS_PREVIEW_DUMMY_FIREBASE) {
-        try {
-          const clientBatch = writeBatch(db);
-          clientBatch.set(doc(db, 'billingTransactions', txId), sandboxTransaction);
-          clientBatch.set(
-            doc(db, 'merchantSubscriptions', sandboxSubscription.id),
-            sandboxSubscription,
-            { merge: true }
-          );
-          clientBatch.set(
-            doc(db, 'stores', storeId),
-            {
-              subscriptionTier: planId,
-              subscriptionStatus: 'ACTIVE',
-              subscriptionExpiry: sandboxSubscription.currentPeriodEnd,
-            },
-            { merge: true }
-          );
-          await clientBatch.commit();
-        } catch {
-          // Ignore Firestore error when using server registry
-        }
-      }
-
-      await notifySellerBillingEvent({
-        sellerId,
-        storeId,
-        storeName: targetStore?.name,
-        event: 'SUBSCRIPTION_ACTIVATED',
-        planOrServiceName: plan.name,
-        amountInr: totalAmount,
-        invoiceNumber,
-      }).catch((err) => console.warn('[create-checkout] Notification warning:', err));
-
-      return { sandboxSubscription, sandboxTransaction };
-    };
-
-    // If credentials are missing or placeholders, return 'needsConfig' along with sandbox preview records
+    // Reject fake sandbox activation for paid plans: require live gateway credentials
     if (isPlaceholderCreds) {
-      const { sandboxSubscription, sandboxTransaction } = await buildSandboxFallback();
-      return NextResponse.json({
-        success: true,
-        needsConfig: true,
-        sandboxSubscription,
-        sandboxTransaction,
-        message:
-          'Razorpay credentials are not yet configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.',
-        checkoutSession: {
-          invoiceNumber,
-          sellerId,
-          storeId,
-          planId,
-          planName: plan.name,
-          billingCycle,
-          currency,
-          totalAmount,
-          taxAmount,
-          basePrice,
-          outstandingFees,
+      return NextResponse.json(
+        {
+          success: false,
+          needsConfig: true,
+          error:
+            'Razorpay payment gateway credentials (RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET) are not configured. Live payments require valid Razorpay API keys.',
+          hint: 'Please configure live Razorpay credentials to accept card/UPI payments. Sellers can choose the Free Plan to publish immediately without a credit card.',
         },
-      });
+        { status: 501 }
+      );
     }
 
-    // Create Razorpay Order
+    // Create Real Razorpay Order
     let razorpayOrder: {
       id: string;
       amount: number | string;
@@ -362,28 +270,15 @@ export async function POST(req: NextRequest) {
     } catch (rzpErr: unknown) {
       const statusCode = (rzpErr as { statusCode?: number })?.statusCode;
       if (statusCode === 401) {
-        const { sandboxSubscription, sandboxTransaction } = await buildSandboxFallback();
-        return NextResponse.json({
-          success: true,
-          needsConfig: true,
-          sandboxSubscription,
-          sandboxTransaction,
-          message:
-            'Razorpay API credentials could not be authenticated (HTTP 401). Please verify RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment configuration.',
-          checkoutSession: {
-            invoiceNumber,
-            sellerId,
-            storeId,
-            planId,
-            planName: plan.name,
-            billingCycle,
-            currency,
-            totalAmount,
-            taxAmount,
-            basePrice,
-            outstandingFees,
+        return NextResponse.json(
+          {
+            success: false,
+            needsConfig: true,
+            error:
+              'Razorpay API credentials could not be authenticated (HTTP 401). Please check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.',
           },
-        });
+          { status: 501 }
+        );
       }
       throw rzpErr;
     }
@@ -391,6 +286,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       checkoutSession: {
+        gatewayOrderId: razorpayOrder.id,
         orderReferenceId: razorpayOrder.id,
         invoiceNumber,
         sellerId,

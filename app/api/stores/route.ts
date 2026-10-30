@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     };
 
     await upsertServerStore(enrichedStore, seller);
+    globalThis.__discoveryCatalogCache = undefined;
 
     if (isNewStore) {
       await notifyStoreOnboardingOrModeration({

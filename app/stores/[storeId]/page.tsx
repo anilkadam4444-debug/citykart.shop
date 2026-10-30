@@ -9,6 +9,7 @@ import {
   formatCurrency,
   INITIAL_PRODUCTS,
   INITIAL_STORES,
+  isStorePublishedAndActive,
 } from '@/lib/catalog-data';
 import { CategoryIcon } from '@/components/category-icon';
 import { ProductStudioArtwork } from '@/components/product-studio-artwork';
@@ -45,7 +46,7 @@ export async function generateMetadata({
   const store =
     serverStoresRegistry.get(storeId) ||
     INITIAL_STORES.find((s) => s.id === storeId);
-  if (!store || store.isSuspended || !store.isActive) return {};
+  if (!store || !isStorePublishedAndActive(store)) return {};
 
   const title = `${store.name} in ${store.cityName}, ${store.stateRegion || store.country} | Citykart`;
   const description = `${store.name} - ${store.specialty}. Located in ${store.neighborhood}, ${store.cityName}. Operating hours: ${store.operatingHours}. Direct local ordering on Citykart.`;
@@ -84,8 +85,7 @@ export default async function StorePage({ params }: StorePageProps) {
 
   if (
     !store ||
-    store.isSuspended ||
-    !store.isActive ||
+    !isStorePublishedAndActive(store) ||
     storeOverride?.isSuspended ||
     storeOverride?.isActive === false
   ) {

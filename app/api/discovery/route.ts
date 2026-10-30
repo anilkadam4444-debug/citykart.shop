@@ -4,6 +4,7 @@ import {
   CustomerShoppingLocation,
   INITIAL_PRODUCTS,
   INITIAL_STORES,
+  isStorePublishedAndActive,
   LocalStore,
   normalizeCityId,
   Product,
@@ -183,8 +184,7 @@ export async function GET(req: NextRequest) {
 
   const eligibleStores = Array.from(storesMap.values()).filter(
     (s) =>
-      !s.isSuspended &&
-      s.isActive !== false &&
+      isStorePublishedAndActive(s) &&
       (!s.categoryId || !disabledCategoryIds.has(s.categoryId)) &&
       (!s.category || !disabledCategoryNames.has(s.category))
   );

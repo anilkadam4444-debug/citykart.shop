@@ -252,11 +252,17 @@ export async function POST(req: NextRequest) {
     if (existingRegStore) {
       serverStoresRegistry.set(storeId, {
         ...existingRegStore,
+        status: 'active',
+        isPublished: true,
+        publicationEligible: true,
         subscriptionTier: planId as SubscriptionTierId,
+        subscriptionPlanId: planId as SubscriptionTierId,
         subscriptionStatus: 'ACTIVE',
         subscriptionExpiry: subscription.currentPeriodEnd,
+        subscriptionPeriodEnd: subscription.currentPeriodEnd,
       } as LocalStore);
     }
+    globalThis.__discoveryCatalogCache = undefined;
 
     // Resilient Firestore persistence: try adminDb first, fall back to client SDK db
     try {
@@ -272,9 +278,14 @@ export async function POST(req: NextRequest) {
       batch.set(
         storeRef,
         {
+          status: 'active',
+          isPublished: true,
+          publicationEligible: true,
           subscriptionTier: planId,
+          subscriptionPlanId: planId,
           subscriptionStatus: 'ACTIVE',
           subscriptionExpiry: subscription.currentPeriodEnd,
+          subscriptionPeriodEnd: subscription.currentPeriodEnd,
         },
         { merge: true }
       );
@@ -297,9 +308,14 @@ export async function POST(req: NextRequest) {
           clientBatch.set(
             doc(db, 'stores', storeId),
             {
+              status: 'active',
+              isPublished: true,
+              publicationEligible: true,
               subscriptionTier: planId,
+              subscriptionPlanId: planId,
               subscriptionStatus: 'ACTIVE',
               subscriptionExpiry: subscription.currentPeriodEnd,
+              subscriptionPeriodEnd: subscription.currentPeriodEnd,
             },
             { merge: true }
           );

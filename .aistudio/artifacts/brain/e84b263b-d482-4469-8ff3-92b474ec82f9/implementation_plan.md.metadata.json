@@ -1,6 +1,6 @@
 {
-  "summary":  "Configured real Firebase credentials, implemented resilient dual-track OTP dispatch & verification, improved city selection visibility with direct Country/State/City selectors, and completely removed village selection across the entire app.",
-  "updatedAt":  "2026-10-29T12:10:44.969087442Z",
+  "summary":  "Comprehensive report on mandatory seller subscription selection as the final onboarding step, real Razorpay live checkout enforcement, strict marketplace publication gates across discovery and orders, lockfile sync for Firebase App Hosting, and 100% passing E2E verification test suite.",
+  "updatedAt":  "2026-10-30T16:53:52.335139166Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

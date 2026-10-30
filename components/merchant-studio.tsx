@@ -47,6 +47,7 @@ import {
   getCategoryByIdOrName,
   GlobalCityRecord,
   isStoreLocationComplete,
+  isStorePublishedAndActive,
   LocalityClassification,
   LocalStore,
   LocationDataSource,
@@ -57,6 +58,7 @@ import {
   SellerProfile,
   StoreCategoryId,
   StoreCategoryName,
+  StorePublicationStatus,
   UserAccount,
 } from '@/lib/catalog-data';
 import {
@@ -73,7 +75,18 @@ import {
   validateSellerLocationEligibility,
   isVillageOrTalukaPlace,
 } from '@/lib/location-service';
-import {checkProductQuota} from '@/lib/entitlements';
+import {
+  checkProductQuota,
+  getDefaultFreeSubscription,
+  saveMerchantSubscriptionToStorage,
+} from '@/lib/entitlements';
+import {
+  MerchantSubscription,
+  SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
+  SubscriptionTierId,
+} from '@/lib/revenue-model';
+import { buildAuthenticatedHeaders } from '@/lib/firebase';
 import {UpiQrCodeCard} from './upi-qr-code-card';
 import {NotificationBell} from './notification-bell';
 
@@ -688,9 +701,52 @@ export function MerchantStudio({
     }
   };
 
-  // Guided 6-Step Seller Onboarding Wizard State (Mobile OTP Only — No Email/Password)
+  // Guided 7-Step Seller Onboarding Wizard State (Mobile OTP -> Store Details -> Mandatory Subscription)
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [selectedOnboardingPlanTier, setSelectedOnboardingPlanTier] =
+    useState<SubscriptionTierId>('GROWTH');
+  const [isOnboardingAnnualBilling, setIsOnboardingAnnualBilling] =
+    useState<boolean>(false);
+  const [isActivatingOnboardingPlan, setIsActivatingOnboardingPlan] =
+    useState<string | null>(null);
+  const [onboardingPlanNotice, setOnboardingPlanNotice] = useState<{
+    text: string;
+    type: 'success' | 'error' | 'warning';
+  } | null>(null);
+
+  const ensureRazorpaySdkLoaded = async (): Promise<boolean> => {
+    if (typeof window === 'undefined') return false;
+    if ((window as any).Razorpay) return true;
+
+    return new Promise((resolve) => {
+      const existingScript = document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      ) as HTMLScriptElement | null;
+
+      if (existingScript) {
+        const checkInterval = setInterval(() => {
+          if ((window as any).Razorpay) {
+            clearInterval(checkInterval);
+            resolve(true);
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          resolve(Boolean((window as any).Razorpay));
+        }, 5000);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(Boolean((window as any).Razorpay));
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const [newOwnerName, setNewOwnerName] = useState(
     authenticatedUser?.fullName || ''
   );
@@ -1213,12 +1269,28 @@ export function MerchantStudio({
         );
         return;
       }
+    } else if (onboardingStep === 6) {
+      // Step 6 review complete -> proceed to Step 7 (Subscription Selection)
+      setOnboardingStep(7);
+      return;
     }
-    setOnboardingStep((s) => Math.min(6, s + 1));
+    setOnboardingStep((s) => Math.min(7, s + 1));
   };
 
-  const handleFinishStoreOnboarding = async (goToAddProduct: boolean) => {
+  const handleFinishStoreOnboarding = async (opts?: {
+    planTier?: SubscriptionTierId;
+    isAnnual?: boolean;
+    skipSubscription?: boolean;
+    goToAddProduct?: boolean;
+  }) => {
+    const planTier = opts?.planTier || selectedOnboardingPlanTier || 'GROWTH';
+    const isAnnual = opts?.isAnnual ?? isOnboardingAnnualBilling;
+    const skipSubscription = opts?.skipSubscription ?? false;
+    const goToAddProduct = opts?.goToAddProduct ?? false;
+
     setIsSubmittingOnboarding(true);
+    setOnboardingPlanNotice(null);
+
     try {
       const catDef = getCategoryByIdOrName(storeCategoryId);
       const newSellerId = authenticatedUser?.sellerId || `seller-${Date.now()}`;
@@ -1260,6 +1332,16 @@ export function MerchantStudio({
 
       const isManualEntry = storeLocationSource === 'USER_PROVIDED';
 
+      // Commercial Publication Gate:
+      // If skipSubscription or pending paid plan payment: store is 'pending_subscription' and unpublished.
+      // If planTier === 'FREE': store is activated and published immediately.
+      const isFreePlan = !skipSubscription && planTier === 'FREE';
+
+      const initialStatus: StorePublicationStatus = isFreePlan
+        ? 'active'
+        : 'pending_subscription';
+      const initialIsPublished = isFreePlan;
+
       const newStore: LocalStore = {
         id: newStoreId,
         sellerId: newSellerId,
@@ -1297,6 +1379,11 @@ export function MerchantStudio({
         upiHandle: storeUpi.trim() || 'Pay on delivery',
         activeSkus: 0,
         isActive: true,
+        status: initialStatus,
+        isPublished: initialIsPublished,
+        publicationEligible: initialIsPublished,
+        subscriptionStatus: isFreePlan ? 'ACTIVE' : 'PENDING',
+        subscriptionTier: isFreePlan ? 'FREE' : undefined,
         serviceArea: {
           scopeType: storeScopeType,
           coveredLocalities:
@@ -1316,41 +1403,172 @@ export function MerchantStudio({
 
       await onAddSellerAndStore(newSeller, newStore);
       setActiveSellerId(newSeller.id);
-      setSettingsName(newStore.name);
-      setSettingsSpecialty(newStore.specialty);
-      setSettingsCategoryId(newStore.categoryId);
-      setSettingsCountry(newStore.country);
-      setSettingsCountryCode(newStore.countryCode || '');
-      setSettingsStateRegion(newStore.stateRegion);
-      setSettingsDistrict(newStore.district || '');
-      setSettingsLocalityType(newStore.localityType || 'CITY');
-      setSettingsCityName(newStore.cityName);
-      setSettingsNeighborhood(newStore.neighborhood);
-      setSettingsPostalCode(newStore.postalCode || '');
-      setSettingsAddress(newStore.address);
-      setSettingsLat(
-        newStore.coordinates ? String(newStore.coordinates.lat) : ''
-      );
-      setSettingsLng(
-        newStore.coordinates ? String(newStore.coordinates.lng) : ''
-      );
-      setSettingsLocationSource(newStore.locationSource || 'USER_PROVIDED');
-      setSettingsVerificationStatus(
-        newStore.verificationStatus || 'USER_PROVIDED_UNVERIFIED'
-      );
-      setSettingsOperatingHours(newStore.operatingHours);
-      setSettingsLocalitiesRaw(newStore.serviceArea.coveredLocalities.join(', '));
-      updateDraftField('storeId', newStore.id);
-      updateDraftField('categoryId', newStore.categoryId);
+      syncSellerStoreSettings(newSeller.id);
 
-      setPublishBanner(
-        `Welcome! "${newStore.name}" is now open in ${newStore.cityName}, ${newStore.country}.`
-      );
-      setOnboardingStep(1);
-      if (onOnboardingComplete) {
-        onOnboardingComplete(newStore, goToAddProduct);
-      } else {
-        setActiveSection(goToAddProduct ? 'add-product' : 'home');
+      // CASE 1: Seller skipped subscription for now
+      if (skipSubscription) {
+        setPublishBanner(
+          `Store details saved. "${newStore.name}" is pending subscription activation and is NOT published in the public marketplace yet.`
+        );
+        setOnboardingStep(1);
+        setActiveSection('home');
+        return;
+      }
+
+      // CASE 2: Free Tier selected (direct activation & publication)
+      if (isFreePlan) {
+        setIsActivatingOnboardingPlan('FREE');
+        try {
+          const authHeaders = await buildAuthenticatedHeaders(true);
+          const checkoutRes = await fetch('/api/billing/create-checkout', {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify({
+              sellerId: newSeller.id,
+              storeId: newStore.id,
+              planId: 'FREE',
+              billingCycle: 'MONTHLY',
+              currency: 'INR',
+              prefillName: newSeller.businessOwnerName,
+              prefillPhone: newSeller.phoneE164,
+            }),
+          });
+          const checkoutData = await checkoutRes.json();
+          if (checkoutData?.subscription) {
+            saveMerchantSubscriptionToStorage(checkoutData.subscription);
+          }
+        } catch {
+          saveMerchantSubscriptionToStorage(getDefaultFreeSubscription(newStore.id, newSeller.id));
+        } finally {
+          setIsActivatingOnboardingPlan(null);
+        }
+
+        setPublishBanner(
+          `Congratulations! "${newStore.name}" is now active and published in ${newStore.cityName} on the Free Plan!`
+        );
+        setOnboardingStep(1);
+        if (onOnboardingComplete) {
+          onOnboardingComplete(newStore, goToAddProduct);
+        } else {
+          setActiveSection(goToAddProduct ? 'add-product' : 'home');
+        }
+        return;
+      }
+
+      // CASE 3: Paid Plan selected (Starter, Growth, Business Pro, Enterprise)
+      setIsActivatingOnboardingPlan(planTier);
+      try {
+        const authHeaders = await buildAuthenticatedHeaders(true);
+        const checkoutRes = await fetch('/api/billing/create-checkout', {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({
+            sellerId: newSeller.id,
+            storeId: newStore.id,
+            planId: planTier,
+            billingCycle: isAnnual ? 'ANNUAL' : 'MONTHLY',
+            currency: 'INR',
+            prefillName: newSeller.businessOwnerName,
+            prefillPhone: newSeller.phoneE164,
+          }),
+        });
+        const checkoutData = await checkoutRes.json();
+
+        if (checkoutData.needsConfig || !checkoutRes.ok) {
+          setOnboardingPlanNotice({
+            type: 'warning',
+            text:
+              checkoutData.error ||
+              'Razorpay payment gateway credentials (RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET) must be configured in environment variables to collect live payments. Your store has been saved in pending subscription status.',
+          });
+          setPublishBanner(
+            `Store details saved. "${newStore.name}" remains unpublished in pending subscription status until payment is verified.`
+          );
+          return;
+        }
+
+        const { checkoutSession } = checkoutData;
+        const sdkReady = await ensureRazorpaySdkLoaded();
+        if (!sdkReady || !(window as any).Razorpay) {
+          setOnboardingPlanNotice({
+            type: 'error',
+            text: 'Razorpay Checkout SDK failed to load. Please verify your connection or activate the Free Plan.',
+          });
+          return;
+        }
+
+        const rzp = new (window as any).Razorpay({
+          ...checkoutSession.gatewayOptions,
+          handler: async (response: any) => {
+            try {
+              const verifyHeaders = await buildAuthenticatedHeaders(true);
+              const verifyRes = await fetch('/api/billing/verify-payment', {
+                method: 'POST',
+                headers: verifyHeaders,
+                body: JSON.stringify({
+                  sellerId: newSeller.id,
+                  storeId: newStore.id,
+                  planId: planTier,
+                  billingCycle: isAnnual ? 'ANNUAL' : 'MONTHLY',
+                  currency: 'INR',
+                  paymentGateway: 'RAZORPAY',
+                  gatewayPaymentId: response.razorpay_payment_id,
+                  gatewayOrderId: response.razorpay_order_id,
+                  gatewaySignature: response.razorpay_signature,
+                  invoiceNumber: checkoutSession.invoiceNumber,
+                  totalAmount: checkoutSession.totalAmount,
+                  taxAmount: checkoutSession.taxAmount,
+                  basePrice: checkoutSession.basePrice,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                if (verifyData.subscription) {
+                  saveMerchantSubscriptionToStorage(verifyData.subscription);
+                }
+                const publishedStore: LocalStore = {
+                  ...newStore,
+                  status: 'active',
+                  isPublished: true,
+                  publicationEligible: true,
+                  subscriptionTier: planTier,
+                  subscriptionPlanId: planTier,
+                  subscriptionStatus: 'ACTIVE',
+                  subscriptionExpiry: verifyData.subscription?.currentPeriodEnd,
+                };
+                onUpdateStoreSettings(publishedStore);
+                setPublishBanner(
+                  `Payment verified! "${newStore.name}" is now published on the ${SUBSCRIPTION_PLANS[planTier]?.name || planTier} Plan!`
+                );
+                setOnboardingStep(1);
+                if (onOnboardingComplete) {
+                  onOnboardingComplete(publishedStore, goToAddProduct);
+                } else {
+                  setActiveSection(goToAddProduct ? 'add-product' : 'home');
+                }
+              } else {
+                setOnboardingPlanNotice({
+                  type: 'error',
+                  text: verifyData.error || 'Payment signature verification failed.',
+                });
+              }
+            } catch (err: any) {
+              setOnboardingPlanNotice({
+                type: 'error',
+                text: err.message || 'Payment verification failed.',
+              });
+            }
+          },
+        });
+
+        rzp.open();
+      } catch (err: any) {
+        setOnboardingPlanNotice({
+          type: 'error',
+          text: err.message || 'Failed to initiate checkout session.',
+        });
+      } finally {
+        setIsActivatingOnboardingPlan(null);
       }
     } finally {
       setIsSubmittingOnboarding(false);
@@ -1495,6 +1713,35 @@ export function MerchantStudio({
                 Verify mobile number with OTP
               </button>
             )}
+          </div>
+        )}
+
+      {/* Mandatory Subscription & Store Publication Gate Alert */}
+      {mode === 'DASHBOARD' &&
+        primarySellerStore &&
+        !isStorePublishedAndActive(primarySellerStore) && (
+          <div className="px-6 py-3.5 bg-amber-500/10 border-b border-amber-300 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+              <div>
+                <strong>Store Not Visible in Marketplace:</strong>{' '}
+                <span>
+                  {primarySellerStore.subscriptionStatus !== 'ACTIVE'
+                    ? 'Activate your CityKart Business Plan to publish your store and start reaching local customers.'
+                    : primarySellerStore.status === 'suspended'
+                      ? 'This store is currently suspended. Please contact support.'
+                      : 'Complete your store location and subscription details to publish your store.'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSection('billing')}
+              className="px-3.5 py-1.5 rounded-lg bg-amber-800 hover:bg-amber-900 text-white font-semibold cursor-pointer shrink-0 inline-flex items-center gap-1.5 shadow-2xs"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Activate Plan &amp; Publish Store</span>
+            </button>
           </div>
         )}
 
@@ -3797,20 +4044,20 @@ export function MerchantStudio({
             </div>
           )}
 
-          {/* SECTION 6: GUIDED STEP-BY-STEP "OPEN YOUR STORE" WIZARD (STEPS 1 TO 6) */}
+          {/* SECTION 6: GUIDED STEP-BY-STEP "OPEN YOUR STORE" WIZARD (STEPS 1 TO 7) */}
           {activeSection === 'onboarding' && (
             <div className="max-w-xl space-y-6">
               <div>
                 <div className="flex items-center justify-between text-xs text-stone-500 mb-2">
                   <span className="font-semibold text-stone-900">
-                    Open your store — Step {onboardingStep} of 6
+                    Open your store — Step {onboardingStep} of 7
                   </span>
                   <span>Progress saved automatically</span>
                 </div>
                 <div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-stone-900 transition-transform duration-200 origin-left"
-                    style={{transform: `scaleX(${onboardingStep / 6})`}}
+                    style={{transform: `scaleX(${onboardingStep / 7})`}}
                   />
                 </div>
               </div>
@@ -4257,6 +4504,216 @@ export function MerchantStudio({
                 </div>
               )}
 
+              {/* Step 7: Mandatory Subscription Plan Selection & Store Publication */}
+              {onboardingStep === 7 && (
+                <div className="space-y-5">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-100 text-[#003B8E] text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Commercial Activation Step</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">
+                      Step 7: Choose Your CityKart Business Plan
+                    </h3>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Select an official subscription plan to activate your store and make your products discoverable across CityKart. You can upgrade anytime.
+                    </p>
+                  </div>
+
+                  {onboardingPlanNotice && (
+                    <div
+                      className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                        onboardingPlanNotice.type === 'error'
+                          ? 'bg-rose-50 border-rose-200 text-rose-900'
+                          : onboardingPlanNotice.type === 'warning'
+                            ? 'bg-amber-50 border-amber-200 text-amber-900'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      }`}
+                    >
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>{onboardingPlanNotice.text}</div>
+                    </div>
+                  )}
+
+                  {/* Monthly vs Annual Toggle */}
+                  <div className="flex items-center justify-center p-1 bg-slate-100 rounded-xl max-w-xs mx-auto text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setIsOnboardingAnnualBilling(false)}
+                      className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
+                        !isOnboardingAnnualBilling
+                          ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Monthly Billing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsOnboardingAnnualBilling(true)}
+                      className={`flex-1 py-1.5 rounded-lg text-center transition-all flex items-center justify-center gap-1 ${
+                        isOnboardingAnnualBilling
+                          ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Annual Billing</span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-bold">
+                        Save 15%
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Pricing Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {SUBSCRIPTION_PLANS.map((plan) => {
+                      const isSelected = selectedOnboardingPlanTier === plan.tier;
+                      const isFree = plan.tier === 'FREE';
+                      const price = isFree
+                        ? 0
+                        : isOnboardingAnnualBilling
+                          ? plan.annualPrice
+                          : plan.price;
+                      const periodLabel = isFree
+                        ? 'Forever free'
+                        : isOnboardingAnnualBilling
+                          ? '/year'
+                          : '/month';
+
+                      return (
+                        <div
+                          key={plan.tier}
+                          onClick={() => setSelectedOnboardingPlanTier(plan.tier)}
+                          className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-[#003B8E] bg-blue-50/40 shadow-xs ring-1 ring-[#003B8E]/30'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          {plan.isPopular && (
+                            <div className="absolute -top-2.5 right-3 px-2 py-0.5 bg-[#F96302] text-white text-[10px] font-extrabold uppercase rounded-full shadow-2xs">
+                              Most Popular
+                            </div>
+                          )}
+
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-bold text-slate-900 text-sm">{plan.name}</h4>
+                              <div
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                  isSelected
+                                    ? 'border-[#003B8E] bg-[#003B8E] text-white'
+                                    : 'border-slate-300 bg-white'
+                                }`}
+                              >
+                                {isSelected && <Check className="w-2.5 h-2.5" />}
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{plan.description}</p>
+
+                            <div className="mt-3">
+                              <span className="text-xl font-extrabold text-slate-900">
+                                {isFree ? '₹0' : `₹${price.toLocaleString('en-IN')}`}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium ml-1">
+                                {periodLabel}
+                              </span>
+                              {!isFree && (
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  + 18% GST (Official Invoice)
+                                </div>
+                              )}
+                            </div>
+
+                            <ul className="mt-3.5 space-y-1.5 border-t border-slate-100 pt-3 text-[11px] text-slate-700">
+                              <li className="flex items-center gap-1.5">
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>
+                                  <strong>{plan.productLimit === Infinity ? 'Unlimited' : plan.productLimit}</strong> Active Products
+                                </span>
+                              </li>
+                              {plan.features.slice(1, 4).map((f, i) => (
+                                <li key={i} className="flex items-center gap-1.5 text-slate-600">
+                                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span className="truncate">{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Activation Actions */}
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">
+                          Selected:{' '}
+                          <span className="text-[#003B8E]">
+                            {SUBSCRIPTION_PLANS.find((p) => p.tier === selectedOnboardingPlanTier)?.name || 'Free Plan'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {selectedOnboardingPlanTier === 'FREE'
+                            ? 'Instant activation • Store will be published immediately'
+                            : 'Secure payment via Razorpay • Store published upon payment verification'}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isActivatingOnboardingPlan || isSubmittingOnboarding}
+                        onClick={() =>
+                          handleFinishStoreOnboarding({
+                            planTier: selectedOnboardingPlanTier,
+                            isAnnual: isOnboardingAnnualBilling,
+                            goToAddProduct: true,
+                          })
+                        }
+                        className="px-6 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] disabled:bg-slate-400 text-white text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
+                      >
+                        {isActivatingOnboardingPlan || isSubmittingOnboarding ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Processing Activation...</span>
+                          </>
+                        ) : selectedOnboardingPlanTier === 'FREE' ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Activate Free Plan &amp; Publish Store</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            <span>Pay &amp; Activate via Razorpay</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-500 text-[11px]">
+                        Need more time? You can skip this step and activate later from your dashboard.
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isActivatingOnboardingPlan || isSubmittingOnboarding}
+                        onClick={() =>
+                          handleFinishStoreOnboarding({
+                            skipSubscription: true,
+                          })
+                        }
+                        className="text-slate-600 hover:text-slate-900 underline text-[11px] font-semibold cursor-pointer"
+                      >
+                        Skip for now (Store remains unpublished)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Wizard Navigation Buttons */}
               <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
                 {onboardingStep > 1 ? (
@@ -4272,7 +4729,7 @@ export function MerchantStudio({
                   <div />
                 )}
 
-                {onboardingStep < 6 ? (
+                {onboardingStep < 6 && (
                   <button
                     type="button"
                     onClick={handleNextOnboardingStep}
@@ -4281,34 +4738,22 @@ export function MerchantStudio({
                     <span>Save and continue</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      disabled={isSubmittingOnboarding}
-                      onClick={() => handleFinishStoreOnboarding(true)}
-                      className="px-5 py-2.5 rounded-xl bg-[#F96302] hover:bg-[#E05500] disabled:bg-slate-400 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      {isSubmittingOnboarding ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Opening store...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4" />
-                          <span>Open store &amp; add first product</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSubmittingOnboarding}
-                      onClick={() => handleFinishStoreOnboarding(false)}
-                      className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50 text-xs font-bold text-slate-800 cursor-pointer"
-                    >
-                      Finish setup
-                    </button>
+                )}
+
+                {onboardingStep === 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingStep(7)}
+                    className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <span>Proceed to Business Plan Selection</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {onboardingStep === 7 && (
+                  <div className="text-xs text-slate-500 font-medium">
+                    Step 7 of 7 — Final commercial step before marketplace publication
                   </div>
                 )}
               </div>

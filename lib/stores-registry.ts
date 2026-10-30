@@ -4,10 +4,13 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_SELLERS,
   INITIAL_STORES,
+  isStorePublishedAndActive,
   LocalStore,
   Product,
   SellerProfile,
 } from './catalog-data';
+
+export { isStorePublishedAndActive };
 
 export interface DeletedStoreRecord {
   storeId: string;
@@ -70,6 +73,14 @@ export function getAllServerStores(): LocalStore[] {
   );
 }
 
+/**
+ * Returns only stores that have satisfied all publication conditions,
+ * complete location, and an active subscription.
+ */
+export function getServerPublishedStores(): LocalStore[] {
+  return getAllServerStores().filter((s) => isStorePublishedAndActive(s));
+}
+
 export function getAllServerSellers(): SellerProfile[] {
   return Array.from(serverSellersRegistry.values());
 }
@@ -79,6 +90,16 @@ export function getAllServerProducts(): Product[] {
     (p) =>
       !serverDeletedProductsRegistry.has(p.id) &&
       !serverDeletedStoresRegistry.has(p.storeId)
+  );
+}
+
+/**
+ * Returns only products whose parent store is actively published and subscribed.
+ */
+export function getServerPublishedProducts(): Product[] {
+  const publishedStoreIds = new Set(getServerPublishedStores().map((s) => s.id));
+  return getAllServerProducts().filter(
+    (p) => !p.adminUnpublished && p.isAvailable !== false && publishedStoreIds.has(p.storeId)
   );
 }
 

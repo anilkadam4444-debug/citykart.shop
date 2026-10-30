@@ -424,6 +424,17 @@ export interface SellerServiceArea {
   fulfillmentNote: string;
 }
 
+export type StorePublicationStatus =
+  | 'draft'
+  | 'onboarding_incomplete'
+  | 'pending_subscription'
+  | 'payment_pending'
+  | 'pending_approval'
+  | 'active'
+  | 'suspended'
+  | 'expired'
+  | 'rejected';
+
 export interface LocalStore {
   id: string;
   sellerId: string;
@@ -463,6 +474,16 @@ export interface LocalStore {
   upiHandle: string;
   activeSkus: number;
   isActive: boolean;
+  status?: StorePublicationStatus;
+  isPublished?: boolean;
+  publicationEligible?: boolean;
+  publicationBlockedReason?: string;
+  subscriptionId?: string;
+  subscriptionPlanId?: string;
+  subscriptionTier?: string;
+  subscriptionStatus?: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED';
+  subscriptionExpiry?: string;
+  subscriptionPeriodEnd?: string;
   isSuspended?: boolean;
   suspensionReason?: string;
   suspendedAt?: string;
@@ -583,16 +604,56 @@ export function isStoreLocationComplete(store: LocalStore): boolean {
 }
 
 /**
+ * Mandatory Commercial & Operational Publication Gate.
+ * Enforces that a store is discoverable and visible in the public marketplace ONLY if:
+ * 1. Store is active and not suspended or deleted.
+ * 2. Store has complete, verified location data.
+ * 3. Store publication status is 'active' (not draft, pending_subscription, payment_pending, pending_approval, suspended, expired, or rejected).
+ * 4. Required subscription is activated (subscriptionStatus === 'ACTIVE') and not expired.
+ * 5. Explicit publication flag is not false (isPublished !== false).
+ */
+export function isStorePublishedAndActive(
+  store: LocalStore | null | undefined
+): boolean {
+  if (!store || !store.id) return false;
+  if (store.isSuspended) return false;
+  if (store.isActive === false) return false;
+  if (store.isPublished === false) return false;
+
+  // Check publication status model
+  if (store.status) {
+    if (store.status !== 'active') return false;
+  }
+
+  // Check subscription status
+  if (store.subscriptionStatus) {
+    if (store.subscriptionStatus !== 'ACTIVE') return false;
+  }
+
+  // Check subscription expiry timestamp
+  if (store.subscriptionExpiry) {
+    const expiryMs = new Date(store.subscriptionExpiry).getTime();
+    if (!Number.isNaN(expiryMs) && expiryMs < Date.now()) {
+      return false;
+    }
+  }
+
+  // Ensure store has complete location data
+  if (!isStoreLocationComplete(store)) return false;
+
+  return true;
+}
+
+/**
  * Mandatory Business Rule: Strict City-Based Store Eligibility.
- * Returns true ONLY if the store is active, has complete structured location data,
+ * Returns true ONLY if the store is active and published, has complete structured location data,
  * and belongs to (or is explicitly configured to serve) the buyer's selected city.
  */
 export function isStoreEligibleForSelectedCity(
   store: LocalStore,
   customerLocation: CustomerShoppingLocation
 ): boolean {
-  if (!store.isActive || store.isSuspended) return false;
-  if (!isStoreLocationComplete(store)) return false;
+  if (!isStorePublishedAndActive(store)) return false;
 
   if (
     customerLocation.mode !== 'SELECTED_LOCATION' ||
@@ -782,9 +843,9 @@ export function queryCityScopedCatalog(params: {
     !customerLocation.city.trim() ||
     customerLocation.city.toLowerCase() === 'all cities';
 
-  // 1. Identify active stores
+  // 1. Identify active and published stores with valid subscription
   let eligibleStoresInCity = isGlobalMode
-    ? stores.filter((s) => s.isActive !== false && !s.isSuspended && isStoreLocationComplete(s))
+    ? stores.filter((s) => isStorePublishedAndActive(s))
     : stores.filter((store) => {
         if (!isStoreEligibleForSelectedCity(store, customerLocation)) {
           return false;
@@ -795,11 +856,11 @@ export function queryCityScopedCatalog(params: {
         return true;
       });
 
-  // Graceful fallback: If selected city has zero local stores, fall back to all active verified stores
+  // Graceful fallback: If selected city has zero local stores, fall back to all active published stores
   let isFallbackToGlobal = false;
   if (!isGlobalMode && eligibleStoresInCity.length === 0) {
     eligibleStoresInCity = stores.filter(
-      (s) => s.isActive !== false && !s.isSuspended && isStoreLocationComplete(s)
+      (s) => isStorePublishedAndActive(s)
     );
     isFallbackToGlobal = true;
   }

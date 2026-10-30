@@ -87,16 +87,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Validate that the target store serves the delivery city (intra-city delivery only)
+    // 2. Validate that the target store is published, active, and serves the delivery city
     const resolvedStore: LocalStore | undefined =
       (storeData as LocalStore | undefined) ||
       (storeId ? serverStoresRegistry.get(storeId) : undefined) ||
       INITIAL_STORES.find((s) => s.id === storeId);
+
+    if (!resolvedStore || !isStorePublishedAndActive(resolvedStore)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          success: false,
+          error:
+            'Store is not currently active or published in the marketplace. Cannot place order.',
+        },
+        { status: 403 }
+      );
+    }
+
     const effectiveCity =
-      sessionUser?.lockedCity || customerCity || resolvedStore?.cityName || 'Nanded';
+      sessionUser?.lockedCity || customerCity || resolvedStore.cityName || 'Nanded';
 
     if (
-      resolvedStore &&
       effectiveCity &&
       !isStoreEligibleForSelectedCity(resolvedStore, {
         mode: 'SELECTED_LOCATION',

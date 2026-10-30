@@ -1,0 +1,818 @@
+
+starting build "9a75d8b6-19da-4eb0-a932-142f88089ba2" using release legacy
+FETCHSOURCE
+From https://github.com/anilkadam4444-debug/citykart.shop
+ * branch            c38c579ab5234920e139559a7a91387951d8a9fb -> FETCH_HEAD
+HEAD is now at c38c579 feat(auth,location): add OTP rate limiting and restrict city registration
+GitCommit:
+c38c579ab5234920e139559a7a91387951d8a9fb
+BUILD
+Starting Step #0 - "ubuntu"
+Step #0 - "ubuntu": Already have image (with digest): gcr.io/cloud-builders/gcloud
+Finished Step #0 - "ubuntu"
+Starting Step #1 - "preparer"
+Step #1 - "preparer": Pulling image: us-east4-docker.pkg.dev/serverless-runtimes/utilities/preparer:base_20260522_18_04_RC00
+Step #1 - "preparer": base_20260522_18_04_RC00: Pulling from serverless-runtimes/utilities/preparer
+Step #1 - "preparer": 9e26080316c5: Pulling fs layer
+Step #1 - "preparer": 9e26080316c5: Verifying Checksum
+Step #1 - "preparer": 9e26080316c5: Download complete
+Step #1 - "preparer": 9e26080316c5: Pull complete
+Step #1 - "preparer": Digest: sha256:df91c043d1811c1bfc55563e70b21ccb1f5864b0c8713334418a044ced6c3e75
+Step #1 - "preparer": Status: Downloaded newer image for us-east4-docker.pkg.dev/serverless-runtimes/utilities/preparer:base_20260522_18_04_RC00
+Step #1 - "preparer": us-east4-docker.pkg.dev/serverless-runtimes/utilities/preparer:base_20260522_18_04_RC00
+Step #1 - "preparer": 2026/10/30 12:25:16 WARNING: X_FIREBASE_SUPPORTED_HOSTS is a reserved key, removing it from the final environment variables
+Step #1 - "preparer": 2026/10/30 12:25:16 FIREBASE_CONFIG has no availability specified, applying the default of 'BUILD' and 'RUNTIME'
+Step #1 - "preparer": 2026/10/30 12:25:16 Final app hosting schema:
+Step #1 - "preparer": runConfig:
+Step #1 - "preparer":   cpu: 1
+Step #1 - "preparer":   memoryMiB: 1024
+Step #1 - "preparer":   concurrency: 80
+Step #1 - "preparer":   maxInstances: 5
+Step #1 - "preparer":   minInstances: 0
+Step #1 - "preparer":   vpcAccess: null
+Step #1 - "preparer":   cpuAlwaysAllocated: null
+Step #1 - "preparer": env:
+Step #1 - "preparer": - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+Step #1 - "preparer":   value: urbandirectintracity
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - BUILD
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: apphosting.yaml
+Step #1 - "preparer": - variable: FIREBASE_CONFIG
+Step #1 - "preparer":   value: '{"databaseURL":"","projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app"}'
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - BUILD
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": - variable: FIREBASE_WEBAPP_CONFIG
+Step #1 - "preparer":   value: '{"apiKey":"AIzaSyDxbT6rWpl3mrVT5RcwNHVT_T_gecLubkA","appId":"1:397772731387:web:0896d9396c3966a283915e","authDomain":"urbandirectintracity.firebaseapp.com","databaseURL":"","messagingSenderId":"397772731387","projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app"}'
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - BUILD
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": - variable: NG_TRUST_PROXY_HEADERS
+Step #1 - "preparer":   value: X-Forwarded-Host
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": - variable: NG_ALLOWED_HOSTS
+Step #1 - "preparer":   value: citykart-397772731387.us-east4.run.app,citykart--urbandirectintracity.us-east4.hosted.app
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": 
+Step #1 - "preparer": 2026/10/30 12:25:16 Final app hosting schema:
+Step #1 - "preparer": runConfig:
+Step #1 - "preparer":   cpu: 1
+Step #1 - "preparer":   memoryMiB: 1024
+Step #1 - "preparer":   concurrency: 80
+Step #1 - "preparer":   maxInstances: 5
+Step #1 - "preparer":   minInstances: 0
+Step #1 - "preparer":   vpcAccess: null
+Step #1 - "preparer":   cpuAlwaysAllocated: null
+Step #1 - "preparer": env:
+Step #1 - "preparer": - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+Step #1 - "preparer":   value: urbandirectintracity
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - BUILD
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: apphosting.yaml
+Step #1 - "preparer": - variable: FIREBASE_CONFIG
+Step #1 - "preparer":   value: '{"databaseURL":"","projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app"}'
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - BUILD
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": - variable: FIREBASE_WEBAPP_CONFIG
+Step #1 - "preparer":   value: '{"apiKey":"AIzaSyDxbT6rWpl3mrVT5RcwNHVT_T_gecLubkA","appId":"1:397772731387:web:0896d9396c3966a283915e","authDomain":"urbandirectintracity.firebaseapp.com","databaseURL":"","messagingSenderId":"397772731387","projectId":"urbandirectintracity","storageBucket":"urbandirectintracity.firebasestorage.app"}'
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - BUILD
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": - variable: NG_TRUST_PROXY_HEADERS
+Step #1 - "preparer":   value: X-Forwarded-Host
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": - variable: NG_ALLOWED_HOSTS
+Step #1 - "preparer":   value: citykart-397772731387.us-east4.run.app,citykart--urbandirectintracity.us-east4.hosted.app
+Step #1 - "preparer":   availability:
+Step #1 - "preparer":   - RUNTIME
+Step #1 - "preparer":   source: Firebase System
+Step #1 - "preparer": 
+Finished Step #1 - "preparer"
+Starting Step #2 - "pre-buildpack"
+Step #2 - "pre-buildpack": Already have image: us-east4-docker.pkg.dev/serverless-runtimes/google-24-full/builder/nodejs:nodejs_20261022_RC00
+Step #2 - "pre-buildpack": Preparing directory /layers
+Step #2 - "pre-buildpack": Preparing directory /workspace
+Step #2 - "pre-buildpack": Preparing directory /builder/home
+Step #2 - "pre-buildpack": Preparing directory /builder/outputs
+Step #2 - "pre-buildpack": Preparing directory /platform/env
+Step #2 - "pre-buildpack": Passing build environment variable X_GOOGLE_TARGET_PLATFORM to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable APPHOSTINGYAML_FILEPATH to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable FIREBASE_OUTPUT_BUNDLE_DIR to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable FIREBASE_APP_HOSTING to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable GOOGLE_RUNTIME to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable GOOGLE_RUNTIME_VERSION to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable X_GOOGLE_SKIP_RUNTIME_LAUNCH to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable NEXTJS_ADAPTER_VERSION to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable ANGULAR_ADAPTER_VERSION to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable GOOGLE_BUILDABLE to buildpacks
+Step #2 - "pre-buildpack": Passing build environment variable BUILDER_OUTPUT to buildpacks
+Finished Step #2 - "pre-buildpack"
+Starting Step #3 - "build"
+Step #3 - "build": Already have image: us-east4-docker.pkg.dev/serverless-runtimes/google-24-full/builder/nodejs:nodejs_20261022_RC00
+Step #3 - "build": Warning: No cached data will be used, no cache specified.
+Step #3 - "build": ===> ANALYZING
+Step #3 - "build": Image with name "us-east4-docker.pkg.dev/urbandirectintracity/firebaseapphosting-images/citykart:build-2026-10-30-004" not found
+Step #3 - "build": ===> DETECTING
+Step #3 - "build": target distro name/version labels not found, reading /etc/os-release file
+Step #3 - "build": 4 of 6 buildpacks participating
+Step #3 - "build": google.nodejs.runtime        1.0.0
+Step #3 - "build": google.nodejs.firebasenextjs 0.0.1
+Step #3 - "build": google.nodejs.npm            1.1.1
+Step #3 - "build": google.nodejs.firebasebundle 0.0.1
+Step #3 - "build": ===> RESTORING
+Step #3 - "build": ===> BUILDING
+Step #3 - "build": target distro name/version labels not found, reading /etc/os-release file
+Step #3 - "build": === Node.js - Runtime Using Runner (google.nodejs.runtime@1.0.0) ===
+Step #3 - "build": Using runtime version from GOOGLE_RUNTIME_VERSION: 24.22.1
+Step #3 - "build": Using exact version 24.22.1 for Node.js
+Step #3 - "build": Adding image label google.runtime-version: nodejs24
+Step #3 - "build": Using exact version 24.22.1 for Node.js
+Step #3 - "build": ***** CACHE MISS: "nodejs"
+Step #3 - "build": Installing Node.js v24.22.1.
+Step #3 - "build": 2026/10/30 12:25:19 [DEBUG] GET https://dl.google.com/runtimes/ubuntu2404/nodejs/nodejs-24.22.1.tar.gz
+Step #3 - "build": Installing the heapsize.sh exec.d script.
+Step #3 - "build": === Node.js - Firebasenextjs Using Runner (google.nodejs.firebasenextjs@0.0.1) ===
+Step #3 - "build": Using NEXTJS_ADAPTER_VERSION: "14.0.21"
+Step #3 - "build": ***** CACHE MISS: "npm_modules"
+Step #3 - "build": Installing nextjs adaptor 14.0.21
+Step #3 - "build": === Node.js - Npm Using Runner (google.nodejs.npm@1.1.1) ===
+Step #3 - "build": ***** CACHE MISS: "npm_modules"
+Step #3 - "build": Installing application dependencies.
+Step #3 - "build": --------------------------------------------------------------------------------
+Step #3 - "build": Running "npm ci --quiet --no-fund --no-audit (NODE_ENV=development)"
+Step #3 - "build": npm error code EUSAGE
+Step #3 - "build": npm error
+Step #3 - "build": npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+Step #3 - "build": npm error
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/firestore@9.4.0 does not satisfy @google-cloud/firestore@7.11.6
+Step #3 - "build": npm error Invalid: lock file's firebase@13.1.0 does not satisfy firebase@11.10.0
+Step #3 - "build": npm error Invalid: lock file's firebase-admin@14.5.0 does not satisfy firebase-admin@13.10.0
+Step #3 - "build": npm error Invalid: lock file's google-gax@6.13.0 does not satisfy google-gax@4.6.1
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-android-arm64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-darwin-arm64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-darwin-x64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-freebsd-x64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-arm-gnueabihf@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-arm64-gnu@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-arm64-musl@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-x64-musl@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-wasm32-wasi@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-win32-arm64-msvc@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-win32-x64-msvc@4.3.3 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/ai@3.0.0 does not satisfy @firebase/ai@1.4.1
+Step #3 - "build": npm error Invalid: lock file's @firebase/analytics@0.10.25 does not satisfy @firebase/analytics@0.10.17
+Step #3 - "build": npm error Invalid: lock file's @firebase/analytics-compat@0.2.31 does not satisfy @firebase/analytics-compat@0.2.23
+Step #3 - "build": npm error Invalid: lock file's @firebase/app@0.16.4 does not satisfy @firebase/app@0.13.2
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-check@0.13.1 does not satisfy @firebase/app-check@0.10.1
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-check-compat@0.4.7 does not satisfy @firebase/app-check-compat@0.3.26
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-compat@0.5.20 does not satisfy @firebase/app-compat@0.4.2
+Step #3 - "build": npm error Missing: @firebase/app-types@0.9.3 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/auth@1.13.8 does not satisfy @firebase/auth@1.10.8
+Step #3 - "build": npm error Invalid: lock file's @firebase/auth-compat@0.6.13 does not satisfy @firebase/auth-compat@0.5.28
+Step #3 - "build": npm error Invalid: lock file's @firebase/data-connect@0.7.4 does not satisfy @firebase/data-connect@0.3.10
+Step #3 - "build": npm error Missing: @firebase/database@1.0.20 from lock file
+Step #3 - "build": npm error Missing: @firebase/database-compat@2.0.11 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/firestore@4.19.0 does not satisfy @firebase/firestore@4.8.0
+Step #3 - "build": npm error Invalid: lock file's @firebase/firestore-compat@0.4.16 does not satisfy @firebase/firestore-compat@0.3.53
+Step #3 - "build": npm error Invalid: lock file's @firebase/functions@0.14.0 does not satisfy @firebase/functions@0.12.9
+Step #3 - "build": npm error Invalid: lock file's @firebase/functions-compat@0.5.0 does not satisfy @firebase/functions-compat@0.3.26
+Step #3 - "build": npm error Invalid: lock file's @firebase/installations@0.6.24 does not satisfy @firebase/installations@0.6.18
+Step #3 - "build": npm error Invalid: lock file's @firebase/installations-compat@0.2.24 does not satisfy @firebase/installations-compat@0.2.18
+Step #3 - "build": npm error Invalid: lock file's @firebase/messaging@0.13.3 does not satisfy @firebase/messaging@0.12.22
+Step #3 - "build": npm error Invalid: lock file's @firebase/messaging-compat@0.2.30 does not satisfy @firebase/messaging-compat@0.2.22
+Step #3 - "build": npm error Invalid: lock file's @firebase/performance@0.7.14 does not satisfy @firebase/performance@0.7.7
+Step #3 - "build": npm error Invalid: lock file's @firebase/performance-compat@0.2.27 does not satisfy @firebase/performance-compat@0.2.20
+Step #3 - "build": npm error Invalid: lock file's @firebase/remote-config@0.9.3 does not satisfy @firebase/remote-config@0.6.5
+Step #3 - "build": npm error Invalid: lock file's @firebase/remote-config-compat@0.2.30 does not satisfy @firebase/remote-config-compat@0.2.18
+Step #3 - "build": npm error Invalid: lock file's @firebase/storage@0.14.6 does not satisfy @firebase/storage@0.13.14
+Step #3 - "build": npm error Invalid: lock file's @firebase/storage-compat@0.4.6 does not satisfy @firebase/storage-compat@0.3.24
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/app-check-interop-types@0.3.3 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/analytics-types@0.8.5 does not satisfy @firebase/analytics-types@0.8.3
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-check-types@0.5.5 does not satisfy @firebase/app-check-types@0.5.3
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/auth-types@0.13.2 does not satisfy @firebase/auth-types@0.13.0
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/auth-interop-types@0.2.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/webchannel-wrapper@1.0.7 does not satisfy @firebase/webchannel-wrapper@1.0.3
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/firestore-types@3.0.5 does not satisfy @firebase/firestore-types@3.0.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/app-check-interop-types@0.3.3 from lock file
+Step #3 - "build": npm error Missing: @firebase/auth-interop-types@0.2.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/messaging-interop-types@0.2.6 does not satisfy @firebase/messaging-interop-types@0.2.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/functions-types@0.6.5 does not satisfy @firebase/functions-types@0.6.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/installations-types@0.5.5 does not satisfy @firebase/installations-types@0.5.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/performance-types@0.2.5 does not satisfy @firebase/performance-types@0.2.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/remote-config-types@0.5.2 does not satisfy @firebase/remote-config-types@0.4.0
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/storage-types@0.8.5 does not satisfy @firebase/storage-types@0.8.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/storage@8.4.0 does not satisfy @google-cloud/storage@7.22.0
+Step #3 - "build": npm error Missing: farmhash-modern@1.1.0 from lock file
+Step #3 - "build": npm error Invalid: lock file's google-auth-library@11.3.1 does not satisfy google-auth-library@10.9.1
+Step #3 - "build": npm error Invalid: lock file's jwks-rsa@4.1.0 does not satisfy jwks-rsa@3.2.2
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/paginator@7.2.0 does not satisfy @google-cloud/paginator@5.0.2
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/projectify@6.2.1 does not satisfy @google-cloud/projectify@4.0.0
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/promisify@6.2.1 does not satisfy @google-cloud/promisify@4.0.0
+Step #3 - "build": npm error Invalid: lock file's gaxios@7.3.1 does not satisfy gaxios@6.7.1
+Step #3 - "build": npm error Missing: google-auth-library@9.15.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's retry-request@9.1.0 does not satisfy retry-request@7.0.2
+Step #3 - "build": npm error Invalid: lock file's teeny-request@11.1.1 does not satisfy teeny-request@9.0.0
+Step #3 - "build": npm error Missing: arrify@2.0.1 from lock file
+Step #3 - "build": npm error Missing: is-stream@2.0.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's node-fetch@3.3.2 does not satisfy node-fetch@2.7.0
+Step #3 - "build": npm error Missing: uuid@9.0.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's gaxios@8.3.2 does not satisfy gaxios@7.3.1
+Step #3 - "build": npm error Invalid: lock file's gcp-metadata@9.2.2 does not satisfy gcp-metadata@8.1.2
+Step #3 - "build": npm error Invalid: lock file's google-logging-utils@2.1.0 does not satisfy google-logging-utils@1.1.3
+Step #3 - "build": npm error Invalid: lock file's gaxios@8.3.2 does not satisfy gaxios@7.3.1
+Step #3 - "build": npm error Invalid: lock file's @grpc/grpc-js@1.14.6 does not satisfy @grpc/grpc-js@1.14.7
+Step #3 - "build": npm error Missing: @types/long@4.0.2 from lock file
+Step #3 - "build": npm error Missing: google-auth-library@9.15.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's proto3-json-serializer@4.1.0 does not satisfy proto3-json-serializer@2.0.2
+Step #3 - "build": npm error Invalid: lock file's jose@6.2.13 does not satisfy jose@4.15.9
+Step #3 - "build": npm error Invalid: lock file's lru-memoizer@3.0.0 does not satisfy lru-memoizer@2.3.0
+Step #3 - "build": npm error Missing: lightningcss-android-arm64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-darwin-arm64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-darwin-x64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-freebsd-x64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-arm-gnueabihf@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-arm64-gnu@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-arm64-musl@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-x64-musl@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-win32-arm64-msvc@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-win32-x64-msvc@1.32.0 from lock file
+Step #3 - "build": npm error Invalid: lock file's lru-cache@11.5.3 does not satisfy lru-cache@6.0.0
+Step #3 - "build": npm error Missing: yallist@4.0.0 from lock file
+Step #3 - "build": npm error Missing: whatwg-url@5.0.0 from lock file
+Step #3 - "build": npm error Missing: @types/request@2.48.13 from lock file
+Step #3 - "build": npm error Missing: @types/caseless@0.12.5 from lock file
+Step #3 - "build": npm error Missing: @types/tough-cookie@4.0.5 from lock file
+Step #3 - "build": npm error Missing: form-data@2.5.6 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-darwin-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-darwin-x64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-freebsd-wasm32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-darwin-arm64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-darwin-x64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-arm@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-arm64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-ppc64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-riscv64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-s390x@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linuxmusl-arm64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-arm@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-ppc64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-riscv64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-s390x@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linuxmusl-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-webcontainers-wasm32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-win32-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-win32-ia32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-win32-x64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-wasm32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @emnapi/runtime@1.11.3 from lock file
+Step #3 - "build": npm error Invalid: lock file's http-proxy-agent@7.0.2 does not satisfy http-proxy-agent@5.0.0
+Step #3 - "build": npm error Missing: @tootallnate/once@2.0.1 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-android-arm-eabi@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-android-arm64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-darwin-arm64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-darwin-x64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-freebsd-x64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm-gnueabihf@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm-musleabihf@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-loong64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-loong64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-ppc64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-riscv64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-riscv64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-s390x-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-x64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-openharmony-arm64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-wasm32-wasi@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-win32-arm64-msvc@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-win32-ia32-msvc@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-win32-x64-msvc@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @emnapi/core@1.10.0 from lock file
+Step #3 - "build": npm error Missing: @emnapi/runtime@1.10.0 from lock file
+Step #3 - "build": npm error Missing: @napi-rs/wasm-runtime@1.2.6 from lock file
+Step #3 - "build": npm error Missing: @emnapi/wasi-threads@1.2.1 from lock file
+Step #3 - "build": npm error Missing: @tybys/wasm-util@0.10.4 from lock file
+Step #3 - "build": npm error Missing: tr46@0.0.3 from lock file
+Step #3 - "build": npm error Missing: webidl-conversions@3.0.1 from lock file
+Step #3 - "build": npm error Missing: gcp-metadata@6.1.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's gtoken@8.0.0 does not satisfy gtoken@7.1.0
+Step #3 - "build": npm error Missing: google-logging-utils@0.0.2 from lock file
+Step #3 - "build": npm error Missing: @firebase/app-check-interop-types@0.3.3 from lock file
+Step #3 - "build": npm error Missing: @firebase/auth-interop-types@0.2.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/database-types@1.0.15 from lock file
+Step #3 - "build": npm error Missing: agent-base@7.1.4 from lock file
+Step #3 - "build": npm error Missing: https-proxy-agent@7.0.6 from lock file
+Step #3 - "build": npm error Missing: node-fetch@3.3.2 from lock file
+Step #3 - "build": npm error Missing: agent-base@7.1.4 from lock file
+Step #3 - "build": npm error Missing: https-proxy-agent@7.0.6 from lock file
+Step #3 - "build": npm error Missing: node-fetch@3.3.2 from lock file
+Step #3 - "build": npm error Missing: agent-base@7.1.4 from lock file
+Step #3 - "build": npm error Missing: @grpc/proto-loader@0.8.1 from lock file
+Step #3 - "build": npm error Missing: gcp-metadata@6.1.1 from lock file
+Step #3 - "build": npm error Missing: google-logging-utils@0.0.2 from lock file
+Step #3 - "build": npm error
+Step #3 - "build": npm error Clean install a project
+Step #3 - "build": npm error
+Step #3 - "build": npm error Usage:
+Step #3 - "build": npm error npm ci
+Step #3 - "build": npm error
+Step #3 - "build": npm error Options:
+Step #3 - "build": npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+Step #3 - "build": npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+Step #3 - "build": npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+Step #3 - "build": npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts]
+Step #3 - "build": npm error [--allow-directory <all|none|root>] [--allow-file <all|none|root>]
+Step #3 - "build": npm error [--allow-git <all|none|root>] [--allow-remote <all|none|root>]
+Step #3 - "build": npm error [--allow-scripts <package-list> [--allow-scripts <package-list> ...]]
+Step #3 - "build": npm error [--strict-allow-scripts] [--dangerously-allow-all-scripts] [--no-audit]
+Step #3 - "build": npm error [--no-bin-links] [--no-fund] [--dry-run]
+Step #3 - "build": npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+Step #3 - "build": npm error [--workspaces] [--include-workspace-root] [--install-links]
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --install-strategy
+Step #3 - "build": npm error     Sets the strategy for installing packages in node_modules.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --legacy-bundling
+Step #3 - "build": npm error     Instead of hoisting package installs in `node_modules`, install packages
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --global-style
+Step #3 - "build": npm error     Only install direct dependencies in the top level `node_modules`,
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --omit
+Step #3 - "build": npm error     Dependency types to omit from the installation tree on disk.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --include
+Step #3 - "build": npm error     Option that allows for defining which types of dependencies to install.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --strict-peer-deps
+Step #3 - "build": npm error     If set to `true`, and `--legacy-peer-deps` is not set, then _any_
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --foreground-scripts
+Step #3 - "build": npm error     Run all build scripts (ie, `preinstall`, `install`, and
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --ignore-scripts
+Step #3 - "build": npm error     If true, npm does not run scripts specified in package.json files.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-directory
+Step #3 - "build": npm error     Limits the ability for npm to install dependencies from directories.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-file
+Step #3 - "build": npm error     Limits the ability for npm to install dependencies from tarball files.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-git
+Step #3 - "build": npm error     Limits the ability for npm to fetch dependencies from git references.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-remote
+Step #3 - "build": npm error     Limits the ability for npm to fetch dependencies from urls.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-scripts
+Step #3 - "build": npm error     Comma-separated list of packages whose install-time lifecycle scripts
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --strict-allow-scripts
+Step #3 - "build": npm error     If `true`, turn the install-script policy from a warning into a hard
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --dangerously-allow-all-scripts
+Step #3 - "build": npm error     If `true`, bypass the `allowScripts` policy entirely and run every
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --audit
+Step #3 - "build": npm error     When "true" submit audit reports alongside the current npm command to the
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --bin-links
+Step #3 - "build": npm error     Tells npm to create symlinks (or `.cmd` shims on Windows) for package
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --fund
+Step #3 - "build": npm error     When "true" displays the message at the end of each `npm install`
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --dry-run
+Step #3 - "build": npm error     Indicates that you don't want npm to make any changes and that it should
+Step #3 - "build": npm error
+Step #3 - "build": npm error   -w|--workspace
+Step #3 - "build": npm error     Enable running a command in the context of the configured workspaces of the
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --workspaces
+Step #3 - "build": npm error     Set to true to run the command in the context of **all** configured
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --include-workspace-root
+Step #3 - "build": npm error     Include the workspace root when workspaces are enabled for a command.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --install-links
+Step #3 - "build": npm error     When set file: protocol dependencies will be packed and installed as
+Step #3 - "build": npm error
+Step #3 - "build": npm error
+Step #3 - "build": npm error aliases: clean-install, ic, install-clean, isntall-clean
+Step #3 - "build": npm error
+Step #3 - "build": npm error Run "npm help ci" for more info
+Step #3 - "build": npm error A complete log of this run can be found in: /www-data-home/.npm/_logs/2026-10-30T12_25_24_719Z-debug-0.log
+Step #3 - "build": Done "npm ci --quiet --no-fund --no-audit (NODE_ENV=development)" (18.88361744s)
+Step #3 - "build": --------------------------------------------------------------------------------
+Step #3 - "build": failed to build: (error ID: 7fa33aaa):
+Step #3 - "build": npm error code EUSAGE
+Step #3 - "build": npm error
+Step #3 - "build": npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+Step #3 - "build": npm error
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/firestore@9.4.0 does not satisfy @google-cloud/firestore@7.11.6
+Step #3 - "build": npm error Invalid: lock file's firebase@13.1.0 does not satisfy firebase@11.10.0
+Step #3 - "build": npm error Invalid: lock file's firebase-admin@14.5.0 does not satisfy firebase-admin@13.10.0
+Step #3 - "build": npm error Invalid: lock file's google-gax@6.13.0 does not satisfy google-gax@4.6.1
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-android-arm64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-darwin-arm64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-darwin-x64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-freebsd-x64@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-arm-gnueabihf@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-arm64-gnu@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-arm64-musl@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-linux-x64-musl@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-wasm32-wasi@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-win32-arm64-msvc@4.3.3 from lock file
+Step #3 - "build": npm error Missing: @tailwindcss/oxide-win32-x64-msvc@4.3.3 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/ai@3.0.0 does not satisfy @firebase/ai@1.4.1
+Step #3 - "build": npm error Invalid: lock file's @firebase/analytics@0.10.25 does not satisfy @firebase/analytics@0.10.17
+Step #3 - "build": npm error Invalid: lock file's @firebase/analytics-compat@0.2.31 does not satisfy @firebase/analytics-compat@0.2.23
+Step #3 - "build": npm error Invalid: lock file's @firebase/app@0.16.4 does not satisfy @firebase/app@0.13.2
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-check@0.13.1 does not satisfy @firebase/app-check@0.10.1
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-check-compat@0.4.7 does not satisfy @firebase/app-check-compat@0.3.26
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-compat@0.5.20 does not satisfy @firebase/app-compat@0.4.2
+Step #3 - "build": npm error Missing: @firebase/app-types@0.9.3 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/auth@1.13.8 does not satisfy @firebase/auth@1.10.8
+Step #3 - "build": npm error Invalid: lock file's @firebase/auth-compat@0.6.13 does not satisfy @firebase/auth-compat@0.5.28
+Step #3 - "build": npm error Invalid: lock file's @firebase/data-connect@0.7.4 does not satisfy @firebase/data-connect@0.3.10
+Step #3 - "build": npm error Missing: @firebase/database@1.0.20 from lock file
+Step #3 - "build": npm error Missing: @firebase/database-compat@2.0.11 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/firestore@4.19.0 does not satisfy @firebase/firestore@4.8.0
+Step #3 - "build": npm error Invalid: lock file's @firebase/firestore-compat@0.4.16 does not satisfy @firebase/firestore-compat@0.3.53
+Step #3 - "build": npm error Invalid: lock file's @firebase/functions@0.14.0 does not satisfy @firebase/functions@0.12.9
+Step #3 - "build": npm error Invalid: lock file's @firebase/functions-compat@0.5.0 does not satisfy @firebase/functions-compat@0.3.26
+Step #3 - "build": npm error Invalid: lock file's @firebase/installations@0.6.24 does not satisfy @firebase/installations@0.6.18
+Step #3 - "build": npm error Invalid: lock file's @firebase/installations-compat@0.2.24 does not satisfy @firebase/installations-compat@0.2.18
+Step #3 - "build": npm error Invalid: lock file's @firebase/messaging@0.13.3 does not satisfy @firebase/messaging@0.12.22
+Step #3 - "build": npm error Invalid: lock file's @firebase/messaging-compat@0.2.30 does not satisfy @firebase/messaging-compat@0.2.22
+Step #3 - "build": npm error Invalid: lock file's @firebase/performance@0.7.14 does not satisfy @firebase/performance@0.7.7
+Step #3 - "build": npm error Invalid: lock file's @firebase/performance-compat@0.2.27 does not satisfy @firebase/performance-compat@0.2.20
+Step #3 - "build": npm error Invalid: lock file's @firebase/remote-config@0.9.3 does not satisfy @firebase/remote-config@0.6.5
+Step #3 - "build": npm error Invalid: lock file's @firebase/remote-config-compat@0.2.30 does not satisfy @firebase/remote-config-compat@0.2.18
+Step #3 - "build": npm error Invalid: lock file's @firebase/storage@0.14.6 does not satisfy @firebase/storage@0.13.14
+Step #3 - "build": npm error Invalid: lock file's @firebase/storage-compat@0.4.6 does not satisfy @firebase/storage-compat@0.3.24
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/app-check-interop-types@0.3.3 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/analytics-types@0.8.5 does not satisfy @firebase/analytics-types@0.8.3
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/app-check-types@0.5.5 does not satisfy @firebase/app-check-types@0.5.3
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/auth-types@0.13.2 does not satisfy @firebase/auth-types@0.13.0
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/auth-interop-types@0.2.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/webchannel-wrapper@1.0.7 does not satisfy @firebase/webchannel-wrapper@1.0.3
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/firestore-types@3.0.5 does not satisfy @firebase/firestore-types@3.0.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/app-check-interop-types@0.3.3 from lock file
+Step #3 - "build": npm error Missing: @firebase/auth-interop-types@0.2.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/messaging-interop-types@0.2.6 does not satisfy @firebase/messaging-interop-types@0.2.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/functions-types@0.6.5 does not satisfy @firebase/functions-types@0.6.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/installations-types@0.5.5 does not satisfy @firebase/installations-types@0.5.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/performance-types@0.2.5 does not satisfy @firebase/performance-types@0.2.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/remote-config-types@0.5.2 does not satisfy @firebase/remote-config-types@0.4.0
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Invalid: lock file's @firebase/storage-types@0.8.5 does not satisfy @firebase/storage-types@0.8.3
+Step #3 - "build": npm error Missing: @firebase/util@1.12.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/storage@8.4.0 does not satisfy @google-cloud/storage@7.22.0
+Step #3 - "build": npm error Missing: farmhash-modern@1.1.0 from lock file
+Step #3 - "build": npm error Invalid: lock file's google-auth-library@11.3.1 does not satisfy google-auth-library@10.9.1
+Step #3 - "build": npm error Invalid: lock file's jwks-rsa@4.1.0 does not satisfy jwks-rsa@3.2.2
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/paginator@7.2.0 does not satisfy @google-cloud/paginator@5.0.2
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/projectify@6.2.1 does not satisfy @google-cloud/projectify@4.0.0
+Step #3 - "build": npm error Invalid: lock file's @google-cloud/promisify@6.2.1 does not satisfy @google-cloud/promisify@4.0.0
+Step #3 - "build": npm error Invalid: lock file's gaxios@7.3.1 does not satisfy gaxios@6.7.1
+Step #3 - "build": npm error Missing: google-auth-library@9.15.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's retry-request@9.1.0 does not satisfy retry-request@7.0.2
+Step #3 - "build": npm error Invalid: lock file's teeny-request@11.1.1 does not satisfy teeny-request@9.0.0
+Step #3 - "build": npm error Missing: arrify@2.0.1 from lock file
+Step #3 - "build": npm error Missing: is-stream@2.0.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's node-fetch@3.3.2 does not satisfy node-fetch@2.7.0
+Step #3 - "build": npm error Missing: uuid@9.0.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's gaxios@8.3.2 does not satisfy gaxios@7.3.1
+Step #3 - "build": npm error Invalid: lock file's gcp-metadata@9.2.2 does not satisfy gcp-metadata@8.1.2
+Step #3 - "build": npm error Invalid: lock file's google-logging-utils@2.1.0 does not satisfy google-logging-utils@1.1.3
+Step #3 - "build": npm error Invalid: lock file's gaxios@8.3.2 does not satisfy gaxios@7.3.1
+Step #3 - "build": npm error Invalid: lock file's @grpc/grpc-js@1.14.6 does not satisfy @grpc/grpc-js@1.14.7
+Step #3 - "build": npm error Missing: @types/long@4.0.2 from lock file
+Step #3 - "build": npm error Missing: google-auth-library@9.15.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's proto3-json-serializer@4.1.0 does not satisfy proto3-json-serializer@2.0.2
+Step #3 - "build": npm error Invalid: lock file's jose@6.2.13 does not satisfy jose@4.15.9
+Step #3 - "build": npm error Invalid: lock file's lru-memoizer@3.0.0 does not satisfy lru-memoizer@2.3.0
+Step #3 - "build": npm error Missing: lightningcss-android-arm64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-darwin-arm64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-darwin-x64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-freebsd-x64@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-arm-gnueabihf@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-arm64-gnu@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-arm64-musl@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-linux-x64-musl@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-win32-arm64-msvc@1.32.0 from lock file
+Step #3 - "build": npm error Missing: lightningcss-win32-x64-msvc@1.32.0 from lock file
+Step #3 - "build": npm error Invalid: lock file's lru-cache@11.5.3 does not satisfy lru-cache@6.0.0
+Step #3 - "build": npm error Missing: yallist@4.0.0 from lock file
+Step #3 - "build": npm error Missing: whatwg-url@5.0.0 from lock file
+Step #3 - "build": npm error Missing: @types/request@2.48.13 from lock file
+Step #3 - "build": npm error Missing: @types/caseless@0.12.5 from lock file
+Step #3 - "build": npm error Missing: @types/tough-cookie@4.0.5 from lock file
+Step #3 - "build": npm error Missing: form-data@2.5.6 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-darwin-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-darwin-x64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-freebsd-wasm32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-darwin-arm64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-darwin-x64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-arm@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-arm64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-ppc64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-riscv64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linux-s390x@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-libvips-linuxmusl-arm64@1.3.4 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-arm@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-ppc64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-riscv64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linux-s390x@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-linuxmusl-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-webcontainers-wasm32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-win32-arm64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-win32-ia32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-win32-x64@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @img/sharp-wasm32@0.35.5 from lock file
+Step #3 - "build": npm error Missing: @emnapi/runtime@1.11.3 from lock file
+Step #3 - "build": npm error Invalid: lock file's http-proxy-agent@7.0.2 does not satisfy http-proxy-agent@5.0.0
+Step #3 - "build": npm error Missing: @tootallnate/once@2.0.1 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-android-arm-eabi@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-android-arm64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-darwin-arm64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-darwin-x64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-freebsd-x64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm-gnueabihf@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm-musleabihf@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-arm64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-loong64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-loong64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-ppc64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-riscv64-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-riscv64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-s390x-gnu@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-linux-x64-musl@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-openharmony-arm64@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-wasm32-wasi@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-win32-arm64-msvc@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-win32-ia32-msvc@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @unrs/resolver-binding-win32-x64-msvc@1.12.2 from lock file
+Step #3 - "build": npm error Missing: @emnapi/core@1.10.0 from lock file
+Step #3 - "build": npm error Missing: @emnapi/runtime@1.10.0 from lock file
+Step #3 - "build": npm error Missing: @napi-rs/wasm-runtime@1.2.6 from lock file
+Step #3 - "build": npm error Missing: @emnapi/wasi-threads@1.2.1 from lock file
+Step #3 - "build": npm error Missing: @tybys/wasm-util@0.10.4 from lock file
+Step #3 - "build": npm error Missing: tr46@0.0.3 from lock file
+Step #3 - "build": npm error Missing: webidl-conversions@3.0.1 from lock file
+Step #3 - "build": npm error Missing: gcp-metadata@6.1.1 from lock file
+Step #3 - "build": npm error Invalid: lock file's gtoken@8.0.0 does not satisfy gtoken@7.1.0
+Step #3 - "build": npm error Missing: google-logging-utils@0.0.2 from lock file
+Step #3 - "build": npm error Missing: @firebase/app-check-interop-types@0.3.3 from lock file
+Step #3 - "build": npm error Missing: @firebase/auth-interop-types@0.2.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/component@0.6.18 from lock file
+Step #3 - "build": npm error Missing: @firebase/logger@0.4.4 from lock file
+Step #3 - "build": npm error Missing: @firebase/database-types@1.0.15 from lock file
+Step #3 - "build": npm error Missing: agent-base@7.1.4 from lock file
+Step #3 - "build": npm error Missing: https-proxy-agent@7.0.6 from lock file
+Step #3 - "build": npm error Missing: node-fetch@3.3.2 from lock file
+Step #3 - "build": npm error Missing: agent-base@7.1.4 from lock file
+Step #3 - "build": npm error Missing: https-proxy-agent@7.0.6 from lock file
+Step #3 - "build": npm error Missing: node-fetch@3.3.2 from lock file
+Step #3 - "build": npm error Missing: agent-base@7.1.4 from lock file
+Step #3 - "build": npm error Missing: @grpc/proto-loader@0.8.1 from lock file
+Step #3 - "build": npm error Missing: gcp-metadata@6.1.1 from lock file
+Step #3 - "build": npm error Missing: google-logging-utils@0.0.2 from lock file
+Step #3 - "build": npm error
+Step #3 - "build": npm error Clean install a project
+Step #3 - "build": npm error
+Step #3 - "build": npm error Usage:
+Step #3 - "build": npm error npm ci
+Step #3 - "build": npm error
+Step #3 - "build": npm error Options:
+Step #3 - "build": npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+Step #3 - "build": npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+Step #3 - "build": npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+Step #3 - "build": npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts]
+Step #3 - "build": npm error [--allow-directory <all|none|root>] [--allow-file <all|none|root>]
+Step #3 - "build": npm error [--allow-git <all|none|root>] [--allow-remote <all|none|root>]
+Step #3 - "build": npm error [--allow-scripts <package-list> [--allow-scripts <package-list> ...]]
+Step #3 - "build": npm error [--strict-allow-scripts] [--dangerously-allow-all-scripts] [--no-audit]
+Step #3 - "build": npm error [--no-bin-links] [--no-fund] [--dry-run]
+Step #3 - "build": npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+Step #3 - "build": npm error [--workspaces] [--include-workspace-root] [--install-links]
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --install-strategy
+Step #3 - "build": npm error     Sets the strategy for installing packages in node_modules.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --legacy-bundling
+Step #3 - "build": npm error     Instead of hoisting package installs in `node_modules`, install packages
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --global-style
+Step #3 - "build": npm error     Only install direct dependencies in the top level `node_modules`,
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --omit
+Step #3 - "build": npm error     Dependency types to omit from the installation tree on disk.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --include
+Step #3 - "build": npm error     Option that allows for defining which types of dependencies to install.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --strict-peer-deps
+Step #3 - "build": npm error     If set to `true`, and `--legacy-peer-deps` is not set, then _any_
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --foreground-scripts
+Step #3 - "build": npm error     Run all build scripts (ie, `preinstall`, `install`, and
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --ignore-scripts
+Step #3 - "build": npm error     If true, npm does not run scripts specified in package.json files.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-directory
+Step #3 - "build": npm error     Limits the ability for npm to install dependencies from directories.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-file
+Step #3 - "build": npm error     Limits the ability for npm to install dependencies from tarball files.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-git
+Step #3 - "build": npm error     Limits the ability for npm to fetch dependencies from git references.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-remote
+Step #3 - "build": npm error     Limits the ability for npm to fetch dependencies from urls.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --allow-scripts
+Step #3 - "build": npm error     Comma-separated list of packages whose install-time lifecycle scripts
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --strict-allow-scripts
+Step #3 - "build": npm error     If `true`, turn the install-script policy from a warning into a hard
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --dangerously-allow-all-scripts
+Step #3 - "build": npm error     If `true`, bypass the `allowScripts` policy entirely and run every
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --audit
+Step #3 - "build": npm error     When "true" submit audit reports alongside the current npm command to the
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --bin-links
+Step #3 - "build": npm error     Tells npm to create symlinks (or `.cmd` shims on Windows) for package
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --fund
+Step #3 - "build": npm error     When "true" displays the message at the end of each `npm install`
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --dry-run
+Step #3 - "build": npm error     Indicates that you don't want npm to make any changes and that it should
+Step #3 - "build": npm error
+Step #3 - "build": npm error   -w|--workspace
+Step #3 - "build": npm error     Enable running a command in the context of the configured workspaces of the
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --workspaces
+Step #3 - "build": npm error     Set to true to run the command in the context of **all** configured
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --include-workspace-root
+Step #3 - "build": npm error     Include the workspace root when workspaces are enabled for a command.
+Step #3 - "build": npm error
+Step #3 - "build": npm error   --install-links
+Step #3 - "build": npm error     When set file: protocol dependencies will be packed and installed as
+Step #3 - "build": npm error
+Step #3 - "build": npm error
+Step #3 - "build": npm error aliases: clean-install, ic, install-clean, isntall-clean
+Step #3 - "build": npm error
+Step #3 - "build": npm error Run "npm help ci" for more info
+Step #3 - "build": npm error A complete log of this run can be found in: /www-data-home/.npm/_logs/2026-10-30T12_25_24_719Z-debug-0.log
+Step #3 - "build": ERROR: failed to build: exit status 1
+Finished Step #3 - "build"
+ERROR
+ERROR: build step 3 "us-east4-docker.pkg.dev/serverless-runtimes/google-24-full/builder/nodejs:nodejs_20261022_RC00" failed: step exited with non-zero status: 51
