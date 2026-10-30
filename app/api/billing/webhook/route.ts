@@ -57,16 +57,17 @@ export async function POST(req: NextRequest) {
     const eventType: string = event.event || '';
 
     // =========================================================================
-    // 1. PAYMENT CAPTURED (SUBSCRIPTION OR AD_CAMPAIGN)
+    // 1. PAYMENT CAPTURED OR ORDER PAID (SUBSCRIPTION, AD_CAMPAIGN, SERVICE_ORDER)
     // =========================================================================
-    if (eventType === 'payment.captured') {
+    if (eventType === 'payment.captured' || eventType === 'order.paid') {
       const payment = event.payload?.payment?.entity;
+      const orderEntity = event.payload?.order?.entity;
       if (!payment) {
         return NextResponse.json({ status: 'ignored_no_entity' });
       }
-      const orderId: string = payment.order_id || '';
+      const orderId: string = payment.order_id || orderEntity?.id || '';
       const paymentId: string = payment.id || '';
-      const notes = payment.notes || {};
+      const notes = { ...(orderEntity?.notes || {}), ...(payment.notes || {}) };
 
       const {
         storeId,

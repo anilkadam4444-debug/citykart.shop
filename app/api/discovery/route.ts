@@ -10,7 +10,12 @@ import {
   queryCityScopedCatalog,
 } from '@/lib/catalog-data';
 import {fetchStoresAndProductsFromFirestore} from '@/lib/firebase';
-import {serverDeletedStoresRegistry} from '@/lib/stores-registry';
+import {
+  serverDeletedProductsRegistry,
+  serverDeletedStoresRegistry,
+  serverProductsRegistry,
+  serverStoresRegistry,
+} from '@/lib/stores-registry';
 import {
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
@@ -95,16 +100,33 @@ export async function GET(req: NextRequest) {
         locality: '',
       };
 
-  // Merge initial catalog with cached live Firestore stores & products while respecting deletions & admin moderation
+  // Merge initial catalog, server registries, and cached live Firestore stores & products while respecting deletions & admin moderation
   const storesMap = new Map<string, LocalStore>();
   for (const s of INITIAL_STORES) {
     if (!serverDeletedStoresRegistry.has(s.id)) {
       storesMap.set(s.id, s);
     }
   }
+  for (const s of serverStoresRegistry.values()) {
+    if (s?.id && !serverDeletedStoresRegistry.has(s.id)) {
+      storesMap.set(s.id, s);
+    }
+  }
   const productsMap = new Map<string, Product>();
   for (const p of INITIAL_PRODUCTS) {
-    if (!serverDeletedStoresRegistry.has(p.storeId)) {
+    if (
+      !serverDeletedStoresRegistry.has(p.storeId) &&
+      !serverDeletedProductsRegistry.has(p.id)
+    ) {
+      productsMap.set(p.id, p);
+    }
+  }
+  for (const p of serverProductsRegistry.values()) {
+    if (
+      p?.id &&
+      !serverDeletedStoresRegistry.has(p.storeId) &&
+      !serverDeletedProductsRegistry.has(p.id)
+    ) {
       productsMap.set(p.id, p);
     }
   }
@@ -116,7 +138,11 @@ export async function GET(req: NextRequest) {
     }
   }
   for (const p of liveCatalog.products) {
-    if (p?.id && !serverDeletedStoresRegistry.has(p.storeId)) {
+    if (
+      p?.id &&
+      !serverDeletedStoresRegistry.has(p.storeId) &&
+      !serverDeletedProductsRegistry.has(p.id)
+    ) {
       productsMap.set(p.id, p);
     }
   }

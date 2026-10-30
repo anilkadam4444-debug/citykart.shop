@@ -52,6 +52,7 @@ export interface CascadingLocationSelectorProps {
   variant?: 'MODAL' | 'FORM' | 'COMPACT';
   showLocalityInput?: boolean;
   allowLocalityInput?: boolean;
+  hideDistrict?: boolean;
   showMissingLocationButton?: boolean;
   localityLabel?: string;
   requesterRole?: 'BUYER' | 'SELLER' | 'ADMIN';
@@ -71,6 +72,7 @@ export function CascadingLocationSelector({
   variant = 'FORM',
   showLocalityInput = true,
   allowLocalityInput = true,
+  hideDistrict = false,
   showMissingLocationButton = true,
   localityLabel = 'Locality / Neighborhood / Suburb',
   requesterRole = 'BUYER',
@@ -293,7 +295,7 @@ export function CascadingLocationSelector({
     const merged: CityDef[] = [];
 
     const isEligible = (c: CityDef) => {
-      if (!isSeller) return true;
+      if (c.localityType === 'VILLAGE') return false;
       return !isVillageOrTalukaPlace(c.localityType, c.cityName, c.district);
     };
 
@@ -409,8 +411,8 @@ export function CascadingLocationSelector({
   };
 
   // Submit controlled missing location request
-  const handleSubmitMissingLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitMissingLocation = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     if (!customCityInput.trim()) return;
 
     setIsSubmittingCustom(true);
@@ -526,8 +528,12 @@ export function CascadingLocationSelector({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* 4 Cascading Selectors: Country -> State/Region -> District/County -> City/Town */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Cascading Selectors: Country -> State/Region -> (Optional District) -> City/Town */}
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 ${
+          hideDistrict ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
+        } gap-3`}
+      >
         {/* STEP 1: COUNTRY SELECTOR */}
         <div className="relative space-y-1">
           <label className="block text-xs font-semibold text-slate-700">
@@ -654,84 +660,86 @@ export function CascadingLocationSelector({
         </div>
 
         {/* STEP 3: DISTRICT / COUNTY / EQUIVALENT AREA SELECTOR */}
-        <div className="relative space-y-1">
-          <label className="block text-xs font-semibold text-slate-700">
-            3. {currentCountry.districtLabel || 'District / County'}
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              disabled={!selectedRegionName}
-              onClick={() => {
-                setDistrictDropdownOpen(!districtDropdownOpen);
-                setCountryDropdownOpen(false);
-                setRegionDropdownOpen(false);
-                setCityDropdownOpen(false);
-              }}
-              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs text-left font-medium text-slate-900 flex items-center justify-between shadow-2xs hover:border-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#003B8E] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <span className="truncate">
-                {selectedDistrict || `All ${currentCountry.districtLabel || 'Districts'} (Optional)`}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            </button>
+        {!hideDistrict && (
+          <div className="relative space-y-1">
+            <label className="block text-xs font-semibold text-slate-700">
+              3. {currentCountry.districtLabel || 'District / County'}
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                disabled={!selectedRegionName}
+                onClick={() => {
+                  setDistrictDropdownOpen(!districtDropdownOpen);
+                  setCountryDropdownOpen(false);
+                  setRegionDropdownOpen(false);
+                  setCityDropdownOpen(false);
+                }}
+                className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs text-left font-medium text-slate-900 flex items-center justify-between shadow-2xs hover:border-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#003B8E] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <span className="truncate">
+                  {selectedDistrict || `All ${currentCountry.districtLabel || 'Districts'} (Optional)`}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </button>
 
-            {districtDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[240px]">
-                <div className="p-2 border-b border-slate-100 bg-slate-50">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      autoFocus
-                      value={districtSearch}
-                      onChange={(e) => setDistrictSearch(e.target.value)}
-                      placeholder={`Search ${currentCountry.districtLabel.toLowerCase()}...`}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
-                    />
+              {districtDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[240px]">
+                  <div className="p-2 border-b border-slate-100 bg-slate-50">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={districtSearch}
+                        onChange={(e) => setDistrictSearch(e.target.value)}
+                        placeholder={`Search ${currentCountry.districtLabel.toLowerCase()}...`}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectDistrict('')}
+                      className={`w-full px-3 py-2 text-left italic text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer ${
+                        !selectedDistrict ? 'bg-blue-50/70 font-bold text-[#003B8E]' : ''
+                      }`}
+                    >
+                      All {currentCountry.districtLabel || 'Districts'}
+                    </button>
+                    {filteredDistricts.length === 0 ? (
+                      <div className="p-3 text-center text-slate-400 text-xs">
+                        No district pre-indexed. You can select a city directly or type a custom district.
+                      </div>
+                    ) : (
+                      filteredDistricts.map((d) => (
+                        <button
+                          key={d.name}
+                          type="button"
+                          onClick={() => handleSelectDistrict(d.name)}
+                          className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
+                            d.name === selectedDistrict ? 'bg-blue-50/70 font-bold text-[#003B8E]' : 'text-slate-700'
+                          }`}
+                        >
+                          <span className="truncate">{d.name}</span>
+                          {d.districtType && (
+                            <span className="text-[10px] text-slate-400">{d.districtType}</span>
+                          )}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
-                <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectDistrict('')}
-                    className={`w-full px-3 py-2 text-left italic text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer ${
-                      !selectedDistrict ? 'bg-blue-50/70 font-bold text-[#003B8E]' : ''
-                    }`}
-                  >
-                    All {currentCountry.districtLabel || 'Districts'}
-                  </button>
-                  {filteredDistricts.length === 0 ? (
-                    <div className="p-3 text-center text-slate-400 text-xs">
-                      No district pre-indexed. You can select a city directly or type a custom district.
-                    </div>
-                  ) : (
-                    filteredDistricts.map((d) => (
-                      <button
-                        key={d.name}
-                        type="button"
-                        onClick={() => handleSelectDistrict(d.name)}
-                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-100 transition-colors cursor-pointer ${
-                          d.name === selectedDistrict ? 'bg-blue-50/70 font-bold text-[#003B8E]' : 'text-slate-700'
-                        }`}
-                      >
-                        <span className="truncate">{d.name}</span>
-                        {d.districtType && (
-                          <span className="text-[10px] text-slate-400">{d.districtType}</span>
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* STEP 4: CITY / TOWN SELECTOR */}
         <div className="relative space-y-1">
           <label className="block text-xs font-semibold text-slate-700">
-            4. City / Town
+            {hideDistrict ? '3. City / Town' : '4. City / Town'}
           </label>
           <div className="relative">
             <button
@@ -765,7 +773,7 @@ export function CascadingLocationSelector({
                       autoFocus
                       value={citySearch}
                       onChange={(e) => setCitySearch(e.target.value)}
-                      placeholder="Search city, town or village..."
+                      placeholder="Search city or town..."
                       className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:border-[#003B8E]"
                     />
                   </div>
@@ -834,7 +842,7 @@ export function CascadingLocationSelector({
                     className="text-[11px] font-semibold text-[#003B8E] hover:text-[#002D6E] inline-flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
-                    <span>Don&apos;t see your town or village? Add it</span>
+                    <span>Don&apos;t see your city or town? Add it</span>
                   </button>
                 </div>
               </div>
@@ -903,7 +911,7 @@ export function CascadingLocationSelector({
               <div>
                 <h4 className="font-bold text-sm text-slate-900">Add Missing City or Town</h4>
                 <p className="text-[11px] text-slate-500">
-                  Register any valid town or village in {currentCountry.name} to start shopping or selling.
+                  Register any valid city or town in {currentCountry.name} to start shopping or selling.
                 </p>
               </div>
               <button
@@ -915,10 +923,10 @@ export function CascadingLocationSelector({
               </button>
             </div>
 
-            <form onSubmit={handleSubmitMissingLocation} className="space-y-3 text-xs">
+            <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
-                  City, Town, or Village Name *
+                  City or Town Name *
                 </label>
                 <input
                   type="text"
@@ -996,14 +1004,15 @@ export function CascadingLocationSelector({
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmitMissingLocation}
                   disabled={isSubmittingCustom}
                   className="px-5 py-2 rounded-lg bg-[#003B8E] text-white font-semibold hover:bg-[#002D6E] disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingCustom ? 'Registering...' : 'Save & Select Location'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

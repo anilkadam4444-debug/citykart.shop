@@ -55,4 +55,55 @@ describe('Security, RBAC & Audit Verification Suite', () => {
     assert.ok(ordersPage.includes('min-h-[44px]'), 'app/orders/page.tsx must enforce min-h-[44px] on order action buttons');
     assert.ok(homePage.includes('min-h-[44px]'), 'app/page.tsx must enforce min-h-[44px] on order action buttons');
   });
+
+  it('STORE-001: New store listing and adding product flow syncs ownership, localStorage, and server registries', () => {
+    const providerSrc = readSource('components/urbandirect-provider.tsx');
+    const studioSrc = readSource('components/merchant-studio.tsx');
+    const storesApiSrc = readSource('app/api/stores/route.ts');
+    const productsApiSrc = readSource('app/api/products/route.ts');
+    const discoveryApiSrc = readSource('app/api/discovery/route.ts');
+
+    assert.ok(providerSrc.includes("fetch('/api/stores'"), 'Provider must sync new stores to /api/stores');
+    assert.ok(providerSrc.includes("fetch('/api/products'"), 'Provider must sync new products to /api/products');
+    assert.ok(studioSrc.includes('handleFinishStoreOnboarding'), 'MerchantStudio must implement handleFinishStoreOnboarding');
+    assert.ok(studioSrc.includes('handlePublishProduct'), 'MerchantStudio must implement handlePublishProduct');
+    assert.ok(storesApiSrc.includes('upsertServerStore'), '/api/stores must persist stores to server registry');
+    assert.ok(productsApiSrc.includes('upsertServerProduct'), '/api/products must persist products to server registry');
+    assert.ok(discoveryApiSrc.includes('serverStoresRegistry'), '/api/discovery must include serverStoresRegistry');
+    assert.ok(discoveryApiSrc.includes('serverProductsRegistry'), '/api/discovery must include serverProductsRegistry');
+  });
+
+  it('ORDER-001: Buyer sign-in, order placement, status progression, payment collection, and delivery PIN verification flow is fully wired', () => {
+    const providerSrc = readSource('components/urbandirect-provider.tsx');
+    const drawerSrc = readSource('components/cart-checkout-drawer.tsx');
+    const ordersApiSrc = readSource('app/api/orders/route.ts');
+    const statusApiSrc = readSource('app/api/orders/[orderId]/status/route.ts');
+    const paymentApiSrc = readSource('app/api/orders/[orderId]/payment/route.ts');
+    const verifyPinApiSrc = readSource('app/api/orders/[orderId]/verify-pin/route.ts');
+
+    assert.ok(drawerSrc.includes('useUrbanDirect'), 'CartCheckoutDrawer must sync authenticatedUser via useUrbanDirect');
+    assert.ok(providerSrc.includes('urbandirect_custom_orders_v1'), 'Provider must persist orders in urbandirect_custom_orders_v1');
+    assert.ok(providerSrc.includes('urbandirect_pin_vault_v1'), 'Provider must persist PIN vault in urbandirect_pin_vault_v1');
+    assert.ok(providerSrc.includes('/verify-pin'), 'Provider must verify delivery PIN via /api/orders/[orderId]/verify-pin');
+    assert.ok(providerSrc.includes('/payment'), 'Provider must record payment status via /api/orders/[orderId]/payment');
+    assert.ok(ordersApiSrc.includes('serverOrdersRegistry'), '/api/orders must persist orders to serverOrdersRegistry');
+    assert.ok(statusApiSrc.includes('OUT_FOR_DELIVERY'), '/api/orders/[orderId]/status must support status transitions');
+    assert.ok(paymentApiSrc.includes('PAID'), '/api/orders/[orderId]/payment must record PAID status');
+    assert.ok(verifyPinApiSrc.includes('DELIVERED'), '/api/orders/[orderId]/verify-pin must transition order to DELIVERED');
+  });
+
+  it('BULK-CSV-001: Bulk product CSV upload handles UTF-8 BOM, undefined existing SKUs, auth headers, and batch persistence', () => {
+    const csvParserSrc = readSource('lib/csv-parser.ts');
+    const modalSrc = readSource('components/seller-bulk-upload-modal.tsx');
+    const bulkRouteSrc = readSource('app/api/products/bulk-upload/route.ts');
+    const registrySrc = readSource('lib/stores-registry.ts');
+
+    assert.ok(csvParserSrc.includes('\\uFEFF'), 'CSV parser must strip UTF-8 BOM');
+    assert.ok(csvParserSrc.includes('normalizeImageUrlInput'), 'CSV parser must normalize image URL inputs');
+    assert.ok(modalSrc.includes('buildAuthenticatedHeaders'), 'Bulk upload modal must include authenticated session headers');
+    assert.ok(modalSrc.includes('Boolean(p.sku)'), 'Bulk upload modal must safely guard against undefined product SKUs');
+    assert.ok(bulkRouteSrc.includes('removeUndefined'), 'Bulk upload API route must sanitize product payloads before Firestore batch commit');
+    assert.ok(bulkRouteSrc.includes('skipFirestore: true'), 'Bulk upload API route must avoid N sequential Firestore roundtrips before batch commit');
+    assert.ok(registrySrc.includes('removeUndefined'), 'Stores registry must sanitize Firestore writes with removeUndefined');
+  });
 });

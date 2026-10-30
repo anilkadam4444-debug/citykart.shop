@@ -121,6 +121,8 @@ function encodeClientFallbackToken(payload: {
   role?: string;
   roles?: string[];
   fullName?: string;
+  sellerId?: string;
+  storeIds?: string[];
 }): string {
   try {
     const json = JSON.stringify({
@@ -129,6 +131,8 @@ function encodeClientFallbackToken(payload: {
       role: payload.role || 'buyer',
       roles: payload.roles || [String(payload.role || 'BUYER').toUpperCase()],
       fullName: payload.fullName || 'Verified User',
+      sellerId: payload.sellerId,
+      storeIds: payload.storeIds || [],
       iat: Date.now(),
     });
     const b64 =
@@ -145,8 +149,12 @@ function encodeClientFallbackToken(payload: {
 }
 
 export async function buildAuthenticatedHeaders(
-  _includeJsonContentType: boolean = true
+  extraHeadersOrIncludeJson: Record<string, string> | boolean = true
 ): Promise<Record<string, string>> {
+  const extraHeaders =
+    typeof extraHeadersOrIncludeJson === 'object' && extraHeadersOrIncludeJson !== null
+      ? extraHeadersOrIncludeJson
+      : {};
   const user = auth.currentUser;
   let sessionToken =
     typeof window !== 'undefined' ? localStorage.getItem('urbandirect_session_token') : null;
@@ -164,6 +172,8 @@ export async function buildAuthenticatedHeaders(
             role: parsedUser.role || parsedUser.primaryRole || 'buyer',
             roles: parsedUser.roles,
             fullName: parsedUser.fullName,
+            sellerId: parsedUser.sellerId,
+            storeIds: parsedUser.storeIds,
           });
           localStorage.setItem('urbandirect_session_token', sessionToken);
         }
@@ -197,7 +207,10 @@ export async function buildAuthenticatedHeaders(
   }
 
   if (!user && !sessionToken) {
-    return { 'Content-Type': 'application/json' };
+    return {
+      'Content-Type': 'application/json',
+      ...extraHeaders,
+    };
   }
 
   try {
@@ -206,11 +219,13 @@ export async function buildAuthenticatedHeaders(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(sessionToken ? { 'x-urbandirect-session': sessionToken } : {}),
+      ...extraHeaders,
     };
   } catch {
     return {
       'Content-Type': 'application/json',
       ...(sessionToken ? { 'x-urbandirect-session': sessionToken } : {}),
+      ...extraHeaders,
     };
   }
 }

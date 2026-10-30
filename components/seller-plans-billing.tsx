@@ -148,13 +148,23 @@ export function SellerPlansBilling({
   useEffect(() => {
     buildAuthenticatedHeaders(false)
       .then((headers) => fetch(`/api/billing/fees?sellerId=${seller.id}`, { headers }))
-      .then(res => res.json())
-      .then(data => {
-        if (data.ok && Array.isArray(data.fees)) {
-          setFees(data.fees);
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (data && data.ok) {
+          const feeList = Array.isArray(data.fees)
+            ? data.fees
+            : Array.isArray(data.ledger)
+            ? data.ledger
+            : [];
+          setFees(feeList);
         }
       })
-      .catch(err => console.error('Error fetching fees:', err));
+      .catch((err) => console.error('Error fetching fees:', err));
   }, [seller.id]);
 
   const [isProcessingUpgrade, setIsProcessingUpgrade] = useState<string | null>(
@@ -232,7 +242,7 @@ export function SellerPlansBilling({
 
   // New Service Booking State
   const [selectedServiceType, setSelectedServiceType] =
-    useState<ValueAddedServiceType>('CATALOGUE_SETUP');
+    useState<ValueAddedServiceType>('CATALOG_DIGITIZATION');
   const [serviceContactPhone, setServiceContactPhone] = useState(
     seller.phoneE164 || ''
   );
@@ -250,6 +260,39 @@ export function SellerPlansBilling({
   );
   const currentPlan =
     SUBSCRIPTION_PLANS[subscription.planId] || SUBSCRIPTION_PLANS.FREE;
+
+  // Ensure Razorpay Checkout SDK is loaded before opening modal
+  const ensureRazorpaySdkLoaded = async (): Promise<boolean> => {
+    if (typeof window === 'undefined') return false;
+    if ((window as any).Razorpay) return true;
+
+    return new Promise((resolve) => {
+      const existingScript = document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      ) as HTMLScriptElement | null;
+
+      if (existingScript) {
+        const checkInterval = setInterval(() => {
+          if ((window as any).Razorpay) {
+            clearInterval(checkInterval);
+            resolve(true);
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          resolve(Boolean((window as any).Razorpay));
+        }, 5000);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(Boolean((window as any).Razorpay));
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   // Persist updated transactions
   const recordTransactionLocally = (tx: BillingTransaction) => {
@@ -372,6 +415,8 @@ export function SellerPlansBilling({
           planId: targetTier,
           billingCycle: isAnnualBilling ? 'ANNUAL' : 'MONTHLY',
           currency: 'INR',
+          prefillName: seller.businessOwnerName || store.name,
+          prefillPhone: seller.phoneE164 || '',
         }),
       });
 
@@ -382,11 +427,46 @@ export function SellerPlansBilling({
         );
       }
 
-      if (checkoutData.needsConfig) {
+      // 1. Direct activation (e.g., switching to Free Tier with ₹0 charge)
+      if (checkoutData.directActivation && checkoutData.subscription) {
+        const newSub: MerchantSubscription = checkoutData.subscription;
+        saveMerchantSubscriptionToStorage(newSub);
+        setSubscription(newSub);
+        if (onRefreshEntitlements) {
+          onRefreshEntitlements();
+        }
         setBannerMessage({
-          text: 'The Razorpay payment gateway is currently being configured by the platform owner. Please try again in a few minutes or contact support.',
-          type: 'error',
+          text:
+            checkoutData.message ||
+            `Your store has been switched to ${SUBSCRIPTION_PLANS[targetTier].name}.`,
+          type: 'success',
         });
+        setIsProcessingUpgrade(null);
+        return;
+      }
+
+      // 2. Sandbox Preview Fallback (when live/test Razorpay keys are not set in environment yet)
+      if (checkoutData.needsConfig) {
+        if (checkoutData.sandboxSubscription) {
+          const newSub: MerchantSubscription = checkoutData.sandboxSubscription;
+          saveMerchantSubscriptionToStorage(newSub);
+          setSubscription(newSub);
+          if (checkoutData.sandboxTransaction) {
+            recordTransactionLocally(checkoutData.sandboxTransaction);
+          }
+          if (onRefreshEntitlements) {
+            onRefreshEntitlements();
+          }
+          setBannerMessage({
+            text: `Sandbox Mode: Activated ${SUBSCRIPTION_PLANS[targetTier].name} (No live charge — set RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET in environment variables for live Razorpay checkout).`,
+            type: 'success',
+          });
+        } else {
+          setBannerMessage({
+            text: 'The Razorpay payment gateway is currently being configured by the platform owner. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.',
+            type: 'error',
+          });
+        }
         setIsProcessingUpgrade(null);
         return;
       }
@@ -394,9 +474,10 @@ export function SellerPlansBilling({
       const { checkoutSession } = checkoutData;
       const { gatewayOptions } = checkoutSession;
 
-      if (!(window as any).Razorpay) {
+      const sdkReady = await ensureRazorpaySdkLoaded();
+      if (!sdkReady || !(window as any).Razorpay) {
         throw new Error(
-          'Razorpay SDK failed to load. Please refresh and try again.'
+          'Razorpay SDK failed to load. Please check your connection and try again.'
         );
       }
 
@@ -518,11 +599,14 @@ export function SellerPlansBilling({
       }
 
       // If Razorpay live/test order was created by server, open Razorpay Checkout modal
-      if (
-        data.requiresRazorpayCheckout &&
-        data.gatewayOptions &&
-        (window as any).Razorpay
-      ) {
+      if (data.requiresRazorpayCheckout && data.gatewayOptions) {
+        const sdkReady = await ensureRazorpaySdkLoaded();
+        if (!sdkReady || !(window as any).Razorpay) {
+          throw new Error(
+            'Razorpay SDK failed to load. Please check your connection and try again.'
+          );
+        }
+
         const options = {
           ...data.gatewayOptions,
           handler: async (rzpResponse: any) => {
@@ -646,21 +730,97 @@ export function SellerPlansBilling({
     setBannerMessage(null);
 
     try {
+      const authHeaders = await buildAuthenticatedHeaders(true);
       const res = await fetch('/api/billing/services', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
+          action: 'BOOK_SERVICE',
           sellerId: seller.id,
           storeId: store.id,
           serviceType: selectedServiceType,
           contactPhone: serviceContactPhone.trim(),
           notes: serviceNotes.trim(),
+          initiateRazorpayOrder: true,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to submit service booking');
+      }
+
+      if (data.requiresRazorpayCheckout && data.gatewayOptions) {
+        const sdkReady = await ensureRazorpaySdkLoaded();
+        if (!sdkReady || !(window as any).Razorpay) {
+          throw new Error(
+            'Razorpay SDK failed to load. Please check your connection and try again.'
+          );
+        }
+
+        const options = {
+          ...data.gatewayOptions,
+          handler: async (rzpResponse: any) => {
+            try {
+              const verifyHeaders = await buildAuthenticatedHeaders(true);
+              const verifyRes = await fetch('/api/billing/services', {
+                method: 'POST',
+                headers: verifyHeaders,
+                body: JSON.stringify({
+                  action: 'VERIFY_PAYMENT',
+                  orderId: data.orderId,
+                  invoiceNumber: data.invoiceNumber,
+                  sellerId: seller.id,
+                  storeId: store.id,
+                  serviceType: selectedServiceType,
+                  contactPhone: serviceContactPhone.trim(),
+                  notes: serviceNotes.trim(),
+                  gatewayPaymentId: rzpResponse.razorpay_payment_id,
+                  gatewayOrderId: rzpResponse.razorpay_order_id,
+                  gatewaySignature: rzpResponse.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok || !verifyData.success) {
+                throw new Error(
+                  verifyData.error || 'Payment verification failed'
+                );
+              }
+              if (verifyData.serviceOrder) {
+                recordServiceOrderLocally(verifyData.serviceOrder);
+              }
+              if (verifyData.transaction) {
+                recordTransactionLocally(verifyData.transaction);
+              }
+              setServiceNotes('');
+              setBannerMessage({
+                text:
+                  verifyData.message ||
+                  'Payment verified and service booked successfully.',
+                type: 'success',
+              });
+            } catch (verifyErr) {
+              setBannerMessage({
+                text:
+                  verifyErr instanceof Error
+                    ? verifyErr.message
+                    : 'Payment verification failed',
+                type: 'error',
+              });
+            } finally {
+              setIsBookingService(false);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setIsBookingService(false);
+            },
+          },
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+        return;
       }
 
       recordServiceOrderLocally(data.serviceOrder);
@@ -679,11 +839,15 @@ export function SellerPlansBilling({
     }
   };
 
+  const selectedServiceDef =
+    VALUE_ADDED_SERVICES[selectedServiceType] ||
+    (Array.isArray(VALUE_ADDED_SERVICES) ? VALUE_ADDED_SERVICES[0] : undefined);
+
   return (
     <div className="space-y-6">
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
       />
       {/* Top Banner Message */}
       {bannerMessage && (
@@ -1521,7 +1685,7 @@ export function SellerPlansBilling({
                   ))}
                 </select>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  {VALUE_ADDED_SERVICES[selectedServiceType].description}
+                  {selectedServiceDef?.description}
                 </p>
               </div>
 
@@ -1558,7 +1722,7 @@ export function SellerPlansBilling({
               >
                 {isBookingService
                   ? 'Submitting...'
-                  : `Book Service (₹${VALUE_ADDED_SERVICES[selectedServiceType].priceInr})`}
+                  : `Book Service (₹${selectedServiceDef?.priceInr ?? 499})`}
               </button>
             </form>
           </div>

@@ -19,12 +19,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. OpenStreetMap Nominatim Reverse Geocoding (zero-key public service, no paid Google Maps API required)
+    // 1. OpenStreetMap Nominatim Reverse Geocoding (high-accuracy street level zoom=18)
     try {
       const nomRes = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
           String(lat)
-        )}&lon=${encodeURIComponent(String(lng))}&zoom=12&addressdetails=1`,
+        )}&lon=${encodeURIComponent(String(lng))}&zoom=18&addressdetails=1`,
         {
           headers: {
             'User-Agent': 'UrbanDirectHyperlocalCommerce/1.0',
@@ -52,7 +52,21 @@ export async function POST(req: NextRequest) {
             addr.country_code || ''
           ).toUpperCase();
           const detectedLocality =
-            addr.suburb || addr.neighbourhood || addr.quarter || '';
+            addr.suburb ||
+            addr.neighbourhood ||
+            addr.quarter ||
+            addr.residential ||
+            '';
+          const road = addr.road || addr.street || addr.pedestrian || addr.footway || '';
+          const houseNumber = addr.house_number || addr.building || '';
+          const postalCode = addr.postcode || '';
+
+          const streetParts = [
+            houseNumber ? `#${houseNumber}` : '',
+            road,
+            detectedLocality,
+          ].filter(Boolean);
+          const streetAddress = streetParts.length > 0 ? streetParts.join(', ') : (detectedLocality || detectedCity);
 
           if (detectedCity && detectedCountry) {
             const isAmbiguous = !addr.city && !addr.town;
@@ -62,6 +76,11 @@ export async function POST(req: NextRequest) {
               country: String(detectedCountry).trim(),
               countryCode: detectedCountryCode,
               locality: String(detectedLocality).trim(),
+              streetAddress: String(streetAddress).trim(),
+              postalCode: String(postalCode).trim(),
+              formattedAddress: nomData?.display_name || `${streetAddress}, ${detectedCity}, ${detectedState} ${postalCode}, ${detectedCountry}`,
+              lat,
+              lng,
               cityId: normalizeCityId(
                 detectedCountry,
                 detectedState || detectedCountry,

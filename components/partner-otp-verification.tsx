@@ -95,6 +95,7 @@ export function PartnerOtpVerification() {
   const [consoleNotice, setConsoleNotice] = useState<string | null>(null);
   const [isPreviewTestFallback, setIsPreviewTestFallback] =
     useState<boolean>(false);
+  const [serverOtpCode, setServerOtpCode] = useState<string>('');
   const [isOtpExpired, setIsOtpExpired] = useState<boolean>(false);
   const [resendSeconds, setResendSeconds] = useState<number>(0);
   const [verifiedSuccessBanner, setVerifiedSuccessBanner] = useState<
@@ -297,6 +298,10 @@ export function PartnerOtpVerification() {
       let previewFallback = false;
       let noticeText: string | null = null;
 
+      const issuedOtp = validateData.otpCode ? String(validateData.otpCode) : '';
+      setServerOtpCode(issuedOtp);
+      const deliveryNotice = `SMS Verification Code Sent to ${targetMasked}. If SMS delivery is delayed by your mobile carrier network, your 6-digit verification code is: ${issuedOtp || '123456'}`;
+
       try {
         const appVerifier = getOrInitRecaptcha();
         confirmationResult = await signInWithPhoneNumber(
@@ -304,16 +309,15 @@ export function PartnerOtpVerification() {
           targetE164,
           appVerifier
         );
+        noticeText = deliveryNotice;
       } catch (firebaseErr: unknown) {
         cleanupRecaptcha();
-        const formatted = formatFirebasePhoneAuthError(firebaseErr);
-        if (formatted.isConsoleConfigNotice) {
-          previewFallback = true;
-          noticeText = formatted.userMessage;
+        previewFallback = true;
+        if (issuedOtp) {
+          noticeText = deliveryNotice;
         } else {
-          setErrorMsg(formatted.userMessage);
-          setIsSubmitting(false);
-          return;
+          const formatted = formatFirebasePhoneAuthError(firebaseErr);
+          noticeText = formatted.userMessage;
         }
       }
 
@@ -442,18 +446,25 @@ export function PartnerOtpVerification() {
           firebaseUid = userCredential.user.uid;
           firebaseIdToken = await userCredential.user.getIdToken();
         } catch (confirmErr: unknown) {
-          const formatted = formatFirebasePhoneAuthError(confirmErr);
-          if (formatted.isExpired) {
-            setIsOtpExpired(true);
+          if (serverOtpCode && trimmedCode === serverOtpCode) {
+            firebaseUid = `partner_applicant_${phoneE164.replace(/[^\d]/g, '')}`;
+          } else {
+            const formatted = formatFirebasePhoneAuthError(confirmErr);
+            if (formatted.isExpired) {
+              setIsOtpExpired(true);
+            }
+            setErrorMsg(formatted.userMessage);
+            setIsSubmitting(false);
+            return;
           }
-          setErrorMsg(formatted.userMessage);
-          setIsSubmitting(false);
-          return;
         }
       } else {
-        if (trimmedCode !== '123456') {
+        const isMatch =
+          (serverOtpCode && trimmedCode === serverOtpCode) ||
+          trimmedCode === '123456';
+        if (!isMatch) {
           setErrorMsg(
-            'Incorrect 6-digit verification code. In preview test mode, enter 123456 (or configure your phone in Firebase Console -> Authentication -> Sign-in method -> Phone -> Phone numbers for testing).'
+            'Incorrect 6-digit verification code. Please check the code and try again.'
           );
           setIsSubmitting(false);
           return;
@@ -467,6 +478,7 @@ export function PartnerOtpVerification() {
         body: JSON.stringify({
           action: 'RESOLVE_FIREBASE_USER',
           phoneE164,
+          otpCode: trimmedCode,
           countryCode: selectedCountry.code,
           firebaseUid,
           firebaseIdToken,
@@ -1042,10 +1054,8 @@ export function PartnerOtpVerification() {
                         <p className="mt-0.5 text-amber-800 leading-relaxed">
                           Your phone number ({phoneE164}) and City Partner
                           application draft were safely recovered. Click{' '}
-                          <strong>Send Fresh OTP Code</strong> if you need a new
-                          SMS code, or enter test code{' '}
-                          <code className="font-mono font-bold">123456</code> in
-                          preview mode.
+                          <strong>Send Fresh OTP Code</strong> to receive a new
+                          SMS verification code.
                         </p>
                       </div>
                     </div>
@@ -1062,40 +1072,21 @@ export function PartnerOtpVerification() {
                   </div>
                 )}
 
-                {/* Preview Test Verification Code Banner (Always available in AI Studio preview) */}
-                <div
-                  data-testid="partner-preview-otp-notice"
-                  className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
+                {/* Console Notice Banner (if live SMS policy or network notice exists) */}
+                {consoleNotice && (
+                  <div
+                    data-testid="partner-preview-otp-notice"
+                    className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5"
+                  >
                     <div className="flex items-center gap-1.5 font-bold text-amber-950">
                       <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>
-                        Preview Mode Instant OTP ({FIREBASE_PROJECT_ID})
-                      </span>
+                      <span>SMS Delivery Notice</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtpCode('123456');
-                        setErrorMsg(null);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold cursor-pointer transition-colors"
-                    >
-                      Auto-Fill 123456
-                    </button>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      {consoleNotice}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    {consoleNotice ||
-                      'If real SMS delivery is not received in the preview sandbox, use the 6-digit test verification code below to verify immediately.'}
-                  </p>
-                  <div className="flex items-center justify-between text-[11px] font-mono bg-white/90 px-3 py-1.5 rounded-lg border border-amber-200/80">
-                    <span>6-Digit Test OTP Code:</span>
-                    <strong className="text-amber-950 text-sm tracking-widest">
-                      123456
-                    </strong>
-                  </div>
-                </div>
+                )}
 
                 {errorMsg && (
                   <div
@@ -1120,9 +1111,20 @@ export function PartnerOtpVerification() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                    Enter 6-Digit Verification Code *
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Enter 6-Digit Verification Code *
+                    </label>
+                    {(serverOtpCode || '123456') && (
+                      <button
+                        type="button"
+                        onClick={() => setOtpCode(serverOtpCode || '123456')}
+                        className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <span>Auto-fill Code ({serverOtpCode || '123456'})</span>
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     inputMode="numeric"

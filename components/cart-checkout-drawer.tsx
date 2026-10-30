@@ -36,6 +36,7 @@ import {
 } from '@/lib/catalog-data';
 import {ProductStudioArtwork} from './product-studio-artwork';
 import {buildAuthenticatedHeaders} from '@/lib/firebase';
+import {useUrbanDirect} from './urbandirect-provider';
 
 interface CartCheckoutDrawerProps {
   isOpen: boolean;
@@ -66,6 +67,7 @@ export function CartCheckoutDrawer({
   onPlaceOrder,
   onViewOrderTracker,
 }: CartCheckoutDrawerProps) {
+  const {authenticatedUser, openOtpAuthModal} = useUrbanDirect();
   const [step, setStep] = useState<'cart' | 'checkout' | 'confirmed'>(
     initialStep
   );
@@ -78,23 +80,27 @@ export function CartCheckoutDrawer({
   const [promoMessage, setPromoMessage] = useState<string | null>(null);
 
   // Customer Delivery Fields
-  const [fullName, setFullName] = useState('Anil Kadam');
-  const [phone, setPhone] = useState('+91 98204 51290');
+  const [fullName, setFullName] = useState(
+    authenticatedUser?.fullName || 'Anil Kadam'
+  );
+  const [phone, setPhone] = useState(
+    authenticatedUser?.phoneE164 || '+91 98204 51290'
+  );
   const [country, setCountry] = useState(customerLocation.country || 'India');
   const [stateRegion, setStateRegion] = useState(
     customerLocation.stateRegion || 'Maharashtra'
   );
-  const [city, setCity] = useState(customerLocation.city || 'Mumbai');
+  const [city, setCity] = useState(customerLocation.city || 'Nanded');
   const [locality, setLocality] = useState(
-    customerLocation.locality || 'Bandra West'
+    customerLocation.locality || 'Vazirabad'
   );
   const [address, setAddress] = useState(
-    '402 Sea Breeze Apartments, 16th Road'
+    'Plot 14, Vazirabad Main Road'
   );
   const [postalCode, setPostalCode] = useState(
-    customerLocation.postalCode || '400050'
+    customerLocation.postalCode || '431601'
   );
-  const [notes, setNotes] = useState('Call on intercom #402 upon arrival');
+  const [notes, setNotes] = useState('Call at gate upon arrival');
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>('PAY_ON_DELIVERY');
   const [termsAcknowledged, setTermsAcknowledged] = useState<boolean>(false);
@@ -106,6 +112,16 @@ export function CartCheckoutDrawer({
   const [confirmedPin, setConfirmedPin] = useState<string | null>(null);
   const [showConfirmedPin, setShowConfirmedPin] = useState<boolean>(true);
   const [copiedPin, setCopiedPin] = useState<boolean>(false);
+
+  // Sync signed-in buyer profile into checkout fields
+  useEffect(() => {
+    if (authenticatedUser?.fullName) {
+      setFullName(authenticatedUser.fullName);
+    }
+    if (authenticatedUser?.phoneE164) {
+      setPhone(authenticatedUser.phoneE164);
+    }
+  }, [authenticatedUser?.fullName, authenticatedUser?.phoneE164]);
 
   // Keep checkout city, stateRegion, and country strictly locked to customerLocation
   useEffect(() => {
@@ -147,6 +163,21 @@ export function CartCheckoutDrawer({
     if (!activeStoreId) return null;
     return stores.find((s) => s.id === activeStoreId) || null;
   }, [stores, activeStoreId]);
+
+  // Automatically align locality & postalCode with activeStore if customerLocation.locality is empty or from another city
+  useEffect(() => {
+    if (!activeStore) return;
+    const defaultLocality =
+      activeStore.serviceArea?.coveredLocalities?.[0] ||
+      activeStore.neighborhood ||
+      'Vazirabad';
+    if (!customerLocation.locality) {
+      setLocality(defaultLocality);
+    }
+    if (!customerLocation.postalCode && activeStore.postalCode) {
+      setPostalCode(activeStore.postalCode);
+    }
+  }, [activeStore, customerLocation.locality, customerLocation.postalCode]);
 
   // Filter items for the active checkout store
   const checkoutItems = useMemo(() => {
@@ -365,12 +396,20 @@ export function CartCheckoutDrawer({
       }
 
       const verifiedOrder = data.order as OrderRecord;
-      setConfirmedOrder(verifiedOrder);
-      setConfirmedPin(
-        data.deliveryPin || verifiedOrder.buyerDeliveryPin || null
-      );
+      const resolvedPin =
+        data.deliveryPin ||
+        verifiedOrder.buyerDeliveryPin ||
+        verifiedOrder.deliveryPin ||
+        null;
+      const enrichedOrder: OrderRecord = {
+        ...verifiedOrder,
+        deliveryPin: resolvedPin || undefined,
+        buyerDeliveryPin: resolvedPin || undefined,
+      };
+      setConfirmedOrder(enrichedOrder);
+      setConfirmedPin(resolvedPin);
       setShowConfirmedPin(true);
-      onPlaceOrder(verifiedOrder);
+      onPlaceOrder(enrichedOrder);
 
       // Remove the ordered items from the multi-merchant cart
       for (const item of checkoutItems) {
@@ -1046,6 +1085,39 @@ export function CartCheckoutDrawer({
                     Use store&apos;s delivery area
                   </button>
                 </div>
+
+                {authenticatedUser ? (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="truncate">
+                        Signed in as <strong>{authenticatedUser.fullName}</strong> (
+                        <span className="font-mono">{authenticatedUser.phoneE164}</span>)
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
+                      OTP Verified
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-center justify-between gap-2">
+                    <span className="text-[11px] leading-snug">
+                      Have a Citykart buyer account? Sign in with Mobile OTP to auto-fill your details.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openOtpAuthModal({
+                          defaultJourney: 'BUYER',
+                          authContextMode: 'BUYER_SIGN_IN',
+                        })
+                      }
+                      className="px-3 py-1.5 rounded-lg bg-[#003B8E] hover:bg-[#002D6E] text-white text-[11px] font-bold shrink-0 cursor-pointer"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                )}
 
                 {formError && (
                   <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-800">

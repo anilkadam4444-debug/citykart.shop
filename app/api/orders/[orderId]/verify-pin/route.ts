@@ -28,23 +28,26 @@ export async function POST(
       );
     }
 
+    const verifiedAtIso = new Date().toISOString();
     const updated = sanitizeOrderForStorageAndListing({
       ...order,
       orderStatus: 'DELIVERED',
-      currentStepIndex: 4,
+      currentStepIndex: 3,
       estimatedMins: 0,
+      deliveredAt: verifiedAtIso,
+      deliveryPinVerified: true,
       deliveryPinInfo: {
         ...(order.deliveryPinInfo || {}),
         pin: authoritativePin,
         deliveryPin: authoritativePin,
         pinVersion: order.deliveryPinInfo?.pinVersion || 1,
-        generatedAt: order.deliveryPinInfo?.generatedAt || new Date().toISOString(),
-        verifiedAt: new Date().toISOString(),
+        generatedAt: order.deliveryPinInfo?.generatedAt || verifiedAtIso,
+        verifiedAt: verifiedAtIso,
         verifiedBy: 'DELIVERY_AGENT',
         attemptsCount: (order.deliveryPinInfo?.attemptsCount || 0) + 1,
         status: 'VERIFIED',
       },
-      updatedAt: new Date().toISOString(),
+      updatedAt: verifiedAtIso,
     });
 
     serverOrdersRegistry.set(orderId, updated);

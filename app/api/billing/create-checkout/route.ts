@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
+import { doc, getDoc, writeBatch } from 'firebase/firestore';
+import { db, IS_PREVIEW_DUMMY_FIREBASE, removeUndefined } from '@/lib/firebase';
 import { INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
 import { serverStoresRegistry } from '@/lib/stores-registry';
-import { SubscriptionTierId } from '@/lib/revenue-model';
+import {
+  BillingCycle,
+  BillingTransaction,
+  MerchantSubscription,
+  SubscriptionTierId,
+} from '@/lib/revenue-model';
 import {
   getAuthoritativeSubscriptionPlansAsync,
   verifyAdminRequest,
@@ -26,7 +31,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { sellerId, storeId, planId, billingCycle, currency = 'INR' } = body;
+    const {
+      sellerId,
+      storeId,
+      planId,
+      billingCycle,
+      currency = 'INR',
+      prefillName = '',
+      prefillPhone = '',
+      prefillEmail = '',
+    } = body;
 
     if (!sellerId || !storeId || !planId || !billingCycle) {
       return NextResponse.json(
@@ -120,6 +134,65 @@ export async function POST(req: NextRequest) {
     const totalAmount =
       Math.round((basePrice + outstandingFees + taxAmount) * 100) / 100;
 
+    const now = new Date();
+    const periodEnd = new Date(now);
+    if (isAnnual) {
+      periodEnd.setFullYear(now.getFullYear() + 1);
+    } else {
+      periodEnd.setMonth(now.getMonth() + 1);
+    }
+
+    // Direct activation for zero-amount switches (e.g., switching to Free Tier with 0 outstanding fees)
+    if (totalAmount <= 0) {
+      const freeSubscription: MerchantSubscription = removeUndefined({
+        id: `sub_${storeId}`,
+        sellerId,
+        storeId,
+        planId: planId as SubscriptionTierId,
+        billingCycle: billingCycle as BillingCycle,
+        status: 'ACTIVE',
+        currency: currency as 'INR' | 'USD',
+        currentPrice: 0,
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+        cancelAtPeriodEnd: false,
+        paymentMethodSnippet: 'No Charge (Free Plan)',
+        lastPaymentDate: now.toISOString(),
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      });
+
+      if (!IS_PREVIEW_DUMMY_FIREBASE) {
+        try {
+          const clientBatch = writeBatch(db);
+          clientBatch.set(
+            doc(db, 'merchantSubscriptions', freeSubscription.id),
+            freeSubscription,
+            { merge: true }
+          );
+          clientBatch.set(
+            doc(db, 'stores', storeId),
+            {
+              subscriptionTier: planId,
+              subscriptionStatus: 'ACTIVE',
+              subscriptionExpiry: freeSubscription.currentPeriodEnd,
+            },
+            { merge: true }
+          );
+          await clientBatch.commit();
+        } catch {
+          // Local storage fallback on client
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        directActivation: true,
+        subscription: freeSubscription,
+        message: `Your store has been switched to ${plan.name}.`,
+      });
+    }
+
     const isPlaceholderCreds =
       !keyId ||
       !keySecret ||
@@ -127,11 +200,55 @@ export async function POST(req: NextRequest) {
       keySecret.includes('placeholder') ||
       keyId.includes('your_');
 
-    // If credentials are missing or placeholders, return a special 'needsConfig' response
+    // Build sandbox preview records when live Razorpay keys are not yet configured
+    const buildSandboxFallback = () => {
+      const txId = `tx_sub_sandbox_${Date.now()}`;
+      const sandboxSubscription: MerchantSubscription = removeUndefined({
+        id: `sub_${storeId}`,
+        sellerId,
+        storeId,
+        planId: planId as SubscriptionTierId,
+        billingCycle: billingCycle as BillingCycle,
+        status: 'ACTIVE',
+        currency: currency as 'INR' | 'USD',
+        currentPrice: totalAmount,
+        currentPeriodStart: now.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+        cancelAtPeriodEnd: false,
+        paymentMethodSnippet: 'Sandbox Preview (No Live Charge)',
+        lastPaymentDate: now.toISOString(),
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      });
+
+      const sandboxTransaction: BillingTransaction = removeUndefined({
+        id: txId,
+        sellerId,
+        storeId,
+        type: 'SUBSCRIPTION',
+        description: `[Sandbox Preview — No Live Charge] Citykart ${plan.name} (${billingCycle}) Plan Subscription`,
+        amount: Math.round((basePrice + outstandingFees) * 100) / 100,
+        taxAmount,
+        totalAmount,
+        currency: currency as 'INR' | 'USD',
+        status: 'SUCCESS',
+        paymentGateway: 'RAZORPAY',
+        gatewayTransactionId: `sandbox_${Date.now().toString(36)}`,
+        invoiceNumber,
+        createdAt: now.toISOString(),
+      });
+
+      return { sandboxSubscription, sandboxTransaction };
+    };
+
+    // If credentials are missing or placeholders, return 'needsConfig' along with sandbox preview records
     if (isPlaceholderCreds) {
+      const { sandboxSubscription, sandboxTransaction } = buildSandboxFallback();
       return NextResponse.json({
         success: true,
         needsConfig: true,
+        sandboxSubscription,
+        sandboxTransaction,
         message:
           'Razorpay credentials are not yet configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.',
         checkoutSession: {
@@ -159,7 +276,7 @@ export async function POST(req: NextRequest) {
     };
     try {
       razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(totalAmount * 100), // in paise
+        amount: Math.max(100, Math.round(totalAmount * 100)), // in paise (minimum 100 paise = ₹1)
         currency: currency as string,
         receipt: invoiceNumber,
         notes: {
@@ -175,9 +292,12 @@ export async function POST(req: NextRequest) {
     } catch (rzpErr: unknown) {
       const statusCode = (rzpErr as { statusCode?: number })?.statusCode;
       if (statusCode === 401) {
+        const { sandboxSubscription, sandboxTransaction } = buildSandboxFallback();
         return NextResponse.json({
           success: true,
           needsConfig: true,
+          sandboxSubscription,
+          sandboxTransaction,
           message:
             'Razorpay API credentials could not be authenticated (HTTP 401). Please verify RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment configuration.',
           checkoutSession: {
@@ -221,9 +341,12 @@ export async function POST(req: NextRequest) {
           description: `${plan.name} (${billingCycle.toLowerCase()}) Subscription`,
           order_id: razorpayOrder.id,
           prefill: {
-            name: '',
-            email: '',
-            contact: '',
+            name: prefillName || targetStore?.name || '',
+            email: prefillEmail || '',
+            contact: prefillPhone || caller.phoneE164 || '',
+          },
+          theme: {
+            color: '#003B8E',
           },
           notes: razorpayOrder.notes,
         },

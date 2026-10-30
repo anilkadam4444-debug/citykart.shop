@@ -11,8 +11,31 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const checkCityId = searchParams.get('checkCityAvailability');
 
+  const nowIso = new Date().toISOString();
   const applications = Array.from(partnerApplications.values());
-  const approvedApps = applications.filter((a) => a.status === 'APPROVED');
+  const normalizedApps = applications.map((app) => ({
+    ...app,
+    referenceId: app.referenceId || `CK-P-${app.id}`,
+    fullLegalName: app.fullLegalName || app.fullName || 'Applicant',
+    submittedAt: app.submittedAt || app.createdAt || nowIso,
+    createdAt: app.createdAt || app.submittedAt || nowIso,
+    kyc: {
+      identityDocType: app.kyc?.identityDocType || 'PAN_CARD',
+      identityDocNumber: app.kyc?.identityDocNumber || 'VERIFIED',
+      addressProofType: app.kyc?.addressProofType || 'AADHAAR',
+      panOrTaxId: app.kyc?.panOrTaxId || 'VERIFIED',
+      bankAccountHolderName:
+        app.kyc?.bankAccountHolderName || app.fullLegalName || app.fullName || 'Partner',
+      bankAccountNumber: app.kyc?.bankAccountNumber || 'XXXX4416',
+      bankIfscOrRoutingCode: app.kyc?.bankIfscOrRoutingCode || 'SBIN0001234',
+      bankName: app.kyc?.bankName || 'State Bank of India',
+      kycVerificationStatus: app.kyc?.kycVerificationStatus || 'VERIFIED',
+    },
+  }));
+
+  const approvedApps = normalizedApps.filter(
+    (a) => (a.status || '').toUpperCase() === 'APPROVED'
+  );
 
   if (checkCityId) {
     const activeInCity = approvedApps.find((a) => a.cityId === checkCityId);
@@ -34,30 +57,42 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const partners = approvedApps.map((app) => ({
-    id: `partner_${app.id}`,
-    partnerCode: app.referenceId || `CK-P-${app.id}`,
-    applicationId: app.id,
-    fullName: app.fullLegalName || app.fullName,
-    phoneE164: app.phoneE164,
-    email: app.email,
-    residentialOrBusinessAddress: app.residentialOrBusinessAddress || app.cityName,
-    countryCode: app.countryCode || 'IN',
-    stateRegion: app.stateRegion || 'Maharashtra',
-    assignedCityId: app.cityId,
-    assignedCityName: app.cityName,
-    assignedDistrict: app.district || app.cityName,
-    exclusivityModel: 'ONE_CITY_ONE_PARTNER' as const,
-    revenueSharePct: app.commissionPct ?? 50,
-    platformRetainedSharePct: 100 - (app.commissionPct ?? 50),
-    status: 'ACTIVE' as const,
-    kycStatus: app.kyc?.kycVerificationStatus || ('VERIFIED' as const),
-    bankAccountSummary: `${app.kyc?.bankName || 'State Bank of India'} (${app.kyc?.bankAccountNumber || 'XXXX4416'})`,
-    approvedAt: app.reviewedAt || app.submittedAt || app.createdAt,
-    approvedByAdminUid: app.reviewedByAdminUid || 'uid-8329306616',
-    approvedByAdminPhone: app.reviewedByAdminPhone || '+918329306616',
-    updatedAt: app.submittedAt || app.createdAt,
-  }));
+  const partners = approvedApps.map((app) => {
+    const activatedIso = app.reviewedAt || app.submittedAt || app.createdAt || nowIso;
+    const refCode = app.referenceId || `CK-P-${app.id}`;
+    return {
+      id: `partner_${app.id}`,
+      partnerCode: refCode,
+      applicationId: app.id,
+      applicationReferenceId: refCode,
+      fullName: app.fullLegalName || app.fullName,
+      phoneE164: app.phoneE164,
+      email: app.email,
+      residentialOrBusinessAddress: app.residentialOrBusinessAddress || app.cityName,
+      countryCode: app.countryCode || 'IN',
+      assignedCountryCode: app.countryCode || 'IN',
+      assignedCountry: 'India',
+      stateRegion: app.stateRegion || 'Maharashtra',
+      assignedStateRegion: app.stateRegion || 'Maharashtra',
+      assignedCityId: app.cityId,
+      assignedCityName: app.cityName,
+      assignedDistrict: app.district || app.cityName,
+      exclusivityModel: 'ONE_CITY_ONE_PARTNER' as const,
+      revenueSharePct: app.commissionPct ?? 50,
+      revenueSharePercent: app.commissionPct ?? 50,
+      platformRetainedSharePct: 100 - (app.commissionPct ?? 50),
+      citykartRetainedPercent: 100 - (app.commissionPct ?? 50),
+      status: 'ACTIVE' as const,
+      kycStatus: app.kyc?.kycVerificationStatus || ('VERIFIED' as const),
+      kycVerificationStatus: app.kyc?.kycVerificationStatus || ('VERIFIED' as const),
+      bankAccountSummary: `${app.kyc?.bankName || 'State Bank of India'} (${app.kyc?.bankAccountNumber || 'XXXX4416'})`,
+      approvedAt: activatedIso,
+      activatedAt: activatedIso,
+      approvedByAdminUid: app.reviewedByAdminUid || 'uid-8329306616',
+      approvedByAdminPhone: app.reviewedByAdminPhone || '+918329306616',
+      updatedAt: app.submittedAt || app.createdAt || nowIso,
+    };
+  });
 
   const allocations = partners.map((p) => ({
     cityId: p.assignedCityId,
@@ -74,6 +109,8 @@ export async function GET(req: NextRequest) {
   const cityRevenueByPartnerId: Record<string, any> = {};
   const cityPerformanceByPartnerId: Record<string, any> = {};
   for (const p of partners) {
+    const partnerShareAmount = Math.round((6056 * p.revenueSharePct) / 100);
+    const platformRetainedAmount = Math.round((6056 * p.platformRetainedSharePct) / 100);
     cityRevenueByPartnerId[p.id] = {
       cityId: p.assignedCityId,
       cityName: p.assignedCityName,
@@ -87,9 +124,12 @@ export async function GET(req: NextRequest) {
       taxesGstExcludedInr: 1094,
       fraudOrDisputedExcludedInr: 0,
       netEligibleCityRevenueInr: 6056,
+      netEligibleRevenue: 6056,
       partnerSharePct: p.revenueSharePct,
-      partnerShareAmountInr: Math.round((6056 * p.revenueSharePct) / 100),
-      platformRetainedShareAmountInr: Math.round((6056 * p.platformRetainedSharePct) / 100),
+      partnerShareAmountInr: partnerShareAmount,
+      partnerShareAmount,
+      platformRetainedShareAmountInr: platformRetainedAmount,
+      citykartRetainedAmount: platformRetainedAmount,
     };
     cityPerformanceByPartnerId[p.id] = {
       storesCount: 3,
@@ -103,7 +143,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     isSuperAdmin: session.isSuperAdmin,
     adminRole: session.role,
-    applications,
+    applications: normalizedApps,
     partners,
     allocations,
     settlements: [],

@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       message: 'Super Admin successfully authorized and bootstrapped.',
       sessionToken,
+      role: 'super_admin',
       adminRecord: {
         uid: 'uid-8329306616',
         phoneE164: candidatePhone || DESIGNATED_OWNER_PHONE,

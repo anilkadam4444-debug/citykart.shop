@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['firebase-admin', '@google-cloud/firestore'],
   experimental: {
     cpus: 1,
+    workerThreads: false,
     webpackMemoryOptimizations: true,
   },
   // Allow access to remote image placeholder.

@@ -54,8 +54,9 @@ export interface BulkUploadSummary {
 }
 
 /**
- * Robust RFC 4180 compliant CSV Parser.
- * Handles quoted fields, nested commas, escaped double-quotes (""), 
+ * Robust RFC 4180 compliant CSV/TSV Parser.
+ * Handles UTF-8 BOM (\uFEFF), auto-detected delimiters (comma, tab, semicolon),
+ * quoted fields, nested commas, escaped double-quotes (""),
  * Unicode characters, and multi-line strings cleanly.
  */
 export function parseCSVText(csvText: string): string[][] {
@@ -64,8 +65,22 @@ export function parseCSVText(csvText: string): string[][] {
   let currentField = '';
   let insideQuotes = false;
 
-  // Normalize Windows CRLF / LF
-  const text = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Strip UTF-8 BOM (\uFEFF) and normalize Windows CRLF / CR line endings
+  const text = csvText
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  // Auto-detect delimiter from the first non-empty line (comma vs tab vs semicolon)
+  const firstLine = (text.split('\n').find((l) => l.trim().length > 0) || '').trim();
+  let delimiter = ',';
+  if (!firstLine.includes(',')) {
+    if (firstLine.includes('\t')) {
+      delimiter = '\t';
+    } else if (firstLine.includes(';')) {
+      delimiter = ';';
+    }
+  }
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -87,11 +102,11 @@ export function parseCSVText(csvText: string): string[][] {
     } else {
       if (char === '"') {
         insideQuotes = true;
-      } else if (char === ',') {
-        currentRow.push(currentField.trim());
+      } else if (char === delimiter) {
+        currentRow.push(currentField.replace(/^\uFEFF/, '').trim());
         currentField = '';
       } else if (char === '\n') {
-        currentRow.push(currentField.trim());
+        currentRow.push(currentField.replace(/^\uFEFF/, '').trim());
         if (currentRow.some((field) => field.length > 0)) {
           rows.push(currentRow);
         }
@@ -105,7 +120,7 @@ export function parseCSVText(csvText: string): string[][] {
 
   // Push final field/row if present
   if (currentField || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
+    currentRow.push(currentField.replace(/^\uFEFF/, '').trim());
     if (currentRow.some((field) => field.length > 0)) {
       rows.push(currentRow);
     }
@@ -236,7 +251,7 @@ export function resolveCategoryFromInput(
   );
   if (bySlug) return bySlug;
 
-  // Try exact Name match or partial name match
+  // Try exact Name match
   const byName = AUTHORITATIVE_STORE_CATEGORIES.find(
     (c) => c.name.toLowerCase() === cleaned
   );
@@ -251,20 +266,71 @@ export function resolveCategoryFromInput(
   );
   if (fuzzy) return fuzzy;
 
+  // Synonym keyword fallback
+  const keywordAliases: Array<{ keywords: string[]; matchSlugPart: string }> = [
+    { keywords: ['kirana', 'grocery', 'staple', 'atta', 'rice', 'spice', 'oil', 'pantry', 'daily'], matchSlugPart: 'grocery' },
+    { keywords: ['fruit', 'vegetable', 'veggie', 'produce', 'organic farm'], matchSlugPart: 'fruits' },
+    { keywords: ['dairy', 'milk', 'paneer', 'curd', 'butter', 'cheese', 'egg'], matchSlugPart: 'dairy' },
+    { keywords: ['bakery', 'cake', 'bread', 'sweet', 'mithai', 'confectionery'], matchSlugPart: 'bakery' },
+    { keywords: ['meat', 'chicken', 'mutton', 'fish', 'seafood', 'poultry'], matchSlugPart: 'meat' },
+    { keywords: ['pharmacy', 'medicine', 'medical', 'health', 'wellness', 'chemist'], matchSlugPart: 'pharmacy' },
+    { keywords: ['fashion', 'clothing', 'apparel', 'garment', 'kurti', 'shirt', 'saree', 'dress'], matchSlugPart: 'fashion' },
+    { keywords: ['footwear', 'shoe', 'sandal', 'slipper'], matchSlugPart: 'footwear' },
+    { keywords: ['electronic', 'mobile', 'phone', 'laptop', 'computer', 'gadget', 'audio'], matchSlugPart: 'electronics' },
+    { keywords: ['appliance', 'kitchen', 'cookware', 'utensil', 'kettle', 'mixer'], matchSlugPart: 'appliances' },
+    { keywords: ['beauty', 'cosmetic', 'skincare', 'personal care', 'grooming', 'salon'], matchSlugPart: 'personal-care' },
+    { keywords: ['stationery', 'book', 'office', 'school', 'paper', 'pen'], matchSlugPart: 'books' },
+    { keywords: ['hardware', 'tool', 'paint', 'plumbing', 'electrical'], matchSlugPart: 'hardware' },
+    { keywords: ['furniture', 'decor', 'furnishing', 'mattress', 'lighting'], matchSlugPart: 'home' },
+    { keywords: ['jewel', 'gold', 'silver', 'ornament', 'watch', 'accessory'], matchSlugPart: 'jewellery' },
+    { keywords: ['toy', 'baby', 'kid', 'game', 'gift'], matchSlugPart: 'toys' },
+    { keywords: ['sport', 'fitness', 'gym', 'cycle'], matchSlugPart: 'sports' },
+    { keywords: ['pet', 'dog', 'cat'], matchSlugPart: 'pet' },
+    { keywords: ['flower', 'florist', 'plant', 'nursery', 'bouquet'], matchSlugPart: 'flowers' },
+    { keywords: ['auto', 'car', 'bike', 'tyre', 'spare'], matchSlugPart: 'automotive' },
+  ];
+
+  for (const entry of keywordAliases) {
+    if (entry.keywords.some((kw) => cleaned.includes(kw))) {
+      const matched = AUTHORITATIVE_STORE_CATEGORIES.find(
+        (c) =>
+          c.slug.toLowerCase().includes(entry.matchSlugPart) ||
+          c.name.toLowerCase().includes(entry.matchSlugPart)
+      );
+      if (matched) return matched;
+    }
+  }
+
   return null;
 }
 
 /**
- * Validates image URL format (must be absolute http:// or https:// URL).
+ * Normalizes optional image URL inputs from CSV spreadsheets.
+ * Treats placeholder tokens like "N/A", "none", "-", "null" as empty.
+ */
+export function normalizeImageUrlInput(url?: string | null): string {
+  if (!url || !url.trim()) return '';
+  const trimmed = url.trim();
+  if (/^(n\/a|na|none|null|nil|-|--|default)$/i.test(trimmed)) {
+    return '';
+  }
+  return trimmed;
+}
+
+/**
+ * Validates image URL format (accepts http://, https://, data:image/, or root-relative / paths).
  */
 export function isValidImageUrl(url?: string | null): boolean {
-  if (!url || !url.trim()) return true; // Optional field
-  const trimmed = url.trim();
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+  const normalized = normalizeImageUrlInput(url);
+  if (!normalized) return true; // Optional field
+  if (normalized.startsWith('/') || normalized.startsWith('data:image/')) {
+    return true;
+  }
+  if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
     return false;
   }
   try {
-    new URL(trimmed);
+    new URL(normalized);
     return true;
   } catch {
     return false;

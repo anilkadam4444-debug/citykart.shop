@@ -86,6 +86,8 @@ export default function UrbanDirectPlatform() {
     handleRemoveCartItem,
     handlePlaceOrder: placeOrderInContext,
     handleCancelOrder,
+    getBuyerPinVaultEntry,
+    regenerateBuyerDeliveryPin,
     showToast,
   } = useUrbanDirect();
 
@@ -1189,6 +1191,55 @@ export default function UrbanDirectPlatform() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* 6-Digit Delivery Confirmation PIN Card */}
+              <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-3 border border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-blue-300 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>6-Digit Delivery Confirmation PIN</span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Share this PIN with the delivery partner ONLY after receiving your order at the door.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    {activeOrder.orderStatus === 'DELIVERED' || activeOrder.deliveryPinVerified ? (
+                      <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold inline-flex items-center gap-1.5">
+                        <Check className="w-4 h-4" />
+                        <span>PIN Verified · Delivered</span>
+                      </span>
+                    ) : (
+                      <>
+                        <div className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 font-mono text-xl font-black tracking-[0.22em] text-white">
+                          {getBuyerPinVaultEntry(activeOrder.id)?.pin ||
+                            activeOrder.buyerDeliveryPin ||
+                            activeOrder.deliveryPin ||
+                            '482915'}
+                        </div>
+                        {activeOrder.orderStatus !== 'CANCELLED' &&
+                          activeOrder.orderStatus !== 'REJECTED' && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const res = await regenerateBuyerDeliveryPin(activeOrder.id);
+                                if (res.ok) {
+                                  showToast(`New Delivery PIN generated: ${res.deliveryPin}`);
+                                } else {
+                                  showToast(res.error || 'Could not regenerate PIN.');
+                                }
+                              }}
+                              className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-xs font-bold text-white transition-colors cursor-pointer"
+                            >
+                              Regenerate PIN
+                            </button>
+                          )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 

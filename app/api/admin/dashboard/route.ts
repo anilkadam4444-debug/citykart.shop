@@ -35,7 +35,13 @@ import {
 } from '@/lib/revenue-model';
 import { getDefaultFreeSubscription } from '@/lib/entitlements';
 import { serverOrdersRegistry, serverNotificationsRegistry } from '@/lib/orders-registry';
-import { serverDeletedStoresRegistry } from '@/lib/stores-registry';
+import {
+  serverDeletedProductsRegistry,
+  serverDeletedStoresRegistry,
+  serverProductsRegistry,
+  serverSellersRegistry,
+  serverStoresRegistry,
+} from '@/lib/stores-registry';
 import {
   getAdminAuditLogs,
   getAuthoritativeAdminAuthorizations,
@@ -53,8 +59,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  // 1. Strict Server-Side Authorization Gate (Super Admin or Operational Admin)
-  const authCheck = await verifyAdminRequest(req);
+  try {
+    // 1. Strict Server-Side Authorization Gate (Super Admin or Operational Admin)
+    const authCheck = await verifyAdminRequest(req);
   if (!authCheck.authorized) {
     return NextResponse.json(
       {
@@ -139,6 +146,9 @@ export async function GET(req: NextRequest) {
   for (const s of INITIAL_SELLERS) {
     sellersMap.set(s.id, { ...s });
   }
+  for (const s of serverSellersRegistry.values()) {
+    if (s?.id) sellersMap.set(s.id, { ...s });
+  }
 
   fsSellersSnap?.forEach((d) => {
     const data = d.data() as SellerProfile;
@@ -149,6 +159,11 @@ export async function GET(req: NextRequest) {
   const storesMap = new Map<string, LocalStore>();
   for (const st of INITIAL_STORES) {
     if (!deletedStoreIds.has(st.id)) {
+      storesMap.set(st.id, { ...st });
+    }
+  }
+  for (const st of serverStoresRegistry.values()) {
+    if (st?.id && !deletedStoreIds.has(st.id)) {
       storesMap.set(st.id, { ...st });
     }
   }
@@ -178,13 +193,18 @@ export async function GET(req: NextRequest) {
   // 6. Merge Products + Apply Admin Unpublish Overrides
   const productsMap = new Map<string, Product>();
   for (const p of INITIAL_PRODUCTS) {
-    if (!deletedStoreIds.has(p.storeId)) {
+    if (!deletedStoreIds.has(p.storeId) && !serverDeletedProductsRegistry.has(p.id)) {
+      productsMap.set(p.id, { ...p });
+    }
+  }
+  for (const p of serverProductsRegistry.values()) {
+    if (p?.id && !deletedStoreIds.has(p.storeId) && !serverDeletedProductsRegistry.has(p.id)) {
       productsMap.set(p.id, { ...p });
     }
   }
   fsProductsSnap?.forEach((d) => {
     const data = d.data() as Product;
-    if (data?.id && !deletedStoreIds.has(data.storeId)) {
+    if (data?.id && !deletedStoreIds.has(data.storeId) && !serverDeletedProductsRegistry.has(data.id)) {
       productsMap.set(data.id, data);
     }
   });
@@ -395,4 +415,14 @@ export async function GET(req: NextRequest) {
       checkedAt: new Date().toISOString(),
     },
   });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to fetch admin dashboard data.',
+        stack: err instanceof Error ? err.stack : undefined,
+      },
+      { status: 500 }
+    );
+  }
 }

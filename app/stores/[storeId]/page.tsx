@@ -19,7 +19,11 @@ import {
   generateStoreLocalBusinessSchema,
 } from '@/lib/seo-schema';
 
-import { isStoreDeletedServer } from '@/lib/stores-registry';
+import {
+  getAllServerProducts,
+  isStoreDeletedServer,
+  serverStoresRegistry,
+} from '@/lib/stores-registry';
 import {
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
@@ -38,7 +42,9 @@ export async function generateMetadata({
   if (await isStoreDeletedServer(storeId)) return {};
   const storeOverride = serverStoreOverridesRegistry.get(storeId);
   if (storeOverride?.isSuspended || storeOverride?.isActive === false) return {};
-  const store = INITIAL_STORES.find((s) => s.id === storeId);
+  const store =
+    serverStoresRegistry.get(storeId) ||
+    INITIAL_STORES.find((s) => s.id === storeId);
   if (!store || store.isSuspended || !store.isActive) return {};
 
   const title = `${store.name} in ${store.cityName}, ${store.stateRegion || store.country} | Citykart`;
@@ -72,7 +78,9 @@ export default async function StorePage({ params }: StorePageProps) {
     notFound();
   }
   const storeOverride = serverStoreOverridesRegistry.get(storeId);
-  const store = INITIAL_STORES.find((s) => s.id === storeId);
+  const store =
+    serverStoresRegistry.get(storeId) ||
+    INITIAL_STORES.find((s) => s.id === storeId);
 
   if (
     !store ||
@@ -89,7 +97,8 @@ export default async function StorePage({ params }: StorePageProps) {
   );
   const categorySlug = categoryDef?.slug || 'other-local-retail-stores';
 
-  const storeProducts = INITIAL_PRODUCTS.filter((p) => {
+  const allProducts = getAllServerProducts();
+  const storeProducts = (allProducts.length > 0 ? allProducts : INITIAL_PRODUCTS).filter((p) => {
     if (p.storeId !== store.id) return false;
     const prodOverride = serverProductOverridesRegistry.get(p.id);
     if (p.adminUnpublished || prodOverride?.adminUnpublished) return false;

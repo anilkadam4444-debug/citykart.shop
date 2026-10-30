@@ -18,6 +18,7 @@ import {
   generateBreadcrumbSchema,
   generateCategoryCollectionSchema,
 } from '@/lib/seo-schema';
+import { getAllServerProducts, getAllServerStores } from '@/lib/stores-registry';
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
@@ -66,10 +67,12 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   const seo = getCategorySeo(slug);
-  const matchingStores = INITIAL_STORES.filter(
+  const allStores = getAllServerStores();
+  const allProducts = getAllServerProducts();
+  const matchingStores = (allStores.length > 0 ? allStores : INITIAL_STORES).filter(
     (s) => s.category === category.name || s.categoryId === category.id
   );
-  const matchingProducts = INITIAL_PRODUCTS.filter(
+  const matchingProducts = (allProducts.length > 0 ? allProducts : INITIAL_PRODUCTS).filter(
     (p) => p.category === category.name || p.categoryId === category.id
   );
 

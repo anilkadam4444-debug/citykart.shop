@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    if (forSeller && (item.localityType === 'VILLAGE' || isVillageOrTalukaPlace(item.localityType, item.cityName, item.district))) {
+    if (item.localityType === 'VILLAGE' || isVillageOrTalukaPlace(item.localityType, item.cityName, item.district)) {
       continue;
     }
 
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
                   ? 'CITY'
                   : 'LOCALITY';
 
-          if (forSeller && (localityType === 'VILLAGE' || isVillageOrTalukaPlace(localityType, localityName, district))) {
+          if (localityType === 'VILLAGE' || isVillageOrTalukaPlace(localityType, localityName, district)) {
             continue;
           }
 

@@ -388,6 +388,9 @@ export const GLOBAL_REGIONS: RegionDef[] = [
   { code: 'AR', name: 'Arunachal Pradesh', countryCode: 'IN', regionType: 'State' },
   { code: 'PY', name: 'Puducherry', countryCode: 'IN', regionType: 'Union Territory' },
   { code: 'LA', name: 'Ladakh', countryCode: 'IN', regionType: 'Union Territory' },
+  { code: 'AN', name: 'Andaman and Nicobar Islands', countryCode: 'IN', regionType: 'Union Territory' },
+  { code: 'DN', name: 'Dadra and Nagar Haveli and Daman and Diu', countryCode: 'IN', regionType: 'Union Territory' },
+  { code: 'LD', name: 'Lakshadweep', countryCode: 'IN', regionType: 'Union Territory' },
 
   // --- UNITED STATES ---
   { code: 'NY', name: 'New York', countryCode: 'US', regionType: 'State' },
@@ -481,6 +484,181 @@ export const GLOBAL_REGIONS: RegionDef[] = [
 ];
 
 export const GLOBAL_DISTRICTS: DistrictDef[] = [
+  // --- INDIA -> ANDAMAN AND NICOBAR ISLANDS ---
+  { code: 'AN-NIC', name: 'Nicobar', stateRegion: 'Andaman and Nicobar Islands', countryCode: 'IN', districtType: 'District' },
+  { code: 'AN-NMA', name: 'North and Middle Andaman', stateRegion: 'Andaman and Nicobar Islands', countryCode: 'IN', districtType: 'District' },
+  { code: 'AN-SAN', name: 'South Andaman', stateRegion: 'Andaman and Nicobar Islands', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> ANDHRA PRADESH ---
+  { code: 'AP-ATP', name: 'Ananthapuramu', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-AMY', name: 'Annamayya', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-BPT', name: 'Bapatla', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-CTR', name: 'Chittoor', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-EG', name: 'East Godavari', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-ELR', name: 'Eluru', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-GNT', name: 'Guntur', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-KKD', name: 'Kakinada', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-NTR', name: 'NTR (Vijayawada)', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-PLN', name: 'Palnadu', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-PVM', name: 'Parvathipuram Manyam', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-PKM', name: 'Prakasam', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-KNS', name: 'Dr. B.R. Ambedkar Konaseema', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-NLR', name: 'Sri Potti Sriramulu Nellore', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-SSS', name: 'Sri Sathya Sai', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-SKL', name: 'Srikakulam', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-TPT', name: 'Tirupati', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-VSP', name: 'Visakhapatnam', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-VZN', name: 'Vizianagaram', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-WG', name: 'West Godavari', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AP-KDP', name: 'YSR Kadapa', stateRegion: 'Andhra Pradesh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> ARUNACHAL PRADESH ---
+  { code: 'AR-TWG', name: 'Tawang', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AR-WKM', name: 'West Kameng', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AR-EKM', name: 'East Kameng', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AR-PPR', name: 'Papum Pare (Itanagar)', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AR-LBS', name: 'Lower Subansiri', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AR-NMS', name: 'Namsai', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'AR-CHG', name: 'Changlang', stateRegion: 'Arunachal Pradesh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> ASSAM ---
+  { code: 'AS-BRP', name: 'Barpeta', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-CCR', name: 'Cachar (Silchar)', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-DBG', name: 'Dibrugarh', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-GLG', name: 'Golaghat', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-JRH', name: 'Jorhat', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-KRM', name: 'Kamrup Metropolitan (Guwahati)', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-KRP', name: 'Kamrup Rural', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-NGN', name: 'Nagaon', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-SVS', name: 'Sivasagar', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-SNT', name: 'Sonitpur (Tezpur)', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+  { code: 'AS-TSK', name: 'Tinsukia', stateRegion: 'Assam', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> BIHAR ---
+  { code: 'BR-BGP', name: 'Bhagalpur', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-DAR', name: 'Darbhanga', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-GAY', name: 'Gaya', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-MZP', name: 'Muzaffarpur', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-NAL', name: 'Nalanda (Bihar Sharif)', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-PAT', name: 'Patna', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-PUR', name: 'Purnia', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-ROH', name: 'Rohtas (Sasaram)', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-SAM', name: 'Samastipur', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+  { code: 'BR-SAR', name: 'Saran (Chhapra)', stateRegion: 'Bihar', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> CHANDIGARH ---
+  { code: 'CH-CHD', name: 'Chandigarh District', stateRegion: 'Chandigarh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> CHHATTISGARH ---
+  { code: 'CT-BSP', name: 'Bilaspur', stateRegion: 'Chhattisgarh', countryCode: 'IN', districtType: 'District' },
+  { code: 'CT-DRG', name: 'Durg (Bhilai)', stateRegion: 'Chhattisgarh', countryCode: 'IN', districtType: 'District' },
+  { code: 'CT-KRB', name: 'Korba', stateRegion: 'Chhattisgarh', countryCode: 'IN', districtType: 'District' },
+  { code: 'CT-RPR', name: 'Raipur', stateRegion: 'Chhattisgarh', countryCode: 'IN', districtType: 'District' },
+  { code: 'CT-RGN', name: 'Rajnandgaon', stateRegion: 'Chhattisgarh', countryCode: 'IN', districtType: 'District' },
+  { code: 'CT-SRG', name: 'Surguja (Ambikapur)', stateRegion: 'Chhattisgarh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> DADRA AND NAGAR HAVELI AND DAMAN AND DIU ---
+  { code: 'DN-DNH', name: 'Dadra and Nagar Haveli (Silvassa)', stateRegion: 'Dadra and Nagar Haveli and Daman and Diu', countryCode: 'IN', districtType: 'District' },
+  { code: 'DN-DMN', name: 'Daman', stateRegion: 'Dadra and Nagar Haveli and Daman and Diu', countryCode: 'IN', districtType: 'District' },
+  { code: 'DN-DIU', name: 'Diu', stateRegion: 'Dadra and Nagar Haveli and Daman and Diu', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> DELHI ---
+  { code: 'DL-ND', name: 'New Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+  { code: 'DL-SD', name: 'South Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+  { code: 'DL-CD', name: 'Central Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+  { code: 'DL-ED', name: 'East Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+  { code: 'DL-WD', name: 'West Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+  { code: 'DL-NWD', name: 'North West Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+  { code: 'DL-SWD', name: 'South West Delhi', stateRegion: 'Delhi', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> GOA ---
+  { code: 'GA-NGO', name: 'North Goa (Panaji)', stateRegion: 'Goa', countryCode: 'IN', districtType: 'District' },
+  { code: 'GA-SGO', name: 'South Goa (Margao)', stateRegion: 'Goa', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> GUJARAT ---
+  { code: 'GJ-AMD', name: 'Ahmedabad District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-AND', name: 'Anand District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-BVN', name: 'Bhavnagar District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-GND', name: 'Gandhinagar District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-JMN', name: 'Jamnagar District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-JND', name: 'Junagadh District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-KCH', name: 'Kutch (Bhuj)', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-RJK', name: 'Rajkot District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-SRT', name: 'Surat District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-VDR', name: 'Vadodara District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+  { code: 'GJ-VLS', name: 'Valsad District', stateRegion: 'Gujarat', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> HARYANA ---
+  { code: 'HR-AMB', name: 'Ambala', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-FBD', name: 'Faridabad', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-GGM', name: 'Gurugram (Gurgaon)', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-HSR', name: 'Hisar', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-KRN', name: 'Karnal', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-KPK', name: 'Panchkula', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-PNP', name: 'Panipat', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-RHT', name: 'Rohtak', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+  { code: 'HR-SNP', name: 'Sonipat', stateRegion: 'Haryana', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> HIMACHAL PRADESH ---
+  { code: 'HP-CBA', name: 'Chamba', stateRegion: 'Himachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'HP-KNG', name: 'Kangra (Dharamshala)', stateRegion: 'Himachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'HP-KLU', name: 'Kullu', stateRegion: 'Himachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'HP-MND', name: 'Mandi', stateRegion: 'Himachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'HP-SML', name: 'Shimla', stateRegion: 'Himachal Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'HP-SLN', name: 'Solan', stateRegion: 'Himachal Pradesh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> JAMMU AND KASHMIR ---
+  { code: 'JK-ANT', name: 'Anantnag', stateRegion: 'Jammu and Kashmir', countryCode: 'IN', districtType: 'District' },
+  { code: 'JK-BRM', name: 'Baramulla', stateRegion: 'Jammu and Kashmir', countryCode: 'IN', districtType: 'District' },
+  { code: 'JK-JMU', name: 'Jammu', stateRegion: 'Jammu and Kashmir', countryCode: 'IN', districtType: 'District' },
+  { code: 'JK-KTH', name: 'Kathua', stateRegion: 'Jammu and Kashmir', countryCode: 'IN', districtType: 'District' },
+  { code: 'JK-SGR', name: 'Srinagar', stateRegion: 'Jammu and Kashmir', countryCode: 'IN', districtType: 'District' },
+  { code: 'JK-UDH', name: 'Udhampur', stateRegion: 'Jammu and Kashmir', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> JHARKHAND ---
+  { code: 'JH-BKR', name: 'Bokaro', stateRegion: 'Jharkhand', countryCode: 'IN', districtType: 'District' },
+  { code: 'JH-DHN', name: 'Dhanbad', stateRegion: 'Jharkhand', countryCode: 'IN', districtType: 'District' },
+  { code: 'JH-ESG', name: 'East Singhbhum (Jamshedpur)', stateRegion: 'Jharkhand', countryCode: 'IN', districtType: 'District' },
+  { code: 'JH-HZB', name: 'Hazaribagh', stateRegion: 'Jharkhand', countryCode: 'IN', districtType: 'District' },
+  { code: 'JH-RNC', name: 'Ranchi', stateRegion: 'Jharkhand', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> KARNATAKA ---
+  { code: 'KA-BU', name: 'Bengaluru Urban', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-BR', name: 'Bengaluru Rural', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-MY', name: 'Mysuru District', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-DK', name: 'Dakshina Kannada (Mangaluru)', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-BG', name: 'Belagavi District', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-DWD', name: 'Dharwad (Hubballi-Dharwad)', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-KLB', name: 'Kalaburagi (Gulbarga)', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-UDP', name: 'Udupi District', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+  { code: 'KA-SMG', name: 'Shivamogga', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> KERALA ---
+  { code: 'KL-EKM', name: 'Ernakulam (Kochi)', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-KNR', name: 'Kannur', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-KTM', name: 'Kottayam', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-KKD', name: 'Kozhikode', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-MLP', name: 'Malappuram', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-PKD', name: 'Palakkad', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-TVM', name: 'Thiruvananthapuram', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+  { code: 'KL-TCR', name: 'Thrissur', stateRegion: 'Kerala', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> LADAKH ---
+  { code: 'LA-LEH', name: 'Leh', stateRegion: 'Ladakh', countryCode: 'IN', districtType: 'District' },
+  { code: 'LA-KGL', name: 'Kargil', stateRegion: 'Ladakh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> LAKSHADWEEP ---
+  { code: 'LD-LKD', name: 'Lakshadweep District (Kavaratti)', stateRegion: 'Lakshadweep', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> MADHYA PRADESH ---
+  { code: 'MP-BPL', name: 'Bhopal District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'MP-GWL', name: 'Gwalior District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'MP-IND', name: 'Indore District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'MP-JBP', name: 'Jabalpur District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'MP-RWA', name: 'Rewa District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'MP-SGR', name: 'Sagar District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'MP-UJN', name: 'Ujjain District', stateRegion: 'Madhya Pradesh', countryCode: 'IN', districtType: 'District' },
+
   // --- INDIA -> MAHARASHTRA ---
   { code: 'MH-ND', name: 'Nanded District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-PN', name: 'Pune District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
@@ -489,7 +667,7 @@ export const GLOBAL_DISTRICTS: DistrictDef[] = [
   { code: 'MH-TH', name: 'Thane District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-NG', name: 'Nagpur District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-NS', name: 'Nashik District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
-  { code: 'MH-AU', name: 'Aurangabad District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
+  { code: 'MH-AU', name: 'Chhatrapati Sambhajinagar (Aurangabad)', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-KL', name: 'Kolhapur District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-SO', name: 'Solapur District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-AM', name: 'Amravati District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
@@ -498,15 +676,114 @@ export const GLOBAL_DISTRICTS: DistrictDef[] = [
   { code: 'MH-HI', name: 'Hingoli District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-JL', name: 'Jalna District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-BD', name: 'Beed District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
-  { code: 'MH-OS', name: 'Dharashiv District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
+  { code: 'MH-OS', name: 'Dharashiv District (Osmanabad)', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-RG', name: 'Raigad District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-RT', name: 'Ratnagiri District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-SN', name: 'Sangli District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-ST', name: 'Satara District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
-  { code: 'MH-AH', name: 'Ahmednagar District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
+  { code: 'MH-AH', name: 'Ahilyanagar District (Ahmednagar)', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-DH', name: 'Dhule District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-JG', name: 'Jalgaon District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
   { code: 'MH-PL', name: 'Palghar District', stateRegion: 'Maharashtra', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> MANIPUR ---
+  { code: 'MN-IME', name: 'Imphal East', stateRegion: 'Manipur', countryCode: 'IN', districtType: 'District' },
+  { code: 'MN-IMW', name: 'Imphal West', stateRegion: 'Manipur', countryCode: 'IN', districtType: 'District' },
+  { code: 'MN-THB', name: 'Thoubal', stateRegion: 'Manipur', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> MEGHALAYA ---
+  { code: 'ML-EKH', name: 'East Khasi Hills (Shillong)', stateRegion: 'Meghalaya', countryCode: 'IN', districtType: 'District' },
+  { code: 'ML-WGH', name: 'West Garo Hills (Tura)', stateRegion: 'Meghalaya', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> MIZORAM ---
+  { code: 'MZ-AZL', name: 'Aizawl', stateRegion: 'Mizoram', countryCode: 'IN', districtType: 'District' },
+  { code: 'MZ-LGL', name: 'Lunglei', stateRegion: 'Mizoram', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> NAGALAND ---
+  { code: 'NL-DMP', name: 'Dimapur', stateRegion: 'Nagaland', countryCode: 'IN', districtType: 'District' },
+  { code: 'NL-KHM', name: 'Kohima', stateRegion: 'Nagaland', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> ODISHA ---
+  { code: 'OR-BAL', name: 'Balasore', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+  { code: 'OR-CTC', name: 'Cuttack', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+  { code: 'OR-GJM', name: 'Ganjam (Berhampur)', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+  { code: 'OR-KHD', name: 'Khordha (Bhubaneswar)', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+  { code: 'OR-PRI', name: 'Puri', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+  { code: 'OR-SBP', name: 'Sambalpur', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+  { code: 'OR-SNG', name: 'Sundargarh (Rourkela)', stateRegion: 'Odisha', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> PUDUCHERRY ---
+  { code: 'PY-PDY', name: 'Puducherry District', stateRegion: 'Puducherry', countryCode: 'IN', districtType: 'District' },
+  { code: 'PY-KKL', name: 'Karaikal', stateRegion: 'Puducherry', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> PUNJAB ---
+  { code: 'PB-ASR', name: 'Amritsar', stateRegion: 'Punjab', countryCode: 'IN', districtType: 'District' },
+  { code: 'PB-BTI', name: 'Bathinda', stateRegion: 'Punjab', countryCode: 'IN', districtType: 'District' },
+  { code: 'PB-JAL', name: 'Jalandhar', stateRegion: 'Punjab', countryCode: 'IN', districtType: 'District' },
+  { code: 'PB-LDH', name: 'Ludhiana', stateRegion: 'Punjab', countryCode: 'IN', districtType: 'District' },
+  { code: 'PB-MHL', name: 'Mohali (SAS Nagar)', stateRegion: 'Punjab', countryCode: 'IN', districtType: 'District' },
+  { code: 'PB-PTA', name: 'Patiala', stateRegion: 'Punjab', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> RAJASTHAN ---
+  { code: 'RJ-AJM', name: 'Ajmer', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+  { code: 'RJ-ALW', name: 'Alwar', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+  { code: 'RJ-BKN', name: 'Bikaner', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+  { code: 'RJ-JPR', name: 'Jaipur', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+  { code: 'RJ-JJD', name: 'Jodhpur', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+  { code: 'RJ-KTA', name: 'Kota', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+  { code: 'RJ-UDR', name: 'Udaipur', stateRegion: 'Rajasthan', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> SIKKIM ---
+  { code: 'SK-GTK', name: 'Gangtok', stateRegion: 'Sikkim', countryCode: 'IN', districtType: 'District' },
+  { code: 'SK-NMC', name: 'Namchi', stateRegion: 'Sikkim', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> TAMIL NADU ---
+  { code: 'TN-CHN', name: 'Chennai District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-CBE', name: 'Coimbatore District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-MDU', name: 'Madurai District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-SLM', name: 'Salem District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-TPR', name: 'Tiruppur District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-TRY', name: 'Tiruchirappalli', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-TNV', name: 'Tirunelveli', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+  { code: 'TN-VLR', name: 'Vellore District', stateRegion: 'Tamil Nadu', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> TELANGANA ---
+  { code: 'TG-HYD', name: 'Hyderabad District', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
+  { code: 'TG-KRM', name: 'Karimnagar District', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
+  { code: 'TG-MED', name: 'Medchal-Malkajgiri', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
+  { code: 'TG-NZB', name: 'Nizamabad District', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
+  { code: 'TG-RNG', name: 'Rangareddy District', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
+  { code: 'TG-WGL', name: 'Warangal District', stateRegion: 'Telangana', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> TRIPURA ---
+  { code: 'TR-AGT', name: 'West Tripura (Agartala)', stateRegion: 'Tripura', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> UTTAR PRADESH ---
+  { code: 'UP-AGR', name: 'Agra District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-AYD', name: 'Ayodhya District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-BRL', name: 'Bareilly District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-GBN', name: 'Gautam Buddha Nagar (Noida)', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-GZB', name: 'Ghaziabad District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-GKP', name: 'Gorakhpur District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-JNS', name: 'Jhansi District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-KNP', name: 'Kanpur Nagar', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-LKO', name: 'Lucknow District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-MTR', name: 'Mathura District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-MRT', name: 'Meerut District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-PRY', name: 'Prayagraj (Allahabad)', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+  { code: 'UP-VNS', name: 'Varanasi District', stateRegion: 'Uttar Pradesh', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> UTTARAKHAND ---
+  { code: 'UT-DDN', name: 'Dehradun', stateRegion: 'Uttarakhand', countryCode: 'IN', districtType: 'District' },
+  { code: 'UT-HWR', name: 'Haridwar', stateRegion: 'Uttarakhand', countryCode: 'IN', districtType: 'District' },
+  { code: 'UT-NTL', name: 'Nainital (Haldwani)', stateRegion: 'Uttarakhand', countryCode: 'IN', districtType: 'District' },
+
+  // --- INDIA -> WEST BENGAL ---
+  { code: 'WB-HWH', name: 'Howrah', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
+  { code: 'WB-KOL', name: 'Kolkata District', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
+  { code: 'WB-N24', name: 'North 24 Parganas', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
+  { code: 'WB-PBD', name: 'Paschim Bardhaman (Durgapur/Asansol)', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
+  { code: 'WB-S24', name: 'South 24 Parganas', stateRegion: 'West Bengal', countryCode: 'IN', districtType: 'District' },
 
   // --- INDIA -> KARNATAKA ---
   { code: 'KA-BU', name: 'Bengaluru Urban', stateRegion: 'Karnataka', countryCode: 'IN', districtType: 'District' },

@@ -52,24 +52,24 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  // 1. Strict Server-Side Admin Authorization Gate (Super Admin or Operational Admin)
-  const authCheck = await verifyAdminRequest(req);
-  if (!authCheck.authorized || !authCheck.firebaseUid) {
-    return NextResponse.json(
-      {
-        ok: false,
-        authorized: false,
-        error: authCheck.reason,
-      },
-      { status: authCheck.status }
-    );
-  }
-
-  const adminUid = authCheck.firebaseUid;
-  const adminPhone = authCheck.phoneE164;
-  const adminRole = authCheck.role;
-
   try {
+    // 1. Strict Server-Side Admin Authorization Gate (Super Admin or Operational Admin)
+    const authCheck = await verifyAdminRequest(req);
+    if (!authCheck.authorized || !authCheck.firebaseUid) {
+      return NextResponse.json(
+        {
+          ok: false,
+          authorized: false,
+          error: authCheck.reason,
+        },
+        { status: authCheck.status }
+      );
+    }
+
+    const adminUid = authCheck.firebaseUid;
+    const adminPhone = authCheck.phoneE164;
+    const adminRole = authCheck.role;
+
     const body = await req.json();
     const actionType = String(body.action || '').trim();
     const reason = String(body.reason || `Administrative action by ${adminRole}`).trim();
@@ -625,7 +625,11 @@ export async function POST(req: NextRequest) {
     if (actionType === 'TOGGLE_CATEGORY') {
       const categoryId = String(body.categoryId || '').trim();
       const cat = AUTHORITATIVE_STORE_CATEGORIES.find(
-        (c) => c.id === categoryId
+        (c) =>
+          c.id === categoryId ||
+          c.slug === categoryId ||
+          c.id.includes(categoryId) ||
+          c.slug.includes(categoryId)
       );
       if (!cat) {
         return NextResponse.json(

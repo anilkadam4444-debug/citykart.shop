@@ -241,7 +241,7 @@ export function getCitiesByCountryRegionAndDistrict(
   const cleanDistrict = (districtName || '').toLowerCase().trim();
 
   let filtered = combined.filter((c) => {
-    if (forSellerOnboarding && isVillageOrTalukaPlace(c.localityType, c.cityName, c.district)) {
+    if (c.localityType === 'VILLAGE' || isVillageOrTalukaPlace(c.localityType, c.cityName, c.district)) {
       return false;
     }
 

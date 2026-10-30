@@ -6,6 +6,7 @@ import {
   OrderRecord,
 } from '@/lib/catalog-data';
 import { serverOrderPinsVault, serverOrdersRegistry } from '@/lib/orders-registry';
+import { serverStoresRegistry } from '@/lib/stores-registry';
 import {
   createInitialDeliveryPinInfo,
   generateDeliveryPin,
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
     // 2. Validate that the target store serves the delivery city (intra-city delivery only)
     const resolvedStore: LocalStore | undefined =
       (storeData as LocalStore | undefined) ||
+      (storeId ? serverStoresRegistry.get(storeId) : undefined) ||
       INITIAL_STORES.find((s) => s.id === storeId);
     const effectiveCity =
       sessionUser?.lockedCity || customerCity || resolvedStore?.cityName || 'Nanded';

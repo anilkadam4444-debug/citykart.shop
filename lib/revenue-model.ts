@@ -217,7 +217,7 @@ export const SUBSCRIPTION_PLANS = SUBSCRIPTION_PLANS_ARRAY as unknown as Record<
 > &
   SubscriptionPlan[];
 
-export const VALUE_ADDED_SERVICES: Array<{
+export interface ValueAddedServiceDef {
   id: string;
   type: ValueAddedServiceType;
   name: string;
@@ -227,41 +227,65 @@ export const VALUE_ADDED_SERVICES: Array<{
   priceInr: number;
   billingFrequency: string;
   turnaroundDays: number;
-}> = [
-  {
-    id: 'vas_catalog',
-    type: 'CATALOG_DIGITIZATION',
-    name: 'Catalog Professionalization Service',
-    title: 'Assisted Catalogue Digitisation',
-    description: 'Our onboarding team transcribes your paper price list or photos into structured SKUs.',
-    price: 499,
-    priceInr: 499,
-    billingFrequency: 'One-Time',
-    turnaroundDays: 2,
-  },
-  {
-    id: 'vas_delivery_boost',
-    type: 'PRIORITY_DISPATCH_SETUP',
-    name: 'Priority Express Dispatch Badge',
-    title: 'Bulk Spreadsheet SKU Import',
-    description: 'Fast-track import of up to 500 products from Excel/CSV with category mapping.',
-    price: 299,
-    priceInr: 299,
-    billingFrequency: 'One-Time',
-    turnaroundDays: 1,
-  },
-  {
-    id: 'vas_marketing',
-    type: 'HYPERLOCAL_MARKETING',
-    name: 'Hyperlocal Social Media Marketing Bundle',
-    title: 'Storefront Branding & Banner Kit',
-    description: 'Custom cover artwork, digital QR standee PDF, and WhatsApp shareable store card.',
-    price: 999,
-    priceInr: 999,
-    billingFrequency: 'One-Time',
-    turnaroundDays: 3,
-  },
+}
+
+const VAS_CATALOG: ValueAddedServiceDef = {
+  id: 'vas_catalog',
+  type: 'CATALOG_DIGITIZATION',
+  name: 'Catalog Professionalization Service',
+  title: 'Assisted Catalogue Digitisation',
+  description: 'Our onboarding team transcribes your paper price list or photos into structured SKUs.',
+  price: 499,
+  priceInr: 499,
+  billingFrequency: 'One-Time',
+  turnaroundDays: 2,
+};
+
+const VAS_DELIVERY_BOOST: ValueAddedServiceDef = {
+  id: 'vas_delivery_boost',
+  type: 'PRIORITY_DISPATCH_SETUP',
+  name: 'Priority Express Dispatch Badge',
+  title: 'Bulk Spreadsheet SKU Import',
+  description: 'Fast-track import of up to 500 products from Excel/CSV with category mapping.',
+  price: 299,
+  priceInr: 299,
+  billingFrequency: 'One-Time',
+  turnaroundDays: 1,
+};
+
+const VAS_MARKETING: ValueAddedServiceDef = {
+  id: 'vas_marketing',
+  type: 'HYPERLOCAL_MARKETING',
+  name: 'Hyperlocal Social Media Marketing Bundle',
+  title: 'Storefront Branding & Banner Kit',
+  description: 'Custom cover artwork, digital QR standee PDF, and WhatsApp shareable store card.',
+  price: 999,
+  priceInr: 999,
+  billingFrequency: 'One-Time',
+  turnaroundDays: 3,
+};
+
+const VALUE_ADDED_SERVICES_ARRAY: ValueAddedServiceDef[] = [
+  VAS_CATALOG,
+  VAS_DELIVERY_BOOST,
+  VAS_MARKETING,
 ];
+
+Object.defineProperties(VALUE_ADDED_SERVICES_ARRAY, {
+  CATALOG_DIGITIZATION: { value: VAS_CATALOG, enumerable: false, writable: true, configurable: true },
+  CATALOGUE_SETUP: { value: VAS_CATALOG, enumerable: false, writable: true, configurable: true },
+  PRIORITY_DISPATCH_SETUP: { value: VAS_DELIVERY_BOOST, enumerable: false, writable: true, configurable: true },
+  HYPERLOCAL_MARKETING: { value: VAS_MARKETING, enumerable: false, writable: true, configurable: true },
+  vas_catalog: { value: VAS_CATALOG, enumerable: false, writable: true, configurable: true },
+  vas_delivery_boost: { value: VAS_DELIVERY_BOOST, enumerable: false, writable: true, configurable: true },
+  vas_marketing: { value: VAS_MARKETING, enumerable: false, writable: true, configurable: true },
+});
+
+export const VALUE_ADDED_SERVICES = VALUE_ADDED_SERVICES_ARRAY as unknown as Record<
+  ValueAddedServiceType,
+  ValueAddedServiceDef
+> &
+  ValueAddedServiceDef[];
 
 export interface BillingTransaction {
   id: string;
@@ -356,6 +380,7 @@ export interface MerchantServiceOrder {
 export interface SponsoredPlacementPackage {
   id?: string;
   name?: string;
+  label?: string;
   days: number;
   durationDays?: number;
   priceInr: number;
@@ -379,8 +404,8 @@ const PLACEMENT_CATEGORY_SPONSORED: SponsoredPlacementConfig = {
   livePaymentsApproved: true,
   description: 'Top placement inside your product category for shoppers in your city.',
   packages: [
-    { id: 'cat-7', name: '7 Days', days: 7, durationDays: 7, priceInr: 99 },
-    { id: 'cat-30', name: '30 Days', days: 30, durationDays: 30, priceInr: 299 },
+    { id: 'cat-7', name: '7 Days', label: '7-Day Category Boost', days: 7, durationDays: 7, priceInr: 99 },
+    { id: 'cat-30', name: '30 Days', label: '30-Day Category Boost', days: 30, durationDays: 30, priceInr: 299 },
   ],
 };
 
@@ -392,8 +417,8 @@ const PLACEMENT_LOCAL_FEATURED: SponsoredPlacementConfig = {
   livePaymentsApproved: true,
   description: 'Highlighted in city discovery carousels and store spotlight sections.',
   packages: [
-    { id: 'loc-7', name: '7 Days', days: 7, durationDays: 7, priceInr: 199 },
-    { id: 'loc-30', name: '30 Days', days: 30, durationDays: 30, priceInr: 599 },
+    { id: 'loc-7', name: '7 Days', label: '7-Day City Featured', days: 7, durationDays: 7, priceInr: 199 },
+    { id: 'loc-30', name: '30 Days', label: '30-Day City Featured', days: 30, durationDays: 30, priceInr: 599 },
   ],
 };
 
@@ -405,8 +430,8 @@ const PLACEMENT_HOMEPAGE_SPONSORED: SponsoredPlacementConfig = {
   livePaymentsApproved: true,
   description: 'Prime hero & above-the-fold spotlight for all buyers shopping in your city.',
   packages: [
-    { id: 'home-7', name: '7 Days', days: 7, durationDays: 7, priceInr: 399 },
-    { id: 'home-30', name: '30 Days', days: 30, durationDays: 30, priceInr: 1199 },
+    { id: 'home-7', name: '7 Days', label: '7-Day Homepage Spotlight', days: 7, durationDays: 7, priceInr: 399 },
+    { id: 'home-30', name: '30 Days', label: '30-Day Homepage Spotlight', days: 30, durationDays: 30, priceInr: 1199 },
   ],
 };
 
@@ -444,9 +469,9 @@ export const DEFAULT_SPONSORED_PLACEMENT_CONFIGS = PLACEMENTS_ARRAY as unknown a
   SponsoredPlacementConfig[];
 
 export const FEATURED_STORE_PACKAGES = [
-  { id: 'fp-7', name: '7-Day Spotlight Feature', priceInr: 499, durationDays: 7, days: 7 },
-  { id: 'fp-14', name: '14-Day Spotlight Feature', priceInr: 899, durationDays: 14, days: 14 },
-  { id: 'fp-30', name: '30-Day Premier Feature', priceInr: 1799, durationDays: 30, days: 30 },
+  { id: 'fp-7', name: '7-Day Spotlight Feature', label: '7-Day Store Spotlight', priceInr: 499, durationDays: 7, days: 7 },
+  { id: 'fp-14', name: '14-Day Spotlight Feature', label: '14-Day Store Spotlight', priceInr: 899, durationDays: 14, days: 14 },
+  { id: 'fp-30', name: '30-Day Premier Feature', label: '30-Day Premier Spotlight', priceInr: 1799, durationDays: 30, days: 30 },
 ];
 
 export function calculatePlatformRevenueMetrics(

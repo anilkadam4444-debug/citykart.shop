@@ -230,7 +230,7 @@ interface UrbanDirectContextType {
     storeId: string,
     reason?: string
   ) => Promise<{ ok: boolean; success: boolean; message: string }>;
-  handleAddProduct: (newProduct: Product) => void;
+  handleAddProduct: (newProduct: Product, options?: { skipServerSync?: boolean }) => void;
   handleUpdateProduct: (updatedProduct: Product) => void;
   handleDeleteProduct: (productId: string) => void;
   handleUpdateStock: (
@@ -239,7 +239,12 @@ interface UrbanDirectContextType {
     isAvailableOrActor?: boolean | string,
     isAdmin?: boolean
   ) => void;
-  handleSetOrderStep: (orderId: string, stepIndex: number) => void;
+  handleSetOrderStep: (
+    orderId: string,
+    stepIndex: number,
+    explicitStatus?: OrderRecord['orderStatus'],
+    reason?: string
+  ) => void;
   handleSubmitStoreRating: (orderId: string, rating: number, comment?: string) => void;
   handleToggleCategoryStatus: (categoryId: StoreCategoryId) => void;
   handleVerifyOrderDeliveryPin: (
@@ -385,6 +390,73 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
           .catch(() => {});
       }
       try {
+        // Hydrate custom sellers, stores, and products from localStorage
+        const customSellersRaw = localStorage.getItem('urbandirect_custom_sellers_v1');
+        if (customSellersRaw) {
+          const parsedSellers = JSON.parse(customSellersRaw) as SellerProfile[];
+          if (Array.isArray(parsedSellers) && parsedSellers.length > 0) {
+            setSellers((prev) => {
+              const map = new Map<string, SellerProfile>();
+              for (const s of prev) map.set(s.id, s);
+              for (const s of parsedSellers) map.set(s.id, s);
+              return Array.from(map.values());
+            });
+          }
+        }
+
+        const customStoresRaw = localStorage.getItem('urbandirect_custom_stores_v1');
+        if (customStoresRaw) {
+          const parsedStores = JSON.parse(customStoresRaw) as LocalStore[];
+          if (Array.isArray(parsedStores) && parsedStores.length > 0) {
+            setStores((prev) => {
+              const map = new Map<string, LocalStore>();
+              for (const s of prev) map.set(s.id, s);
+              for (const s of parsedStores) map.set(s.id, s);
+              return Array.from(map.values());
+            });
+          }
+        }
+
+        const customProductsRaw = localStorage.getItem('urbandirect_custom_products_v1');
+        if (customProductsRaw) {
+          const parsedProducts = JSON.parse(customProductsRaw) as Product[];
+          if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
+            setProducts((prev) => {
+              const map = new Map<string, Product>();
+              for (const p of prev) map.set(p.id, p);
+              for (const p of parsedProducts) map.set(p.id, p);
+              return Array.from(map.values());
+            });
+          }
+        }
+
+        // Hydrate custom orders and PIN vault from localStorage
+        const savedPinVaultRaw = localStorage.getItem('urbandirect_pin_vault_v1');
+        if (savedPinVaultRaw) {
+          const parsedPinVault = JSON.parse(savedPinVaultRaw) as Record<
+            string,
+            BuyerPinVaultEntry
+          >;
+          if (parsedPinVault && typeof parsedPinVault === 'object') {
+            setPinVault((prev) => ({ ...prev, ...parsedPinVault }));
+          }
+        }
+
+        const customOrdersRaw = localStorage.getItem('urbandirect_custom_orders_v1');
+        if (customOrdersRaw) {
+          const parsedOrders = JSON.parse(customOrdersRaw) as OrderRecord[];
+          if (Array.isArray(parsedOrders) && parsedOrders.length > 0) {
+            setOrders((prev) => {
+              const map = new Map<string, OrderRecord>();
+              for (const o of parsedOrders) map.set(o.id, o);
+              for (const o of prev) {
+                if (!map.has(o.id)) map.set(o.id, o);
+              }
+              return Array.from(map.values());
+            });
+          }
+        }
+
         const savedStoreRatingsRaw = localStorage.getItem('urbandirect_store_ratings_v1');
         if (savedStoreRatingsRaw) {
           const parsedRatings = JSON.parse(savedStoreRatingsRaw) as Record<
@@ -436,6 +508,74 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
       } catch {
         // Ignore storage read error
       }
+
+      // Sync stores, products, and orders from server APIs on mount
+      fetch('/api/stores')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok && Array.isArray(data.stores)) {
+            setStores((prev) => {
+              const map = new Map<string, LocalStore>();
+              for (const s of prev) map.set(s.id, s);
+              for (const s of data.stores as LocalStore[]) map.set(s.id, s);
+              return Array.from(map.values());
+            });
+          }
+          if (data.ok && Array.isArray(data.sellers)) {
+            setSellers((prev) => {
+              const map = new Map<string, SellerProfile>();
+              for (const s of prev) map.set(s.id, s);
+              for (const s of data.sellers as SellerProfile[]) map.set(s.id, s);
+              return Array.from(map.values());
+            });
+          }
+        })
+        .catch(() => {});
+
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok && Array.isArray(data.products)) {
+            setProducts((prev) => {
+              const map = new Map<string, Product>();
+              for (const p of prev) map.set(p.id, p);
+              for (const p of data.products as Product[]) map.set(p.id, p);
+              return Array.from(map.values());
+            });
+          }
+        })
+        .catch(() => {});
+
+      fetch('/api/orders')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok && Array.isArray(data.orders)) {
+            setOrders((prev) => {
+              const map = new Map<string, OrderRecord>();
+              for (const o of data.orders as OrderRecord[]) map.set(o.id, o);
+              for (const o of prev) {
+                if (!map.has(o.id)) map.set(o.id, o);
+              }
+              return Array.from(map.values());
+            });
+            setPinVault((prev) => {
+              const next = { ...prev };
+              for (const o of data.orders as OrderRecord[]) {
+                const pin = o.buyerDeliveryPin || o.deliveryPin;
+                if (pin && !next[o.id]) {
+                  next[o.id] = {
+                    orderId: o.id,
+                    pin,
+                    updatedAt: new Date().toISOString(),
+                    accessToken: o.buyerOrderAccessToken,
+                  };
+                }
+              }
+              return next;
+            });
+          }
+        })
+        .catch(() => {});
     }
   }, []);
 
@@ -711,19 +851,72 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
 
   const handlePlaceOrder = useCallback(
     (newOrder: OrderRecord) => {
-      setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+      setOrders((prev) => {
+        const next = [newOrder, ...prev.filter((o) => o.id !== newOrder.id)];
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return next;
+      });
+
       const pinVal = newOrder.buyerDeliveryPin || newOrder.deliveryPin;
       if (pinVal) {
-        setPinVault((prev) => ({
-          ...prev,
-          [newOrder.id]: {
-            orderId: newOrder.id,
-            pin: pinVal,
-            updatedAt: new Date().toISOString(),
-            accessToken: newOrder.buyerOrderAccessToken,
-          },
-        }));
+        setPinVault((prev) => {
+          const next = {
+            ...prev,
+            [newOrder.id]: {
+              orderId: newOrder.id,
+              pin: pinVal,
+              updatedAt: new Date().toISOString(),
+              accessToken: newOrder.buyerOrderAccessToken,
+              buyerAccessToken: newOrder.buyerOrderAccessToken,
+            },
+          };
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('urbandirect_pin_vault_v1', JSON.stringify(next));
+            } catch {
+              // Ignore storage errors
+            }
+          }
+          return next;
+        });
       }
+
+      const customerName = newOrder.customer?.fullName || 'Customer';
+      const customerAddress = [
+        newOrder.customer?.address,
+        newOrder.customer?.locality,
+        newOrder.customer?.city,
+        newOrder.customer?.postalCode,
+      ]
+        .filter(Boolean)
+        .join(', ');
+
+      setSellerNotifications((prev) => [
+        {
+          id: `notif-${newOrder.id}-${Date.now()}`,
+          orderId: newOrder.id,
+          storeId: newOrder.storeId,
+          title: `New Order #${newOrder.id} (${newOrder.storeName})`,
+          body: `${customerName} ordered ${(newOrder.items || []).length} item(s) worth ₹${newOrder.total}.`,
+          message: `${customerName} ordered ${(newOrder.items || []).length} item(s) worth ₹${newOrder.total}.`,
+          buyerPhone: newOrder.customer?.phone,
+          buyerFullAddress: customerAddress,
+          deliveryNotes: newOrder.customer?.notes,
+          createdAt: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          isRead: false,
+        },
+        ...prev,
+      ]);
+
       clearCart();
     },
     [clearCart]
@@ -760,11 +953,17 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
               phoneE164: customerDetails.phoneE164,
               address: customerDetails.deliveryAddress,
               deliveryAddress: customerDetails.deliveryAddress,
-              locality: customerDetails.locality || customerLocation.locality,
+              locality:
+                customerDetails.locality ||
+                customerLocation.locality ||
+                store?.neighborhood ||
+                store?.serviceArea?.coveredLocalities?.[0] ||
+                'Vazirabad',
               city: customerLocation.city,
               stateRegion: customerLocation.stateRegion,
               country: customerLocation.country,
-              postalCode: customerLocation.postalCode || '',
+              postalCode:
+                customerLocation.postalCode || store?.postalCode || '431601',
               notes: '',
             },
             storeId,
@@ -782,8 +981,13 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
 
         const data = await res.json();
         if (data.ok && data.order) {
-          handlePlaceOrder(data.order);
-          return { ok: true, order: data.order };
+          const enrichedOrder: OrderRecord = {
+            ...data.order,
+            deliveryPin: data.deliveryPin || data.order.deliveryPin,
+            buyerDeliveryPin: data.deliveryPin || data.order.buyerDeliveryPin,
+          };
+          handlePlaceOrder(enrichedOrder);
+          return { ok: true, order: enrichedOrder };
         }
         return { ok: false, error: data.error || 'Failed to place order.' };
       } catch (err) {
@@ -797,13 +1001,36 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
   );
 
   const handleCancelOrder = useCallback((orderId: string, reason = 'Cancelled by customer') => {
-    setOrders((prev) =>
-      prev.map((o) =>
+    setOrders((prev) => {
+      const next = prev.map((o) =>
         o.id === orderId
-          ? { ...o, orderStatus: 'CANCELLED', cancellationReason: reason }
+          ? { ...o, orderStatus: 'CANCELLED' as const, cancellationReason: reason }
           : o
-      )
-    );
+      );
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+        } catch {
+          // Ignore storage errors
+        }
+      }
+      return next;
+    });
+
+    if (typeof window !== 'undefined') {
+      buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+        .then((headers) =>
+          fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+              orderStatus: 'CANCELLED',
+              cancellationReason: reason,
+            }),
+          })
+        )
+        .catch(() => {});
+    }
     return true;
   }, []);
 
@@ -812,34 +1039,76 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
     [pinVault]
   );
 
-  const regenerateBuyerDeliveryPin = useCallback(async (orderId: string) => {
-    try {
-      const headers = await buildAuthenticatedHeaders();
-      const res = await fetch(`/api/orders/${orderId}/pin`, {
-        method: 'POST',
-        headers,
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const pin = data.deliveryPin || data.pin || '583920';
-        setPinVault((prev) => ({
-          ...prev,
-          [orderId]: {
-            orderId,
-            pin,
-            updatedAt: new Date().toISOString(),
-          },
-        }));
-        return { ok: true, deliveryPin: pin };
+  const regenerateBuyerDeliveryPin = useCallback(
+    async (orderId: string) => {
+      try {
+        const existingEntry = pinVault[orderId];
+        const headers = await buildAuthenticatedHeaders({
+          'Content-Type': 'application/json',
+          ...(existingEntry?.accessToken
+            ? { 'x-buyer-order-token': existingEntry.accessToken }
+            : {}),
+        });
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/pin`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            buyerAccessToken: existingEntry?.accessToken,
+          }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          const pin = data.deliveryPin || data.pin || '583920';
+          setPinVault((prev) => {
+            const next = {
+              ...prev,
+              [orderId]: {
+                ...(prev[orderId] || {}),
+                orderId,
+                pin,
+                updatedAt: new Date().toISOString(),
+              },
+            };
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('urbandirect_pin_vault_v1', JSON.stringify(next));
+              } catch {
+                // Ignore storage errors
+              }
+            }
+            return next;
+          });
+          setOrders((prev) => {
+            const next = prev.map((o) =>
+              o.id === orderId
+                ? {
+                    ...o,
+                    deliveryPin: pin,
+                    buyerDeliveryPin: pin,
+                  }
+                : o
+            );
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+              } catch {
+                // Ignore storage errors
+              }
+            }
+            return next;
+          });
+          return { ok: true, deliveryPin: pin };
+        }
+        return { ok: false, error: data.error };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Failed to regenerate delivery PIN.',
+        };
       }
-      return { ok: false, error: data.error };
-    } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : 'Failed to regenerate delivery PIN.',
-      };
-    }
-  }, []);
+    },
+    [pinVault]
+  );
 
   const handleRegenerateBuyerDeliveryPin = useCallback(
     async (orderId: string) => {
@@ -901,19 +1170,210 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
 
   const hasCompletedStore = userOwnedStores.length > 0;
 
-  const handleAddSellerAndStore = useCallback((newSeller: SellerProfile, newStore: LocalStore) => {
-    setSellers((prev) => [newSeller, ...prev.filter((s) => s.id !== newSeller.id)]);
-    setStores((prev) => [newStore, ...prev.filter((s) => s.id !== newStore.id)]);
-  }, []);
+  const handleAddSellerAndStore = useCallback(
+    (newSeller: SellerProfile, newStore: LocalStore) => {
+      const enrichedStore: LocalStore = {
+        ...newStore,
+        sellerId: newSeller.id,
+        ownerUid:
+          newStore.ownerUid ||
+          authenticatedUser?.id ||
+          authenticatedUser?.uid ||
+          `user-${newSeller.id}`,
+        phone:
+          newStore.phone ||
+          newSeller.phoneE164 ||
+          authenticatedUser?.phoneE164,
+        isActive: newStore.isActive !== false,
+      };
+
+      const enrichedSeller: SellerProfile = {
+        ...newSeller,
+        storeIds: Array.from(
+          new Set([...(newSeller.storeIds || []), enrichedStore.id])
+        ),
+      };
+
+      setSellers((prev) => {
+        const next = [
+          enrichedSeller,
+          ...prev.filter((s) => s.id !== enrichedSeller.id),
+        ];
+        if (typeof window !== 'undefined') {
+          try {
+            const customRaw = localStorage.getItem('urbandirect_custom_sellers_v1');
+            const customList = customRaw ? (JSON.parse(customRaw) as SellerProfile[]) : [];
+            const nextCustom = [
+              enrichedSeller,
+              ...customList.filter((s) => s.id !== enrichedSeller.id),
+            ];
+            localStorage.setItem(
+              'urbandirect_custom_sellers_v1',
+              JSON.stringify(nextCustom)
+            );
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return next;
+      });
+
+      setStores((prev) => {
+        const next = [
+          enrichedStore,
+          ...prev.filter((s) => s.id !== enrichedStore.id),
+        ];
+        if (typeof window !== 'undefined') {
+          try {
+            const customRaw = localStorage.getItem('urbandirect_custom_stores_v1');
+            const customList = customRaw ? (JSON.parse(customRaw) as LocalStore[]) : [];
+            const nextCustom = [
+              enrichedStore,
+              ...customList.filter((s) => s.id !== enrichedStore.id),
+            ];
+            localStorage.setItem(
+              'urbandirect_custom_stores_v1',
+              JSON.stringify(nextCustom)
+            );
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return next;
+      });
+
+      setAuthenticatedUser((prevUser) => {
+        const baseUser: UserAccount = prevUser || {
+          id: enrichedStore.ownerUid || `user-${Date.now()}`,
+          uid: enrichedStore.ownerUid || `user-${Date.now()}`,
+          fullName: enrichedSeller.businessOwnerName,
+          phoneE164: enrichedSeller.phoneE164,
+          phoneCountryCode: enrichedSeller.phoneCountryCode || 'IN',
+          phoneVerified: true,
+          roles: ['BUYER', 'SELLER'],
+          role: 'seller',
+          activeRole: 'SELLER',
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+          lockedCity: enrichedStore.cityName,
+          lockedCityId: enrichedStore.cityId,
+          lockedStateRegion: enrichedStore.stateRegion,
+          lockedCountry: enrichedStore.country,
+          lockedCountryCode: enrichedStore.countryCode,
+          lockedLocality: enrichedStore.neighborhood,
+          lockedPostalCode: enrichedStore.postalCode,
+        };
+        const nextRoles = Array.from(
+          new Set([...(baseUser.roles || ['BUYER']), 'SELLER'])
+        ) as UserAccount['roles'];
+        const nextStoreIds = Array.from(
+          new Set([...(baseUser.storeIds || []), enrichedStore.id])
+        );
+        const updatedUser: UserAccount = {
+          ...baseUser,
+          fullName: baseUser.fullName || enrichedSeller.businessOwnerName,
+          role: 'seller',
+          activeRole: 'SELLER',
+          roles: nextRoles,
+          sellerId: enrichedSeller.id,
+          storeIds: nextStoreIds,
+        };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(
+              AUTH_USER_STORAGE_KEY,
+              JSON.stringify(updatedUser)
+            );
+            // Clear stale session token so buildAuthenticatedHeaders re-encodes with updated sellerId and storeIds
+            localStorage.removeItem('urbandirect_session_token');
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return updatedUser;
+      });
+
+      if (typeof window !== 'undefined') {
+        buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+          .then((headers) =>
+            fetch('/api/stores', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                store: enrichedStore,
+                seller: enrichedSeller,
+              }),
+            })
+          )
+          .catch(() => {});
+      }
+    },
+    [authenticatedUser]
+  );
 
   const handleUpdateStoreSettings = useCallback((updatedStore: LocalStore) => {
-    setStores((prev) => prev.map((s) => (s.id === updatedStore.id ? updatedStore : s)));
+    setStores((prev) => {
+      const next = prev.map((s) => (s.id === updatedStore.id ? updatedStore : s));
+      if (typeof window !== 'undefined') {
+        try {
+          const customRaw = localStorage.getItem('urbandirect_custom_stores_v1');
+          const customList = customRaw ? (JSON.parse(customRaw) as LocalStore[]) : [];
+          const nextCustom = [
+            updatedStore,
+            ...customList.filter((s) => s.id !== updatedStore.id),
+          ];
+          localStorage.setItem(
+            'urbandirect_custom_stores_v1',
+            JSON.stringify(nextCustom)
+          );
+        } catch {
+          // Ignore storage errors
+        }
+      }
+      return next;
+    });
+    if (typeof window !== 'undefined') {
+      buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+        .then((headers) =>
+          fetch('/api/stores', {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ store: updatedStore }),
+          })
+        )
+        .catch(() => {});
+    }
   }, []);
 
   const handleDeleteStore = useCallback(
     async (storeId: string, _storeNameConfirm?: string) => {
       setStores((prev) => prev.filter((s) => s.id !== storeId));
       setProducts((prev) => prev.filter((p) => p.storeId !== storeId));
+      if (typeof window !== 'undefined') {
+        try {
+          const customStoresRaw = localStorage.getItem('urbandirect_custom_stores_v1');
+          if (customStoresRaw) {
+            const parsedStores = JSON.parse(customStoresRaw) as LocalStore[];
+            localStorage.setItem(
+              'urbandirect_custom_stores_v1',
+              JSON.stringify(parsedStores.filter((s) => s.id !== storeId))
+            );
+          }
+          const customProdsRaw = localStorage.getItem('urbandirect_custom_products_v1');
+          if (customProdsRaw) {
+            const parsedProds = JSON.parse(customProdsRaw) as Product[];
+            localStorage.setItem(
+              'urbandirect_custom_products_v1',
+              JSON.stringify(parsedProds.filter((p) => p.storeId !== storeId))
+            );
+          }
+        } catch {
+          // Ignore storage errors
+        }
+        fetch(`/api/stores?storeId=${encodeURIComponent(storeId)}`, {
+          method: 'DELETE',
+        }).catch(() => {});
+      }
       return { ok: true, success: true, message: 'Store deleted.' };
     },
     []
@@ -926,16 +1386,120 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
     [handleDeleteStore]
   );
 
-  const handleAddProduct = useCallback((newProduct: Product) => {
-    setProducts((prev) => [newProduct, ...prev]);
-  }, []);
+  const handleAddProduct = useCallback(
+    (newProduct: Product, options?: { skipServerSync?: boolean }) => {
+      setProducts((prev) => {
+        const next = [newProduct, ...prev.filter((p) => p.id !== newProduct.id)];
+        if (typeof window !== 'undefined') {
+          try {
+            const customRaw = localStorage.getItem('urbandirect_custom_products_v1');
+            const customList = customRaw ? (JSON.parse(customRaw) as Product[]) : [];
+            const nextCustom = [
+              newProduct,
+              ...customList.filter((p) => p.id !== newProduct.id),
+            ];
+            localStorage.setItem(
+              'urbandirect_custom_products_v1',
+              JSON.stringify(nextCustom)
+            );
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return next;
+      });
+      setStores((prev) =>
+        prev.map((s) =>
+          s.id === newProduct.storeId
+            ? { ...s, activeSkus: (s.activeSkus || 0) + 1 }
+            : s
+        )
+      );
+      if (typeof window !== 'undefined' && !options?.skipServerSync) {
+        buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+          .then((headers) =>
+            fetch('/api/products', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ product: newProduct }),
+            })
+          )
+          .catch(() => {});
+      }
+    },
+    []
+  );
 
   const handleUpdateProduct = useCallback((updatedProduct: Product) => {
-    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+    setProducts((prev) => {
+      const next = prev.map((p) =>
+        p.id === updatedProduct.id ? updatedProduct : p
+      );
+      if (typeof window !== 'undefined') {
+        try {
+          const customRaw = localStorage.getItem('urbandirect_custom_products_v1');
+          const customList = customRaw ? (JSON.parse(customRaw) as Product[]) : [];
+          const nextCustom = [
+            updatedProduct,
+            ...customList.filter((p) => p.id !== updatedProduct.id),
+          ];
+          localStorage.setItem(
+            'urbandirect_custom_products_v1',
+            JSON.stringify(nextCustom)
+          );
+        } catch {
+          // Ignore storage errors
+        }
+      }
+      return next;
+    });
+    if (typeof window !== 'undefined') {
+      buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+        .then((headers) =>
+          fetch('/api/products', {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ product: updatedProduct }),
+          })
+        )
+        .catch(() => {});
+    }
   }, []);
 
   const handleDeleteProduct = useCallback((productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    setProducts((prev) => {
+      const target = prev.find((p) => p.id === productId);
+      if (target) {
+        setStores((stPrev) =>
+          stPrev.map((s) =>
+            s.id === target.storeId
+              ? { ...s, activeSkus: Math.max(0, (s.activeSkus || 1) - 1) }
+              : s
+          )
+        );
+      }
+      const next = prev.filter((p) => p.id !== productId);
+      if (typeof window !== 'undefined') {
+        try {
+          const customRaw = localStorage.getItem('urbandirect_custom_products_v1');
+          if (customRaw) {
+            const customList = JSON.parse(customRaw) as Product[];
+            localStorage.setItem(
+              'urbandirect_custom_products_v1',
+              JSON.stringify(customList.filter((p) => p.id !== productId))
+            );
+          }
+        } catch {
+          // Ignore storage errors
+        }
+      }
+      return next;
+    });
+    if (typeof window !== 'undefined') {
+      fetch(`/api/products?productId=${encodeURIComponent(productId)}`, {
+        method: 'DELETE',
+      }).catch(() => {});
+    }
   }, []);
 
   const handleUpdateStock = useCallback(
@@ -949,38 +1513,126 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
         typeof isAvailableOrActor === 'boolean'
           ? isAvailableOrActor
           : nextStock > 0;
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === productId
-            ? { ...p, stock: nextStock, isAvailable: nextAvailable }
-            : p
-        )
-      );
+      setProducts((prev) => {
+        let updatedTarget: Product | null = null;
+        const next = prev.map((p) => {
+          if (p.id === productId) {
+            updatedTarget = {
+              ...p,
+              stock: nextStock,
+              isAvailable: nextAvailable,
+              statusNote: nextAvailable && nextStock > 0 ? 'In stock' : 'Out of stock',
+            };
+            return updatedTarget;
+          }
+          return p;
+        });
+        if (updatedTarget && typeof window !== 'undefined') {
+          const targetProd = updatedTarget as Product;
+          try {
+            const customRaw = localStorage.getItem('urbandirect_custom_products_v1');
+            const customList = customRaw ? (JSON.parse(customRaw) as Product[]) : [];
+            const nextCustom = [
+              targetProd,
+              ...customList.filter((p) => p.id !== targetProd.id),
+            ];
+            localStorage.setItem(
+              'urbandirect_custom_products_v1',
+              JSON.stringify(nextCustom)
+            );
+          } catch {
+            // Ignore storage errors
+          }
+          buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+            .then((headers) =>
+              fetch('/api/products', {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ product: targetProd }),
+              })
+            )
+            .catch(() => {});
+        }
+        return next;
+      });
     },
     []
   );
 
-  const handleSetOrderStep = useCallback((orderId: string, stepIndex: number) => {
-    const statusMap: OrderRecord['orderStatus'][] = [
-      'NEW',
-      'PREPARING',
-      'OUT_FOR_DELIVERY',
-      'DELIVERED',
-    ];
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              currentStepIndex: stepIndex,
-              orderStatus: statusMap[stepIndex] || o.orderStatus,
-              deliveredAt:
-                stepIndex >= 3 ? o.deliveredAt || new Date().toISOString() : o.deliveredAt,
-            }
-          : o
-      )
-    );
-  }, []);
+  const handleSetOrderStep = useCallback(
+    (
+      orderId: string,
+      stepIndex: number,
+      explicitStatus?: OrderRecord['orderStatus'],
+      reason?: string
+    ) => {
+      const statusMap: Record<number, OrderRecord['orderStatus']> = {
+        0: 'NEW',
+        1: 'PREPARING',
+        2: 'OUT_FOR_DELIVERY',
+        3: 'DELIVERED',
+      };
+      const resolvedStatus: OrderRecord['orderStatus'] =
+        explicitStatus || statusMap[stepIndex] || 'NEW';
+      const resolvedStep =
+        resolvedStatus === 'NEW'
+          ? 0
+          : resolvedStatus === 'CONFIRMED' || resolvedStatus === 'PREPARING'
+            ? 1
+            : resolvedStatus === 'OUT_FOR_DELIVERY'
+              ? 2
+              : resolvedStatus === 'DELIVERED'
+                ? 3
+                : stepIndex >= 0
+                  ? stepIndex
+                  : 0;
+
+      setOrders((prev) => {
+        const next = prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                currentStepIndex: resolvedStep,
+                orderStatus: resolvedStatus,
+                cancellationReason:
+                  resolvedStatus === 'CANCELLED' || resolvedStatus === 'REJECTED'
+                    ? reason || o.cancellationReason || `Order ${resolvedStatus.toLowerCase()} by seller`
+                    : o.cancellationReason,
+                deliveredAt:
+                  resolvedStatus === 'DELIVERED'
+                    ? o.deliveredAt || new Date().toISOString()
+                    : o.deliveredAt,
+              }
+            : o
+        );
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return next;
+      });
+
+      if (typeof window !== 'undefined') {
+        buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+          .then((headers) =>
+            fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({
+                orderStatus: resolvedStatus,
+                currentStepIndex: resolvedStep,
+                cancellationReason: reason,
+              }),
+            })
+          )
+          .catch(() => {});
+      }
+    },
+    []
+  );
 
   const handleSubmitStoreRating = useCallback(
     (orderId: string, rating: number, comment?: string) => {
@@ -1006,6 +1658,7 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
 
         if (typeof window !== 'undefined') {
           try {
+            localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(updatedOrders));
             const existingRaw = localStorage.getItem('urbandirect_order_ratings_v1');
             const existingMap = existingRaw ? JSON.parse(existingRaw) : {};
             const ratedOrder = updatedOrders.find((o) => o.id === orderId);
@@ -1085,17 +1738,126 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const handleVerifyOrderDeliveryPin = useCallback(
-    async (orderId: string, pinInput: string, _actorRole?: string) => {
-      const vaultEntry = pinVault[orderId];
-      if (vaultEntry && vaultEntry.pin === pinInput.trim()) {
-        handleSetOrderStep(orderId, 3);
-        const msg = 'Delivery PIN verified! Order marked as delivered.';
-        return { ok: true, success: true, message: msg };
+    async (orderId: string, pinInput: string, actorRole?: string) => {
+      const cleanPin = pinInput.trim();
+      if (!/^\d{6}$/.test(cleanPin)) {
+        return {
+          ok: false,
+          success: false,
+          message: 'Please enter a valid 6-digit numeric Delivery PIN.',
+        };
       }
-      const errMsg = 'Invalid delivery PIN.';
-      return { ok: false, success: false, message: errMsg };
+
+      try {
+        const headers = await buildAuthenticatedHeaders({ 'Content-Type': 'application/json' });
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/verify-pin`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            pin: cleanPin,
+            deliveryPin: cleanPin,
+            actorRole: actorRole || 'SELLER',
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          const verifiedAtIso = new Date().toISOString();
+          setOrders((prev) => {
+            const next = prev.map((o) =>
+              o.id === orderId
+                ? {
+                    ...o,
+                    ...(data.order || {}),
+                    currentStepIndex: 3,
+                    orderStatus: 'DELIVERED' as const,
+                    deliveredAt: data.order?.deliveredAt || o.deliveredAt || verifiedAtIso,
+                    deliveryPinVerified: true,
+                    deliveryPinInfo: {
+                      ...(o.deliveryPinInfo || {
+                        pinHash: `verified-${orderId}`,
+                        maskedPin: '••••••',
+                        generatedAt: o.createdAt,
+                        attempts: 0,
+                        maxAttempts: 5,
+                      }),
+                      ...(data.order?.deliveryPinInfo || {}),
+                      status: 'VERIFIED' as const,
+                      verifiedAt: verifiedAtIso,
+                    },
+                  }
+                : o
+            );
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+              } catch {
+                // Ignore storage errors
+              }
+            }
+            return next;
+          });
+          return {
+            ok: true,
+            success: true,
+            message: data.message || 'Delivery PIN verified! Order marked as delivered.',
+          };
+        }
+        if (res.status !== 404 && data.error) {
+          return { ok: false, success: false, message: data.error };
+        }
+      } catch {
+        // Fallback to local vault if server request fails
+      }
+
+      const vaultEntry = pinVault[orderId];
+      if (vaultEntry && vaultEntry.pin === cleanPin) {
+        const verifiedAtIso = new Date().toISOString();
+        setOrders((prev) => {
+          const next = prev.map((o) =>
+            o.id === orderId
+              ? {
+                  ...o,
+                  currentStepIndex: 3,
+                  orderStatus: 'DELIVERED' as const,
+                  deliveredAt: o.deliveredAt || verifiedAtIso,
+                  deliveryPinVerified: true,
+                  deliveryPinInfo: {
+                    ...(o.deliveryPinInfo || {
+                      pinHash: `verified-${orderId}`,
+                      maskedPin: '••••••',
+                      generatedAt: o.createdAt,
+                      attempts: 0,
+                      maxAttempts: 5,
+                    }),
+                    status: 'VERIFIED' as const,
+                    verifiedAt: verifiedAtIso,
+                  },
+                }
+              : o
+          );
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+            } catch {
+              // Ignore storage errors
+            }
+          }
+          return next;
+        });
+        return {
+          ok: true,
+          success: true,
+          message: 'Delivery PIN verified! Order marked as delivered.',
+        };
+      }
+
+      return {
+        ok: false,
+        success: false,
+        message: 'Invalid delivery PIN. Please confirm the 6-digit PIN with the buyer.',
+      };
     },
-    [pinVault, handleSetOrderStep]
+    [pinVault]
   );
 
   const handleUpdateOrderPaymentStatus = useCallback(
@@ -1119,22 +1881,64 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
         typeof collectionMethodOrOptions === 'object' && collectionMethodOrOptions !== null
           ? collectionMethodOrOptions.referenceNote ?? referenceNote
           : referenceNote;
+      const resolvedActorSellerId: string | undefined =
+        typeof collectionMethodOrOptions === 'object' && collectionMethodOrOptions !== null
+          ? collectionMethodOrOptions.actorSellerId
+          : undefined;
 
-      setOrders((prev) =>
-        prev.map((o) =>
+      const nowIso = new Date().toISOString();
+
+      setOrders((prev) => {
+        const next = prev.map((o) =>
           o.id === orderId
             ? {
                 ...o,
                 paymentStatus: status,
                 paymentCollectionMethod: resolvedMethod || o.paymentCollectionMethod,
-                paymentReferenceNote: resolvedNote || o.paymentReferenceNote,
-                paymentCollectedAt:
-                  status === 'PAID' ? new Date().toISOString() : o.paymentCollectedAt,
+                paymentReferenceNote: resolvedNote ?? o.paymentReferenceNote,
+                paymentCollectedAt: status === 'PAID' ? nowIso : o.paymentCollectedAt,
+                paymentVerifiedAt: status === 'PAID' ? nowIso : o.paymentVerifiedAt,
+                paymentVerifiedBySellerId:
+                  status === 'PAID'
+                    ? resolvedActorSellerId || o.paymentVerifiedBySellerId
+                    : o.paymentVerifiedBySellerId,
               }
             : o
-        )
-      );
-      return { ok: true, success: true, message: `Payment status updated to ${status}.` };
+        );
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('urbandirect_custom_orders_v1', JSON.stringify(next));
+          } catch {
+            // Ignore storage errors
+          }
+        }
+        return next;
+      });
+
+      try {
+        const headers = await buildAuthenticatedHeaders({ 'Content-Type': 'application/json' });
+        await fetch(`/api/orders/${encodeURIComponent(orderId)}/payment`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            paymentStatus: status,
+            collectionMethod: resolvedMethod,
+            referenceNote: resolvedNote,
+            actorSellerId: resolvedActorSellerId,
+          }),
+        });
+      } catch {
+        // Ignore network error after optimistic update
+      }
+
+      return {
+        ok: true,
+        success: true,
+        message:
+          status === 'PAID'
+            ? `Payment recorded (${resolvedMethod === 'UPI_ON_DELIVERY' ? 'UPI on Delivery' : 'Cash on Delivery'}) and order marked as PAID.`
+            : `Payment status updated to ${status}.`,
+      };
     },
     []
   );

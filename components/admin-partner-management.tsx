@@ -359,10 +359,10 @@ export function AdminPartnerManagement({
       }
       if (appSearch.trim()) {
         const q = appSearch.trim().toLowerCase();
-        const matchName = app.fullLegalName.toLowerCase().includes(q);
-        const matchRef = app.referenceId.toLowerCase().includes(q);
-        const matchPhone = app.phoneE164.toLowerCase().includes(q);
-        const matchCity = app.cityName.toLowerCase().includes(q);
+        const matchName = (app.fullLegalName || (app as unknown as { fullName?: string }).fullName || '').toLowerCase().includes(q);
+        const matchRef = (app.referenceId || '').toLowerCase().includes(q);
+        const matchPhone = (app.phoneE164 || '').toLowerCase().includes(q);
+        const matchCity = (app.cityName || '').toLowerCase().includes(q);
         return matchName || matchRef || matchPhone || matchCity;
       }
       return true;
@@ -382,11 +382,17 @@ export function AdminPartnerManagement({
 
   const pendingAppsCount = useMemo(
     () =>
-      applications.filter(
-        (a) =>
-          a.status === 'pending_review' ||
-          a.status === 'additional_information_required'
-      ).length,
+      applications.filter((a) => {
+        const st = (a.status || '').toLowerCase();
+        return (
+          st === 'pending_review' ||
+          st === 'additional_information_required' ||
+          st === 'pending' ||
+          st === 'submitted' ||
+          st === 'under_review' ||
+          st === 'needs_more_info'
+        );
+      }).length,
     [applications]
   );
 
@@ -613,11 +619,11 @@ export function AdminPartnerManagement({
                   filteredApplications.map((app) => (
                     <tr key={app.id} className="hover:bg-slate-50">
                       <td className="py-3 pr-3 font-mono font-bold text-[#003B8E]">
-                        {app.referenceId}
+                        {app.referenceId || app.id}
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900">
-                          {app.fullLegalName}
+                          {app.fullLegalName || (app as unknown as { fullName?: string }).fullName || 'Applicant'}
                         </div>
                         <div className="font-mono text-[11px] text-slate-500">
                           {app.phoneE164} · OTP:{' '}
@@ -634,22 +640,23 @@ export function AdminPartnerManagement({
                       </td>
                       <td className="py-3 px-3">
                         <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
-                          {app.kyc.kycVerificationStatus}
+                          {app.kyc?.kycVerificationStatus || 'PENDING'}
                         </span>
                       </td>
                       <td className="py-3 px-3 font-mono text-slate-500">
-                        {app.submittedAt.slice(0, 10)}
+                        {(app.submittedAt || (app as unknown as { createdAt?: string }).createdAt || '').slice(0, 10) || '—'}
                       </td>
                       <td className="py-3 px-3">
                         <span
                           className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                            app.status === 'approved'
+                            (app.status || '').toLowerCase() === 'approved'
                               ? 'bg-emerald-100 text-emerald-900'
-                              : app.status === 'rejected' ||
-                                  app.status === 'withdrawn'
+                              : (app.status || '').toLowerCase() === 'rejected' ||
+                                  (app.status || '').toLowerCase() === 'withdrawn'
                                 ? 'bg-rose-100 text-rose-900'
-                                : app.status ===
-                                    'additional_information_required'
+                                : (app.status || '').toLowerCase() ===
+                                      'additional_information_required' ||
+                                    (app.status || '').toLowerCase() === 'needs_more_info'
                                   ? 'bg-amber-100 text-amber-900'
                                   : 'bg-blue-100 text-[#003B8E]'
                           }`}
@@ -722,16 +729,27 @@ export function AdminPartnerManagement({
                             {p.fullName}
                           </div>
                           <div className="font-mono text-[11px] text-slate-500">
-                            {p.phoneE164} · Ref: {p.applicationReferenceId}
+                            {p.phoneE164} · Ref:{' '}
+                            {p.applicationReferenceId ||
+                              (p as unknown as { partnerCode?: string }).partnerCode ||
+                              '—'}
                           </div>
                         </td>
                         <td className="py-3 px-3">
                           <div className="font-bold text-slate-900">
-                            {p.assignedCityName}, {p.assignedStateRegion}
+                            {p.assignedCityName},{' '}
+                            {p.assignedStateRegion ||
+                              (p as unknown as { stateRegion?: string }).stateRegion ||
+                              '—'}
                           </div>
                           <div className="font-mono text-[10px] text-slate-500">
                             {p.assignedCityId} · Activated{' '}
-                            {p.activatedAt.slice(0, 10)}
+                            {(
+                              p.activatedAt ||
+                              (p as unknown as { approvedAt?: string }).approvedAt ||
+                              p.updatedAt ||
+                              ''
+                            ).slice(0, 10) || '—'}
                           </div>
                         </td>
                         <td className="py-3 px-3">
@@ -1048,9 +1066,9 @@ export function AdminPartnerManagement({
                                   </button>
                                 )}
                               {stl.status === 'PAID' &&
-                                stl.payments.length > 0 && (
+                                (stl.payments || []).length > 0 && (
                                   <span className="font-mono text-[11px] text-emerald-700 font-bold">
-                                    UTR: {stl.payments[0].paymentReferenceNumber}
+                                    UTR: {stl.payments[0]?.paymentReferenceNumber}
                                   </span>
                                 )}
                             </div>
@@ -1124,29 +1142,29 @@ export function AdminPartnerManagement({
                 </div>
                 <div>
                   <strong>Identity Doc:</strong>{' '}
-                  {inspectedApp.kyc.identityDocType} —{' '}
+                  {inspectedApp.kyc?.identityDocType || '—'} —{' '}
                   <span className="font-mono font-bold">
-                    {inspectedApp.kyc.identityDocNumber}
+                    {inspectedApp.kyc?.identityDocNumber || '—'}
                   </span>
                 </div>
                 <div>
                   <strong>PAN / Tax ID:</strong>{' '}
                   <span className="font-mono font-bold">
-                    {inspectedApp.kyc.panOrTaxId}
+                    {inspectedApp.kyc?.panOrTaxId || '—'}
                   </span>
                 </div>
                 <div>
                   <strong>Address Proof:</strong>{' '}
-                  {inspectedApp.kyc.addressProofType}
+                  {inspectedApp.kyc?.addressProofType || '—'}
                 </div>
                 <div>
-                  <strong>Bank Account:</strong> {inspectedApp.kyc.bankName} ·{' '}
+                  <strong>Bank Account:</strong> {inspectedApp.kyc?.bankName || '—'} ·{' '}
                   <span className="font-mono font-bold">
-                    {inspectedApp.kyc.bankAccountNumber}
+                    {inspectedApp.kyc?.bankAccountNumber || '—'}
                   </span>{' '}
                   (IFSC:{' '}
                   <span className="font-mono font-bold">
-                    {inspectedApp.kyc.bankIfscOrRoutingCode}
+                    {inspectedApp.kyc?.bankIfscOrRoutingCode || '—'}
                   </span>
                   )
                 </div>
@@ -1182,8 +1200,14 @@ export function AdminPartnerManagement({
             )}
 
             {isSuperAdmin &&
-              (inspectedApp.status === 'pending_review' ||
-                inspectedApp.status === 'additional_information_required') && (
+              [
+                'pending_review',
+                'additional_information_required',
+                'pending',
+                'submitted',
+                'under_review',
+                'needs_more_info',
+              ].includes((inspectedApp.status || '').toLowerCase()) && (
                 <div className="space-y-4 pt-3 border-t border-slate-200 text-xs">
                   <div>
                     <label className="block font-bold text-slate-800 mb-1">

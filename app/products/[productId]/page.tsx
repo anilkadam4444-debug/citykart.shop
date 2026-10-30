@@ -18,7 +18,12 @@ import {
   generateProductSchema,
 } from '@/lib/seo-schema';
 
-import { isStoreDeletedServer } from '@/lib/stores-registry';
+import {
+  isStoreDeletedServer,
+  serverDeletedProductsRegistry,
+  serverProductsRegistry,
+  serverStoresRegistry,
+} from '@/lib/stores-registry';
 import {
   serverProductOverridesRegistry,
   serverStoreOverridesRegistry,
@@ -34,7 +39,10 @@ export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { productId } = await params;
-  const product = INITIAL_PRODUCTS.find((p) => p.id === productId);
+  if (serverDeletedProductsRegistry.has(productId)) return {};
+  const product =
+    serverProductsRegistry.get(productId) ||
+    INITIAL_PRODUCTS.find((p) => p.id === productId);
   if (!product) return {};
   if (await isStoreDeletedServer(product.storeId)) return {};
   const prodOverride = serverProductOverridesRegistry.get(product.id);
@@ -47,7 +55,9 @@ export async function generateMetadata({
     return {};
   }
 
-  const store = INITIAL_STORES.find((s) => s.id === product.storeId);
+  const store =
+    serverStoresRegistry.get(product.storeId) ||
+    INITIAL_STORES.find((s) => s.id === product.storeId);
   if (store?.isSuspended) return {};
 
   const title = `${product.name} - ${formatCurrency(product.price, product.currency)} | ${product.storeName} | Citykart`;
@@ -80,7 +90,12 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { productId } = await params;
-  const product = INITIAL_PRODUCTS.find((p) => p.id === productId);
+  if (serverDeletedProductsRegistry.has(productId)) {
+    notFound();
+  }
+  const product =
+    serverProductsRegistry.get(productId) ||
+    INITIAL_PRODUCTS.find((p) => p.id === productId);
 
   if (!product || (await isStoreDeletedServer(product.storeId))) {
     notFound();
@@ -88,7 +103,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const prodOverride = serverProductOverridesRegistry.get(product.id);
   const storeOverride = serverStoreOverridesRegistry.get(product.storeId);
-  const store = INITIAL_STORES.find((s) => s.id === product.storeId);
+  const store =
+    serverStoresRegistry.get(product.storeId) ||
+    INITIAL_STORES.find((s) => s.id === product.storeId);
 
   if (
     product.adminUnpublished ||

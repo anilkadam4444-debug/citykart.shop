@@ -28,179 +28,167 @@ service cloud.firestore {
     // Connection Health Check Collection
     match /test/{testId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create, update: if true;
     }
 
-    // Admins Registry
+    // Admins Registry & Authorizations
     match /admins/{adminUid} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
-    // Admin Authorizations
     match /adminAuthorizations/{phoneId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // Audit Logs
     match /auditLogs/{logId} {
-      allow read: if isSuperAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     match /admin_audit_logs/{logId} {
-      allow read: if isSuperAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // Users Collection
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
-      allow delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // Sellers Collection
     match /sellers/{sellerId} {
       allow read: if true;
-      allow create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     // Stores Collection
     match /stores/{storeId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     // Products Collection
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
 
     // Orders Collection
     match /orders/{orderId} {
       allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
 
     // Seller Notifications
     match /sellerNotifications/{notificationId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // Deleted Stores Tombstones
     match /deleted_stores/{storeId} {
-      allow read: if isSuperAdmin();
-      allow create, update, delete: if isSignedIn();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // FCM Tokens
     match /fcm_tokens/{tokenId} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
-    // Merchant Subscriptions
+    // Merchant Subscriptions & Billing
     match /merchantSubscriptions/{subscriptionId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
-    // Billing Transactions
     match /billingTransactions/{transactionId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
-    // Featured Campaigns
     match /featuredCampaigns/{campaignId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
 
-    // Merchant Service Orders
     match /merchantServiceOrders/{orderId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
-    // Location Directory: Countries, Regions, Cities
+    // Location Directory
     match /locationCountries/{countryId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     match /locationRegions/{regionId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     match /locationCities/{cityId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     match /locationImportRuns/{importId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     match /locationMissingRequests/{requestId} {
-      allow read, create: if true;
-      allow update, delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     match /locationRequests/{requestId} {
-      allow read, create: if true;
-      allow update, delete: if isSuperAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     // Platform Settings
     match /platformSettings/{settingId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
-    // Partner Applications (both camelCase & snake_case path names)
+    // Partner Applications
     match /partnerApplications/{applicationId} {
       allow read: if true;
-      allow create, update: if true;
-      allow delete: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     match /partner_applications/{applicationId} {
       allow read: if true;
-      allow create, update: if true;
-      allow delete: if isSuperAdmin();
+      allow create, update, delete: if true;
     }
 
     // City Partners & Allocations
     match /cityPartners/{partnerId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
 
     match /cityPartnerAllocations/{cityId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
 
     match /partnerSettlements/{settlementId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
 
     match /partnerNotifications/{notificationId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true;
     }
   }
 }

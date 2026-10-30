@@ -441,12 +441,14 @@ export function SuperAdminDashboard() {
               setAdminCampaigns(campData.campaigns);
             }
             if (Array.isArray(campData.placementConfigsList)) {
-              setPlacementConfigs(campData.placementConfigsList);
+              setPlacementConfigs(campData.placementConfigsList.filter((item: any) => Boolean(item && item.id)));
             } else if (
               campData.placementConfigs &&
               typeof campData.placementConfigs === 'object'
             ) {
-              setPlacementConfigs(Object.values(campData.placementConfigs));
+              setPlacementConfigs(
+                (Object.values(campData.placementConfigs) as any[]).filter((item: any) => Boolean(item && item.id))
+              );
             }
           }
         })
@@ -4305,7 +4307,9 @@ export function SuperAdminDashboard() {
                       try {
                         const headers = await getAuthHeaders();
                         const configMap = Object.fromEntries(
-                          placementConfigs.map((c) => [c.id, c])
+                          (placementConfigs || [])
+                            .filter((c): c is SponsoredPlacementConfig => Boolean(c && c.id))
+                            .map((c) => [c.id, c])
                         );
                         const res = await fetch('/api/billing/campaigns', {
                           method: 'POST',
@@ -4357,109 +4361,126 @@ export function SuperAdminDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {placementConfigs.map((cfg, idx) => {
-                    const pkg7 = cfg.packages.find((p) => p.days === 7) || cfg.packages[0];
-                    const pkg30 = cfg.packages.find((p) => p.days === 30) || cfg.packages[1] || cfg.packages[0];
-                    return (
-                      <div
-                        key={cfg.id}
-                        className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-slate-900">
-                            {cfg.name}
-                          </span>
-                          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={cfg.isEnabled}
-                              onChange={(e) => {
-                                const next = [...placementConfigs];
-                                next[idx] = {
-                                  ...cfg,
-                                  isEnabled: e.target.checked,
-                                };
-                                setPlacementConfigs(next);
-                              }}
-                            />
-                            <span>{cfg.isEnabled ? 'Enabled' : 'Disabled'}</span>
-                          </label>
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          {cfg.description}
-                        </p>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span
-                            className={`px-2 py-0.5 rounded font-bold ${
-                              cfg.livePaymentsApproved
-                                ? 'bg-emerald-100 text-emerald-900'
-                                : 'bg-amber-100 text-amber-900'
-                            }`}
-                          >
-                            {cfg.livePaymentsApproved
-                              ? 'Live Razorpay Approved'
-                              : 'Proposed Pricing (Sandbox Mode)'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2.5 pt-1">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              7 Days Fee (₹)
+                  {(placementConfigs || [])
+                    .filter((cfg): cfg is SponsoredPlacementConfig => Boolean(cfg && cfg.id))
+                    .map((cfg, idx) => {
+                      const pkgs = Array.isArray(cfg.packages) ? cfg.packages : [];
+                      const pkg7 = pkgs.find((p) => p && p.days === 7) || pkgs[0];
+                      const pkg30 = pkgs.find((p) => p && p.days === 30) || pkgs[1] || pkgs[0];
+                      return (
+                        <div
+                          key={cfg.id || `placement-${idx}`}
+                          className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-900">
+                              {cfg.name || cfg.id}
+                            </span>
+                            <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(cfg.isEnabled)}
+                                onChange={(e) => {
+                                  const next = [...placementConfigs];
+                                  if (next[idx]) {
+                                    next[idx] = {
+                                      ...next[idx],
+                                      isEnabled: e.target.checked,
+                                    };
+                                    setPlacementConfigs(next);
+                                  }
+                                }}
+                              />
+                              <span>{cfg.isEnabled ? 'Enabled' : 'Disabled'}</span>
                             </label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={pkg7?.priceInr ?? 99}
-                              onChange={(e) => {
-                                const val = Math.max(
-                                  1,
-                                  Number(e.target.value) || 1
-                                );
-                                const next = [...placementConfigs];
-                                next[idx] = {
-                                  ...cfg,
-                                  packages: cfg.packages.map((p) =>
-                                    p.days === 7
-                                      ? { ...p, priceInr: val }
-                                      : p
-                                  ),
-                                };
-                                setPlacementConfigs(next);
-                              }}
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold"
-                            />
                           </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              30 Days Fee (₹)
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={pkg30?.priceInr ?? 299}
-                              onChange={(e) => {
-                                const val = Math.max(
-                                  1,
-                                  Number(e.target.value) || 1
-                                );
-                                const next = [...placementConfigs];
-                                next[idx] = {
-                                  ...cfg,
-                                  packages: cfg.packages.map((p) =>
-                                    p.days === 30
-                                      ? { ...p, priceInr: val }
-                                      : p
-                                  ),
-                                };
-                                setPlacementConfigs(next);
-                              }}
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold"
-                            />
+                          <p className="text-[11px] text-slate-500">
+                            {cfg.description || ''}
+                          </p>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span
+                              className={`px-2 py-0.5 rounded font-bold ${
+                                cfg.livePaymentsApproved
+                                  ? 'bg-emerald-100 text-emerald-900'
+                                  : 'bg-amber-100 text-amber-900'
+                              }`}
+                            >
+                              {cfg.livePaymentsApproved
+                                ? 'Live Razorpay Approved'
+                                : 'Proposed Pricing (Sandbox Mode)'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2.5 pt-1">
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                                7 Days Fee (₹)
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={pkg7?.priceInr ?? 99}
+                                onChange={(e) => {
+                                  const val = Math.max(
+                                    1,
+                                    Number(e.target.value) || 1
+                                  );
+                                  const next = [...placementConfigs];
+                                  const current = next[idx];
+                                  if (current) {
+                                    const currentPkgs = Array.isArray(current.packages)
+                                      ? current.packages
+                                      : [];
+                                    next[idx] = {
+                                      ...current,
+                                      packages: currentPkgs.map((p) =>
+                                        p && p.days === 7
+                                          ? { ...p, priceInr: val }
+                                          : p
+                                      ),
+                                    };
+                                    setPlacementConfigs(next);
+                                  }
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                                30 Days Fee (₹)
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={pkg30?.priceInr ?? 299}
+                                onChange={(e) => {
+                                  const val = Math.max(
+                                    1,
+                                    Number(e.target.value) || 1
+                                  );
+                                  const next = [...placementConfigs];
+                                  const current = next[idx];
+                                  if (current) {
+                                    const currentPkgs = Array.isArray(current.packages)
+                                      ? current.packages
+                                      : [];
+                                    next[idx] = {
+                                      ...current,
+                                      packages: currentPkgs.map((p) =>
+                                        p && p.days === 30
+                                          ? { ...p, priceInr: val }
+                                          : p
+                                      ),
+                                    };
+                                    setPlacementConfigs(next);
+                                  }
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
 
@@ -5089,7 +5110,7 @@ export function SuperAdminDashboard() {
                     </label>
                     <input
                       type="text"
-                      value={settingsDraft.platformName}
+                      value={settingsDraft.platformName ?? ''}
                       onChange={(e) =>
                         setSettingsDraft({
                           ...settingsDraft,
@@ -5105,7 +5126,7 @@ export function SuperAdminDashboard() {
                     </label>
                     <input
                       type="text"
-                      value={settingsDraft.supportPhone}
+                      value={settingsDraft.supportPhone ?? ''}
                       onChange={(e) =>
                         setSettingsDraft({
                           ...settingsDraft,
@@ -5121,7 +5142,7 @@ export function SuperAdminDashboard() {
                     </label>
                     <input
                       type="email"
-                      value={settingsDraft.supportEmail}
+                      value={settingsDraft.supportEmail ?? ''}
                       onChange={(e) =>
                         setSettingsDraft({
                           ...settingsDraft,
@@ -5137,7 +5158,7 @@ export function SuperAdminDashboard() {
                     </label>
                     <input
                       type="text"
-                      value={settingsDraft.defaultCurrency}
+                      value={settingsDraft.defaultCurrency ?? ''}
                       onChange={(e) =>
                         setSettingsDraft({
                           ...settingsDraft,
@@ -5839,7 +5860,7 @@ export function SuperAdminDashboard() {
                 <input
                   type="text"
                   disabled
-                  value={adminToEdit.phoneE164}
+                  value={adminToEdit?.phoneE164 ?? ''}
                   className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono text-xs text-slate-600 font-bold"
                 />
               </div>

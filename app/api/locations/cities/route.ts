@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
                 ? 'CITY'
                 : 'LOCALITY';
 
-            if (forSeller && (localityType === 'VILLAGE' || isVillageOrTalukaPlace(localityType, locName, district))) {
+            if (localityType === 'VILLAGE' || isVillageOrTalukaPlace(localityType, locName, district)) {
               continue;
             }
 

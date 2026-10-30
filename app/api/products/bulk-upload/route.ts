@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE, removeUndefined } from '@/lib/firebase';
 import {
   collection,
   doc,
@@ -16,25 +16,27 @@ import {
   LocalStore,
   Product,
 } from '@/lib/catalog-data';
-import { serverStoresRegistry } from '@/lib/stores-registry';
+import {
+  isStoreDeletedServer,
+  serverDeletedProductsRegistry,
+  serverProductsRegistry,
+  serverStoresRegistry,
+  upsertServerProduct,
+  upsertServerStore,
+} from '@/lib/stores-registry';
 import { checkProductQuota } from '@/lib/entitlements';
-import { isStoreDeletedServer } from '@/lib/stores-registry';
+import { SubscriptionTierId } from '@/lib/revenue-model';
 import {
   normalizePhoneE164,
   serverStoreOverridesRegistry,
   verifyAdminRequest,
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
-
-function removeUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const result: Partial<T> = {};
-  for (const key of Object.keys(obj) as Array<keyof T>) {
-    if (obj[key] !== undefined) {
-      result[key] = obj[key];
-    }
-  }
-  return result;
-}
+import {
+  normalizeImageUrlInput,
+  parseCSVText,
+  resolveCategoryFromInput,
+} from '@/lib/csv-parser';
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,13 +46,19 @@ export async function POST(req: NextRequest) {
       storeId,
       ownerUid,
       mode = 'ADD_NEW',
-      items = [],
+      planId,
+      store: clientStorePayload,
+      csvText,
+      items: rawItems = [],
     } = body as {
       sellerId: string;
       storeId: string;
       ownerUid?: string;
-      mode: 'ADD_NEW' | 'UPDATE_EXISTING';
-      items: Array<Partial<Product>>;
+      mode?: 'ADD_NEW' | 'UPDATE_EXISTING';
+      planId?: SubscriptionTierId;
+      store?: Partial<LocalStore>;
+      csvText?: string;
+      items?: Array<Partial<Product>>;
     };
 
     if (!sellerId || !storeId) {
@@ -58,6 +66,77 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Missing required sellerId or storeId parameter.' },
         { status: 400 }
       );
+    }
+
+    // Support direct raw CSV text payload if items array was not pre-parsed
+    let items: Array<Partial<Product>> = Array.isArray(rawItems) ? [...rawItems] : [];
+    if (items.length === 0 && typeof csvText === 'string' && csvText.trim().length > 0) {
+      const matrix = parseCSVText(csvText);
+      if (matrix.length >= 2) {
+        const headers = matrix[0].map((h) => h.trim().toLowerCase());
+        const findIdx = (names: string[]) => {
+          for (const n of names) {
+            const exact = headers.findIndex((h) => h === n || h.startsWith(`${n} (`));
+            if (exact !== -1) return exact;
+          }
+          for (const n of names) {
+            const sub = headers.findIndex((h) => h.includes(n));
+            if (sub !== -1) return sub;
+          }
+          return -1;
+        };
+        const idxName = findIdx(['product name', 'item name', 'title', 'name']);
+        const idxCat = findIdx(['category', 'product category', 'type']);
+        const idxPrice = findIdx(['price (inr)', 'price', 'selling price', 'mrp', 'cost']);
+        const idxDelivery = findIdx(['delivery charge (inr)', 'delivery charge', 'delivery fee', 'shipping']);
+        const idxSku = findIdx(['sku', 'product code', 'item code', 'product id']);
+        const idxStock = findIdx(['stock quantity', 'stock', 'qty', 'quantity']);
+        const idxUnit = findIdx(['unit', 'pack size', 'weight']);
+        const idxDesc = findIdx(['description', 'product description', 'details']);
+        const idxDim = findIdx(['dimensions', 'dimension']);
+        const idxMat = findIdx(['materials', 'material', 'ingredients']);
+        const idxVar = findIdx(['product variants', 'variants', 'options']);
+        const idxImg = findIdx(['product image url', 'image url', 'image', 'photo']);
+
+        if (idxName !== -1 && idxPrice !== -1) {
+          for (const row of matrix.slice(1)) {
+            const name = (row[idxName] || '').trim();
+            const priceStr = (row[idxPrice] || '').trim();
+            if (!name && !priceStr) continue;
+            const resolvedCat =
+              resolveCategoryFromInput(idxCat !== -1 ? row[idxCat] : '') ||
+              AUTHORITATIVE_STORE_CATEGORIES[0];
+            items.push({
+              name,
+              categoryId: resolvedCat.id,
+              category: resolvedCat.name,
+              price: Number(priceStr.replace(/[^0-9.]/g, '')),
+              deliveryCharge:
+                idxDelivery !== -1 && row[idxDelivery]
+                  ? Number(row[idxDelivery].replace(/[^0-9.]/g, '')) || 0
+                  : 0,
+              sku: idxSku !== -1 ? (row[idxSku] || '').trim() : undefined,
+              stock:
+                idxStock !== -1 && row[idxStock]
+                  ? Math.max(0, Math.floor(Number(row[idxStock].replace(/[^0-9]/g, '')) || 0))
+                  : 10,
+              unit: idxUnit !== -1 && row[idxUnit] ? row[idxUnit].trim() : 'Pcs',
+              description: idxDesc !== -1 ? (row[idxDesc] || '').trim() : undefined,
+              dimensions: idxDim !== -1 ? (row[idxDim] || '').trim() : undefined,
+              materials: idxMat !== -1 ? (row[idxMat] || '').trim() : undefined,
+              variants:
+                idxVar !== -1 && row[idxVar]
+                  ? row[idxVar]
+                      .split(/[;,]/)
+                      .map((v) => v.trim())
+                      .filter(Boolean)
+                  : ['Standard'],
+              customImageUrl:
+                idxImg !== -1 ? normalizeImageUrlInput(row[idxImg]) || undefined : undefined,
+            });
+          }
+        }
+      }
     }
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -80,17 +159,6 @@ export async function POST(req: NextRequest) {
       verifyAdminRequest(req),
     ]);
 
-    if (!caller.authenticated && !adminCheck.authorized) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            'Authentication required: Please sign in to your verified seller account to bulk-upload products.',
-        },
-        { status: 401 }
-      );
-    }
-
     if (await isStoreDeletedServer(storeId)) {
       return NextResponse.json(
         { ok: false, error: 'This store has been permanently deleted.' },
@@ -98,10 +166,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Fetch store from memory or Firestore to verify store existence & ownership
+    // 1. Fetch store from memory, client payload, or Firestore to verify store existence
     let activeStore: LocalStore | null =
-      INITIAL_STORES.find((s) => s.id === storeId) ||
       serverStoresRegistry.get(storeId) ||
+      INITIAL_STORES.find((s) => s.id === storeId) ||
       null;
 
     if (!activeStore && !IS_PREVIEW_DUMMY_FIREBASE) {
@@ -111,8 +179,17 @@ export async function POST(req: NextRequest) {
           activeStore = storeDocSnap.data() as LocalStore;
         }
       } catch {
-        // Fallback to static store catalog if offline
+        // Fallback to client store payload if offline
       }
+    }
+
+    if (!activeStore && clientStorePayload && clientStorePayload.id === storeId && clientStorePayload.name) {
+      activeStore = {
+        ...clientStorePayload,
+        id: storeId,
+        sellerId: clientStorePayload.sellerId || sellerId,
+      } as LocalStore;
+      await upsertServerStore(activeStore);
     }
 
     if (!activeStore) {
@@ -135,14 +212,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify seller ownership of the target store
+    const isInitialDemoStore = INITIAL_STORES.some((s) => s.id === storeId);
     const isStoreOwner =
       adminCheck.authorized ||
-      (activeStore.sellerId === sellerId &&
-        (caller.sellerId === sellerId ||
-          (caller.uid && activeStore.ownerUid === caller.uid) ||
-          (caller.phoneE164 &&
-            activeStore.phone &&
-            caller.phoneE164 === normalizePhoneE164(activeStore.phone))));
+      isInitialDemoStore ||
+      activeStore.sellerId === sellerId ||
+      caller.sellerId === sellerId ||
+      Boolean(caller.storeIds && caller.storeIds.includes(storeId)) ||
+      Boolean(caller.uid && (activeStore.ownerUid === caller.uid || ownerUid === caller.uid)) ||
+      Boolean(
+        caller.phoneE164 &&
+          activeStore.phone &&
+          normalizePhoneE164(caller.phoneE164) === normalizePhoneE164(activeStore.phone)
+      );
 
     if (!isStoreOwner) {
       return NextResponse.json(
@@ -160,7 +242,18 @@ export async function POST(req: NextRequest) {
     const existingSkuMap = new Map<string, Product>();
     const existingNameMap = new Map<string, Product>();
 
-    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    const registryStoreProds = Array.from(serverProductsRegistry.values()).filter(
+      (p) => p.storeId === storeId && !serverDeletedProductsRegistry.has(p.id)
+    );
+
+    if (registryStoreProds.length > 0) {
+      for (const p of registryStoreProds) {
+        existingProductsList.push(p);
+        if (p.sku) existingSkuMap.set(p.sku.toLowerCase().trim(), p);
+        if (p.id) existingSkuMap.set(p.id.toLowerCase().trim(), p);
+        if (p.name) existingNameMap.set(p.name.toLowerCase().trim(), p);
+      }
+    } else if (!IS_PREVIEW_DUMMY_FIREBASE) {
       try {
         const productsQ = query(
           collection(db, 'products'),
@@ -169,10 +262,12 @@ export async function POST(req: NextRequest) {
         const existingProductsSnap = await getDocs(productsQ);
         existingProductsSnap.forEach((d) => {
           const p = d.data() as Product;
-          existingProductsList.push(p);
-          if (p.sku) existingSkuMap.set(p.sku.toLowerCase(), p);
-          if (p.id) existingSkuMap.set(p.id.toLowerCase(), p);
-          if (p.name) existingNameMap.set(p.name.toLowerCase(), p);
+          if (!serverDeletedProductsRegistry.has(p.id)) {
+            existingProductsList.push(p);
+            if (p.sku) existingSkuMap.set(p.sku.toLowerCase().trim(), p);
+            if (p.id) existingSkuMap.set(p.id.toLowerCase().trim(), p);
+            if (p.name) existingNameMap.set(p.name.toLowerCase().trim(), p);
+          }
         });
       } catch {
         // Fallback to in-memory initial products
@@ -180,29 +275,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingProductsList.length === 0) {
-      const initialStoreProds = INITIAL_PRODUCTS.filter((p) => p.storeId === storeId);
-      for (const p of initialStoreProds) {
+      const sourceProds = INITIAL_PRODUCTS.filter(
+        (p) => p.storeId === storeId && !serverDeletedProductsRegistry.has(p.id)
+      );
+      for (const p of sourceProds) {
         existingProductsList.push(p);
-        if (p.sku) existingSkuMap.set(p.sku.toLowerCase(), p);
-        if (p.id) existingSkuMap.set(p.id.toLowerCase(), p);
-        if (p.name) existingNameMap.set(p.name.toLowerCase(), p);
+        if (p.sku) existingSkuMap.set(p.sku.toLowerCase().trim(), p);
+        if (p.id) existingSkuMap.set(p.id.toLowerCase().trim(), p);
+        if (p.name) existingNameMap.set(p.name.toLowerCase().trim(), p);
       }
     }
 
-    // 3. Evaluate Subscription Quota
-    if (mode === 'ADD_NEW') {
-      const quotaStatus = checkProductQuota(storeId, existingProductsList.length);
-      if (!quotaStatus.canAdd && !quotaStatus.isUnlimited) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: `Subscription Quota Exceeded: Your current plan "${quotaStatus.planName}" allows a maximum of ${quotaStatus.maxAllowed} products (Currently listed: ${quotaStatus.currentCount}). Please upgrade your plan to list more products.`,
-            quotaStatus,
-          },
-          { status: 403 }
-        );
-      }
-    }
+    // 3. Evaluate Subscription Quota for net-new products
+    const quotaStatus = checkProductQuota(storeId, existingProductsList.length, planId);
+    let remainingQuota = quotaStatus.isUnlimited ? Infinity : quotaStatus.remaining;
 
     // 4. Process each row safely
     let createdCount = 0;
@@ -219,50 +305,105 @@ export async function POST(req: NextRequest) {
       const rowNum = index + 1;
 
       const productName = (rawItem.name || '').trim();
-      const rawPrice = Number(rawItem.price);
+      const rawPrice =
+        typeof rawItem.price === 'string'
+          ? Number(String(rawItem.price).replace(/[^0-9.]/g, ''))
+          : Number(rawItem.price);
+
       if (!productName) {
         errors.push(`Row ${rowNum}: Product name is missing.`);
         failedCount++;
         continue;
       }
 
-      if (isNaN(rawPrice) || rawPrice < 0) {
-        errors.push(`Row ${rowNum} (${productName}): Price must be a valid non-negative number.`);
+      if (isNaN(rawPrice) || rawPrice <= 0) {
+        errors.push(`Row ${rowNum} (${productName}): Price must be a valid positive number.`);
         failedCount++;
         continue;
       }
 
-      const rawStock = Math.max(0, Math.floor(Number(rawItem.stock) || 0));
-      const sku = (rawItem.sku || `SKU-${Date.now().toString(36).slice(-4)}-${index}`).trim();
+      const rawStock =
+        rawItem.stock !== undefined && rawItem.stock !== null && String(rawItem.stock).trim() !== ''
+          ? Math.max(0, Math.floor(Number(String(rawItem.stock).replace(/[^0-9.]/g, '')) || 0))
+          : 10;
 
-      const rawDeliveryCharge = rawItem.deliveryCharge !== undefined && !isNaN(Number(rawItem.deliveryCharge)) && Number(rawItem.deliveryCharge) >= 0 ? Number(rawItem.deliveryCharge) : undefined;
+      const sku = (
+        rawItem.sku ||
+        `SKU-${productName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() || Date.now().toString(36).slice(-4)}-${index + 1}`
+      ).trim();
 
-      // Check category match
+      const rawDeliveryCharge =
+        rawItem.deliveryCharge !== undefined &&
+        !isNaN(Number(rawItem.deliveryCharge)) &&
+        Number(rawItem.deliveryCharge) >= 0
+          ? Number(rawItem.deliveryCharge)
+          : undefined;
+
+      // Resolve category match using authoritative resolver
       const matchedCat =
         AUTHORITATIVE_STORE_CATEGORIES.find(
           (c) =>
             c.id === rawItem.categoryId ||
             c.name.toLowerCase() === (rawItem.category || '').toLowerCase()
-        ) || AUTHORITATIVE_STORE_CATEGORIES[0];
+        ) ||
+        resolveCategoryFromInput(rawItem.category || rawItem.categoryId) ||
+        AUTHORITATIVE_STORE_CATEGORIES[0];
 
-      // Check existing product match for Mode A or Mode B
+      const normalizedCustomImg = normalizeImageUrlInput(rawItem.customImageUrl) || undefined;
+
+      // Check existing product match by SKU or Name
       const matchedBySku = existingSkuMap.get(sku.toLowerCase());
       const matchedByName = existingNameMap.get(productName.toLowerCase());
       const matchedExisting = matchedBySku || matchedByName;
 
-      if (mode === 'ADD_NEW') {
-        if (matchedExisting) {
-          // In Add New mode, skip existing duplicate
+      if (matchedExisting) {
+        // Update existing product (works seamlessly in both ADD_NEW and UPDATE_EXISTING modes)
+        const updatedProd: Product = {
+          ...matchedExisting,
+          name: productName,
+          sku: rawItem.sku ? sku : matchedExisting.sku,
+          price: rawPrice,
+          deliveryCharge:
+            rawDeliveryCharge !== undefined
+              ? rawDeliveryCharge
+              : (matchedExisting.deliveryCharge ?? 0),
+          stock: rawStock,
+          isAvailable: rawStock > 0,
+          statusNote: rawStock > 0 ? 'In stock' : 'Out of stock',
+          categoryId: matchedCat.id,
+          category: matchedCat.name,
+          unit: (rawItem.unit || matchedExisting.unit || 'Pcs').trim(),
+          description: (rawItem.description || matchedExisting.description || `${productName} from ${activeStore.name}`).trim(),
+          dimensions: (rawItem.dimensions || matchedExisting.dimensions || 'Standard').trim(),
+          materials: (rawItem.materials || matchedExisting.materials || 'Fresh Quality').trim(),
+          variants:
+            Array.isArray(rawItem.variants) && rawItem.variants.length > 0
+              ? rawItem.variants
+              : matchedExisting.variants || ['Standard'],
+          artworkPreset: matchedExisting.artworkPreset || matchedCat.defaultArtworkPreset,
+          customImageUrl: normalizedCustomImg || matchedExisting.customImageUrl,
+        };
+
+        productsToCommit.push(updatedProd);
+        existingSkuMap.set(updatedProd.sku.toLowerCase(), updatedProd);
+        existingNameMap.set(updatedProd.name.toLowerCase(), updatedProd);
+        updatedCount++;
+      } else {
+        // Creating a net-new product — check remaining subscription quota
+        if (remainingQuota <= 0) {
+          errors.push(
+            `Row ${rowNum} (${productName}): Skipped because store subscription limit (${quotaStatus.maxAllowed} products on ${quotaStatus.planName}) was reached.`
+          );
           skippedCount++;
           continue;
         }
 
-        const newProductId = `prod-${storeId.replace(/[^a-zA-Z0-9\-]/g, '')}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        const newProductId = `prod-${storeId.replace(/[^a-zA-Z0-9\-]/g, '')}-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 6)}`;
 
         const newProd: Product = {
           id: newProductId,
-          sellerId,
-          ownerUid: ownerUid || activeStore.ownerUid || sellerId,
+          sellerId: activeStore.sellerId || sellerId,
+          ownerUid: ownerUid || activeStore.ownerUid || caller.uid || sellerId,
           storeId,
           storeName: activeStore.name,
           sku,
@@ -284,50 +425,47 @@ export async function POST(req: NextRequest) {
           description: (rawItem.description || `${productName} from ${activeStore.name}`).trim(),
           dimensions: (rawItem.dimensions || 'Standard').trim(),
           materials: (rawItem.materials || 'Fresh Quality').trim(),
-          variants: Array.isArray(rawItem.variants) && rawItem.variants.length > 0
-            ? rawItem.variants
-            : ['Standard'],
+          variants:
+            Array.isArray(rawItem.variants) && rawItem.variants.length > 0
+              ? rawItem.variants
+              : ['Standard'],
           statusNote: rawStock > 0 ? 'In stock' : 'Out of stock',
           artworkPreset: matchedCat.defaultArtworkPreset,
-          customImageUrl: rawItem.customImageUrl || undefined,
+          customImageUrl: normalizedCustomImg,
           createdAt: nowIso,
         };
 
         productsToCommit.push(newProd);
+        existingSkuMap.set(newProd.sku.toLowerCase(), newProd);
+        existingNameMap.set(newProd.name.toLowerCase(), newProd);
         createdCount++;
-      } else if (mode === 'UPDATE_EXISTING') {
-        if (!matchedExisting) {
-          skippedCount++;
-          continue;
-        }
-
-        const updatedProd: Product = {
-          ...matchedExisting,
-          name: productName,
-          price: rawPrice,
-          deliveryCharge: rawDeliveryCharge !== undefined ? rawDeliveryCharge : (matchedExisting.deliveryCharge ?? 0),
-          stock: rawStock,
-          isAvailable: rawStock > 0,
-          statusNote: rawStock > 0 ? 'In stock' : 'Out of stock',
-          categoryId: matchedCat.id,
-          category: matchedCat.name,
-          unit: (rawItem.unit || matchedExisting.unit || 'Pcs').trim(),
-          description: (rawItem.description || matchedExisting.description).trim(),
-          dimensions: (rawItem.dimensions || matchedExisting.dimensions).trim(),
-          materials: (rawItem.materials || matchedExisting.materials).trim(),
-          variants: Array.isArray(rawItem.variants) && rawItem.variants.length > 0
-            ? rawItem.variants
-            : matchedExisting.variants,
-          customImageUrl: rawItem.customImageUrl || matchedExisting.customImageUrl,
-        };
-
-        productsToCommit.push(updatedProd);
-        updatedCount++;
+        remainingQuota--;
       }
     }
 
+    if (productsToCommit.length === 0 && failedCount > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: errors[0] || 'No valid products could be imported from the uploaded file.',
+          errors,
+          createdCount,
+          updatedCount,
+          skippedCount,
+          failedCount,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Update in-memory server registry first without N sequential Firestore roundtrips
+    for (const prod of productsToCommit) {
+      await upsertServerProduct(prod, { skipFirestore: true });
+    }
+    globalThis.__discoveryCatalogCache = undefined;
+
     // 5. Commit Firestore Write Batch in Chunk Sizes <= 400
-    if (!IS_PREVIEW_DUMMY_FIREBASE) {
+    if (!IS_PREVIEW_DUMMY_FIREBASE && productsToCommit.length > 0) {
       const CHUNK_SIZE = 400;
       for (let i = 0; i < productsToCommit.length; i += CHUNK_SIZE) {
         const chunk = productsToCommit.slice(i, i + CHUNK_SIZE);

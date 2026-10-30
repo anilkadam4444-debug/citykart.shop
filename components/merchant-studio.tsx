@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   Check,
   Plus,
@@ -110,7 +110,7 @@ interface MerchantStudioProps {
     storeId: string,
     storeNameConfirm: string
   ) => Promise<{ success: boolean; message?: string }>;
-  onAddProduct: (product: Product) => void;
+  onAddProduct: (product: Product, options?: { skipServerSync?: boolean }) => void;
   onUpdateProduct: (updatedProduct: Product) => void;
   onDeleteProduct?: (productId: string) => void;
   onUpdateStock: (
@@ -122,7 +122,8 @@ interface MerchantStudioProps {
   onUpdateOrderStep: (
     orderId: string,
     nextStep: number,
-    nextStatus?: OrderRecord['orderStatus']
+    nextStatus?: OrderRecord['orderStatus'],
+    reason?: string
   ) => void;
   onToggleCategoryStatus?: (categoryId: StoreCategoryId) => void;
   onBackToShopping?: () => void;
@@ -240,6 +241,7 @@ export function MerchantStudio({
     handleVerifyOrderDeliveryPin,
     handleUpdateOrderPaymentStatus,
     userOwnedStores = [],
+    customerLocation,
   } = useUrbanDirect();
 
   const [workspaceRole, setWorkspaceRole] = useState<
@@ -250,12 +252,19 @@ export function MerchantStudio({
       s.id === authenticatedUser?.sellerId ||
       (Boolean(s.phoneE164) && s.phoneE164 === authenticatedUser?.phoneE164)
   );
-  const [activeSellerId, setActiveSellerId] = useState<string>(
+  const resolvedSellerId =
     resolvedAuthenticatedSeller?.id ||
-      authenticatedUser?.sellerId ||
-      sellers[0]?.id ||
-      'seller-1'
+    authenticatedUser?.sellerId ||
+    userOwnedStores[0]?.sellerId;
+  const [activeSellerId, setActiveSellerId] = useState<string>(
+    resolvedSellerId || sellers[0]?.id || 'seller-1'
   );
+
+  useEffect(() => {
+    if (resolvedSellerId && activeSellerId !== resolvedSellerId) {
+      setActiveSellerId(resolvedSellerId);
+    }
+  }, [resolvedSellerId, activeSellerId]);
 
   const [activeSection, setActiveSection] = useState<
     | 'home'
@@ -271,6 +280,12 @@ export function MerchantStudio({
     | 'onboarding'
     | 'settings'
   >(mode === 'ONBOARDING_ONLY' ? 'onboarding' : initialSection);
+
+  useEffect(() => {
+    if (mode !== 'ONBOARDING_ONLY' && initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [mode, initialSection]);
 
   const [sellerOrderFilter, setSellerOrderFilter] = useState<'ALL' | 'NEW' | 'PREPARING' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED'>('ALL');
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
@@ -386,17 +401,43 @@ export function MerchantStudio({
 
   const authorizedStores = isAdmin
     ? stores
-    : stores.filter((s) => s.sellerId === activeSellerId);
+    : stores.filter(
+        (s) =>
+          s.sellerId === activeSellerId ||
+          (authenticatedUser?.sellerId === activeSellerId &&
+            userOwnedStores.some((owned) => owned.id === s.id))
+      );
 
-  const primarySellerStore = authorizedStores[0] || stores[0];
+  const primarySellerStore =
+    authorizedStores[0] || userOwnedStores[0] || stores[0];
+  const primarySellerStoreId = primarySellerStore?.id || '';
+
+  useEffect(() => {
+    if (!primarySellerStoreId) return;
+    setDraft((prev) => {
+      if (prev.storeId === primarySellerStoreId) return prev;
+      return {
+        ...prev,
+        storeId: primarySellerStoreId,
+      };
+    });
+  }, [primarySellerStoreId]);
 
   const authorizedProducts = isAdmin
     ? products
-    : products.filter((p) => p.sellerId === activeSellerId);
+    : products.filter(
+        (p) =>
+          p.sellerId === activeSellerId ||
+          authorizedStores.some((s) => s.id === p.storeId)
+      );
 
   const authorizedOrders = isAdmin
     ? orders
-    : orders.filter((o) => o.sellerId === activeSellerId);
+    : orders.filter(
+        (o) =>
+          o.sellerId === activeSellerId ||
+          authorizedStores.some((s) => s.id === o.storeId)
+      );
 
   // Store Details Editor State
   const [settingsName, setSettingsName] = useState<string>(
@@ -660,20 +701,34 @@ export function MerchantStudio({
     'cat-01-grocery-daily-essentials'
   );
   const [storeSpecialty, setStoreSpecialty] = useState('');
-  const [storeCountry, setStoreCountry] = useState('India');
-  const [storeCountryCode, setStoreCountryCode] = useState('IN');
-  const [storeStateRegion, setStoreStateRegion] = useState('');
-  const [storeDistrict, setStoreDistrict] = useState('');
+  const [storeCountry, setStoreCountry] = useState(
+    authenticatedUser?.lockedCountry || customerLocation?.country || 'India'
+  );
+  const [storeCountryCode, setStoreCountryCode] = useState(
+    authenticatedUser?.lockedCountryCode || customerLocation?.countryCode || 'IN'
+  );
+  const [storeStateRegion, setStoreStateRegion] = useState(
+    authenticatedUser?.lockedStateRegion || customerLocation?.stateRegion || 'Maharashtra'
+  );
+  const [storeDistrict, setStoreDistrict] = useState(
+    customerLocation?.district || 'Nanded'
+  );
   const [storeLocalityType, setStoreLocalityType] =
     useState<LocalityClassification>('CITY');
-  const [storeCityName, setStoreCityName] = useState('');
-  const [storeNeighborhood, setStoreNeighborhood] = useState('');
-  const [storePostalCode, setStorePostalCode] = useState('');
+  const [storeCityName, setStoreCityName] = useState(
+    authenticatedUser?.lockedCity || customerLocation?.city || 'Nanded'
+  );
+  const [storeNeighborhood, setStoreNeighborhood] = useState(
+    authenticatedUser?.lockedLocality || customerLocation?.locality || ''
+  );
+  const [storePostalCode, setStorePostalCode] = useState(
+    authenticatedUser?.lockedPostalCode || customerLocation?.postalCode || ''
+  );
   const [storeAddress, setStoreAddress] = useState('');
   const [storeLat, setStoreLat] = useState('');
   const [storeLng, setStoreLng] = useState('');
   const [storeLocationSource, setStoreLocationSource] =
-    useState<LocationDataSource>('USER_PROVIDED');
+    useState<LocationDataSource>('VERIFIED_DIRECTORY');
   const [storeScopeType, setStoreScopeType] =
     useState<DeliveryScopeType>('CUSTOM_LOCALITIES');
   const [storeCoveredLocalities, setStoreCoveredLocalities] = useState('');
@@ -772,9 +827,11 @@ export function MerchantStudio({
   const handleDetectStoreCoordinates = (target: 'onboarding' | 'settings') => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const latStr = pos.coords.latitude.toFixed(5);
-        const lngStr = pos.coords.longitude.toFixed(5);
+      async (pos) => {
+        const latNum = pos.coords.latitude;
+        const lngNum = pos.coords.longitude;
+        const latStr = latNum.toFixed(5);
+        const lngStr = lngNum.toFixed(5);
         if (target === 'onboarding') {
           setStoreLat(latStr);
           setStoreLng(lngStr);
@@ -782,11 +839,46 @@ export function MerchantStudio({
           setSettingsLat(latStr);
           setSettingsLng(lngStr);
         }
+
+        try {
+          const res = await fetch('/api/location/reverse-geocode', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lat: latNum, lng: lngNum}),
+          });
+          const data = await res.json();
+          if (res.ok && data.city) {
+            if (target === 'onboarding') {
+              setStoreCountry(data.country || 'India');
+              if (data.countryCode) setStoreCountryCode(data.countryCode);
+              setStoreStateRegion(data.stateRegion || 'Maharashtra');
+              setStoreCityName(data.city);
+              if (data.locality) setStoreNeighborhood(data.locality);
+              if (data.streetAddress) setStoreAddress(data.streetAddress);
+              if (data.postalCode) setStorePostalCode(data.postalCode);
+              setStoreLocalityType('CITY');
+              setStoreLocationSource('GEOCODED');
+            } else {
+              setSettingsCountry(data.country || 'India');
+              if (data.countryCode) setSettingsCountryCode(data.countryCode);
+              setSettingsStateRegion(data.stateRegion || 'Maharashtra');
+              setSettingsCityName(data.city);
+              if (data.locality) setSettingsNeighborhood(data.locality);
+              if (data.streetAddress) setSettingsAddress(data.streetAddress);
+              if (data.postalCode) setSettingsPostalCode(data.postalCode);
+              setSettingsLocalityType('CITY');
+              setSettingsLocationSource('GEOCODED');
+              setSettingsVerificationStatus('VERIFIED');
+            }
+          }
+        } catch {
+          // Geocoding network error, coordinates retained
+        }
       },
       () => {
         // Ignore geolocation denial; manual entry remains available
       },
-      {enableHighAccuracy: false, timeout: 8000}
+      {enableHighAccuracy: true, timeout: 10000}
     );
   };
 
@@ -889,7 +981,11 @@ export function MerchantStudio({
       setProductFormError('No active store selected for this product.');
       return;
     }
-    if (!isAdmin && selectedStore.sellerId !== activeSellerId) {
+    if (
+      !isAdmin &&
+      selectedStore.sellerId !== activeSellerId &&
+      !userOwnedStores.some((s) => s.id === selectedStore.id)
+    ) {
       setProductFormError('You are not authorized to add products to this store.');
       return;
     }
@@ -1166,6 +1262,8 @@ export function MerchantStudio({
       const newStore: LocalStore = {
         id: newStoreId,
         sellerId: newSellerId,
+        ownerUid: authenticatedUser?.id || authenticatedUser?.uid || `user-${newSellerId}`,
+        phone: newSeller.phoneE164,
         sellerName: newSeller.businessOwnerName,
         name: storeName.trim(),
         categoryId: catDef.id,
@@ -2486,7 +2584,12 @@ export function MerchantStudio({
                       <button
                         type="button"
                         onClick={() => {
-                          onUpdateOrderStep(rejectingOrderId, -1, 'REJECTED');
+                          onUpdateOrderStep(
+                            rejectingOrderId,
+                            -1,
+                            'REJECTED',
+                            rejectReason.trim() || 'Rejected by seller'
+                          );
                           setRejectingOrderId(null);
                           setRejectReason('');
                         }}
@@ -3393,7 +3496,7 @@ export function MerchantStudio({
                       Worldwide store location & address
                     </h4>
                     <p className="text-xs text-stone-500">
-                      Register a city, small town, district, village, or locality anywhere in the world.
+                      Register a city, town, district, or locality anywhere in the world.
                     </p>
                   </div>
                   <span
@@ -3409,7 +3512,7 @@ export function MerchantStudio({
                     {settingsVerificationStatus === 'VERIFIED'
                       ? 'Verified place'
                       : settingsVerificationStatus === 'USER_PROVIDED_UNVERIFIED'
-                        ? 'Manual town/village entry (Active)'
+                        ? 'Manual city/town entry (Active)'
                         : 'Incomplete location'}
                   </span>
                 </div>
@@ -3418,7 +3521,7 @@ export function MerchantStudio({
                   <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                     <span>
-                      Your store is missing structured city/town/village or address details
+                      Your store is missing structured city/town or address details
                       and cannot appear in buyer location results until completed.
                     </span>
                   </div>
@@ -3541,7 +3644,7 @@ export function MerchantStudio({
                       className="w-full px-3 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
                     >
                       <option value="CUSTOM_LOCALITIES">
-                        Selected neighborhoods / nearby villages
+                        Selected neighborhoods / delivery wards
                       </option>
                       <option value="CITY_WIDE">
                         All of {settingsCityName || primarySellerStore.cityName}
@@ -3566,7 +3669,7 @@ export function MerchantStudio({
 
                 <div>
                   <label className="block text-xs font-medium text-stone-800 mb-1">
-                    Neighborhoods or nearby villages you deliver to in{' '}
+                    Neighborhoods or localities you deliver to in{' '}
                     {settingsCityName || primarySellerStore.cityName}{' '}
                     (comma-separated)
                   </label>
@@ -3860,13 +3963,29 @@ export function MerchantStudio({
                         Seller onboarding is open to almost all large and medium-sized cities across the world.
                       </p>
                     </div>
+                  </div>
+                  {/* Explicit Store Location Permission Request Banner */}
+                  <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-slate-800 space-y-2.5 shadow-2xs">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-[#003B8E] text-white flex items-center justify-center shrink-0">
+                        <Navigation className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                          Store Location Permission Requested
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                          Allow location access to auto-detect your store's exact street address, neighborhood, postal code, and map coordinates for local buyer discovery.
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleDetectStoreCoordinates('onboarding')}
-                      className="px-2.5 py-1.5 rounded-lg border border-stone-300 bg-[#FAF9F6] hover:bg-stone-100 text-[11px] font-medium text-stone-800 inline-flex items-center gap-1 cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-2xs"
                     >
-                      <Navigation className="w-3 h-3" />
-                      <span>Use current GPS coordinates</span>
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Allow Location Permission &amp; Auto-Detect Precise Store Address</span>
                     </button>
                   </div>
 
@@ -3979,7 +4098,7 @@ export function MerchantStudio({
                       className="w-full px-3 py-2.5 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
                     >
                       <option value="CUSTOM_LOCALITIES">
-                        Specific nearby neighborhoods or villages
+                        Specific nearby neighborhoods or localities
                       </option>
                       <option value="CITY_WIDE">
                         All of {storeCityName || 'my town / city'}
@@ -3988,7 +4107,7 @@ export function MerchantStudio({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-stone-800 mb-1">
-                      List the neighborhoods, wards, or nearby villages you deliver to (comma-separated)
+                      List the neighborhoods, wards, or nearby localities you deliver to (comma-separated)
                     </label>
                     <input
                       type="text"
@@ -4460,12 +4579,12 @@ export function MerchantStudio({
           isOpen={isBulkUploadModalOpen}
           activeStore={primarySellerStore}
           activeSellerId={activeSellerId}
-          ownerUid={authenticatedUser?.uid}
+          ownerUid={authenticatedUser?.id || authenticatedUser?.uid}
           existingProducts={products}
           onClose={() => setIsBulkUploadModalOpen(false)}
           onImportComplete={(newCommittedProducts) => {
             for (const p of newCommittedProducts) {
-              onAddProduct(p);
+              onAddProduct(p, { skipServerSync: true });
             }
             setPublishBanner(
               `Bulk product upload complete: ${newCommittedProducts.length} items synced to ${primarySellerStore.name}.`

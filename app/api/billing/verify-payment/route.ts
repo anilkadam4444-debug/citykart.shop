@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
-import { db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
+import { db, IS_PREVIEW_DUMMY_FIREBASE, removeUndefined } from '@/lib/firebase';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
 import { INITIAL_STORES, LocalStore } from '@/lib/catalog-data';
 import { serverStoresRegistry } from '@/lib/stores-registry';
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
     const resolvedInvoiceNumber =
       invoiceNumber || `INV-${Date.now().toString().slice(-6)}`;
 
-    const transaction: BillingTransaction = {
+    const transaction: BillingTransaction = removeUndefined({
       id: txId,
       sellerId,
       storeId,
@@ -222,9 +222,9 @@ export async function POST(req: NextRequest) {
       gatewayTransactionId: gatewayPaymentId,
       invoiceNumber: resolvedInvoiceNumber,
       createdAt: now.toISOString(),
-    };
+    });
 
-    const subscription: MerchantSubscription = {
+    const subscription: MerchantSubscription = removeUndefined({
       id: `sub_${storeId}`, // One subscription record per store
       sellerId,
       storeId,
@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
       lastPaymentDate: now.toISOString(),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-    };
+    });
 
     // Resilient Firestore persistence: try adminDb first, fall back to client SDK db
     try {

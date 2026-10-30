@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,15 +8,23 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
+  Check,
   CheckCircle2,
+  Clock,
   Coins,
+  Copy,
+  ExternalLink,
   Handshake,
+  Landmark,
   MapPin,
   Phone,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   Store,
   TrendingUp,
+  Loader2,
+  Navigation,
 } from 'lucide-react';
 import { CURATED_CANONICAL_CITIES } from '@/lib/global-locations-data';
 import { buildAuthenticatedHeaders } from '@/lib/firebase';
@@ -27,12 +35,58 @@ import {
   PARTNER_OTP_ROUTE,
 } from '@/lib/partner-onboarding-context';
 
+interface PartnerConsoleData {
+  partnerId: string;
+  partnerCode: string;
+  phoneE164: string;
+  fullName: string;
+  role: string;
+  cityId: string;
+  cityName: string;
+  stateRegion: string;
+  country: string;
+  exclusivityModel: string;
+  exclusivityStatus: string;
+  revenueSharePct: number;
+  platformRetainedSharePct: number;
+  grossCityRevenue: number;
+  netEligibleRevenue: number;
+  totalEarned: number;
+  unsettledBalance: number;
+  activeMerchants: number;
+  ordersThisMonth: number;
+  nextSettlementDate: string;
+  referralLink: string;
+  kyc?: {
+    status: string;
+    bankAccountHolderName: string;
+    bankAccountNumber: string;
+    bankIfscOrRoutingCode: string;
+    bankName: string;
+  };
+}
+
+interface ApplicationData {
+  id: string;
+  referenceId?: string;
+  fullName: string;
+  cityName: string;
+  cityId: string;
+  status: string;
+  submittedAt?: string;
+  createdAt?: string;
+}
+
 function CityPartnerPortalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { authenticatedUser, showToast } = useUrbanDirect();
 
-  const [view, setView] = useState<'scheme' | 'application'>('scheme');
+  const [view, setView] = useState<'scheme' | 'application' | 'console'>('scheme');
+  const [partnerData, setPartnerData] = useState<PartnerConsoleData | null>(null);
+  const [pendingApplication, setPendingApplication] = useState<ApplicationData | null>(null);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState<boolean>(true);
+
   const [fullName, setFullName] = useState('');
   const [phoneE164, setPhoneE164] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('india-maharashtra-nanded');
@@ -40,6 +94,100 @@ function CityPartnerPortalContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedReferral, setCopiedReferral] = useState(false);
+  const [detectedPartnerStreetAddress, setDetectedPartnerStreetAddress] = useState<string>('');
+
+  const handleDetectPartnerGps = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      setErrorMessage('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsDetectingGps(true);
+    setErrorMessage(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch('/api/location/reverse-geocode', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.city) {
+            const street = data.streetAddress || data.formattedAddress || '';
+            setDetectedPartnerStreetAddress(street);
+            const matched = CURATED_CANONICAL_CITIES.find(
+              (c) =>
+                c.cityId === data.cityId ||
+                c.cityName.toLowerCase() === String(data.city).toLowerCase()
+            );
+            if (matched) {
+              setSelectedCityId(matched.cityId);
+            } else if (data.cityId) {
+              setSelectedCityId(data.cityId);
+            }
+          } else {
+            setErrorMessage(
+              data?.error ||
+                'Could not auto-detect your city. Please select manually.'
+            );
+          }
+        } catch {
+          setErrorMessage('Network error while detecting GPS location.');
+        } finally {
+          setIsDetectingGps(false);
+        }
+      },
+      (geoErr) => {
+        setIsDetectingGps(false);
+        if (geoErr.code === geoErr.PERMISSION_DENIED) {
+          setErrorMessage(
+            'Location permission was denied. Please allow location access or select your city manually.'
+          );
+        } else {
+          setErrorMessage(
+            'Unable to retrieve your GPS location. Please select manually.'
+          );
+        }
+      },
+      {enableHighAccuracy: true, timeout: 10000}
+    );
+  };
+
+  const checkPartnerStatus = useCallback(async () => {
+    setIsLoadingDashboard(true);
+    try {
+      const headers = await buildAuthenticatedHeaders();
+      const res = await fetch('/api/partners/dashboard', { headers });
+      const data = await res.json();
+
+      if (res.ok && data.ok && data.approved && data.partner) {
+        setPartnerData(data.partner);
+        setPendingApplication(null);
+        setView('console');
+        return;
+      }
+
+      if (data.application) {
+        setPendingApplication(data.application);
+        if (data.application.status !== 'APPROVED') {
+          setView('console');
+        }
+        return;
+      }
+    } catch {
+      // Non-blocking dashboard check
+    } finally {
+      setIsLoadingDashboard(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkPartnerStatus();
+  }, [checkPartnerStatus]);
 
   useEffect(() => {
     const onboardingCtx = readPartnerOnboardingContext();
@@ -73,12 +221,13 @@ function CityPartnerPortalContent() {
     }
 
     if (
-      isOtpVerifiedQuery ||
-      onboardingCtx?.verificationStep === 'PHONE_VERIFIED'
+      !partnerData &&
+      !pendingApplication &&
+      (isOtpVerifiedQuery || onboardingCtx?.verificationStep === 'PHONE_VERIFIED')
     ) {
       setView('application');
     }
-  }, [authenticatedUser, searchParams]);
+  }, [authenticatedUser, searchParams, partnerData, pendingApplication]);
 
   const proceedToAuth = () => {
     const onboardingCtx = readPartnerOnboardingContext();
@@ -137,6 +286,7 @@ function CityPartnerPortalContent() {
         const msg = `Your City Partner application for ${cityObj?.cityName || selectedCityId} has been submitted for Super Admin review!`;
         setSubmissionSuccess(msg);
         showToast(msg);
+        await checkPartnerStatus();
       } else {
         setErrorMessage(data.error || 'Failed to submit partner application.');
       }
@@ -146,6 +296,39 @@ function CityPartnerPortalContent() {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleWithdrawApplication = async (appId: string) => {
+    try {
+      const headers = await buildAuthenticatedHeaders();
+      const res = await fetch('/api/partners/applications', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'WITHDRAW',
+          applicationId: appId,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast('Application withdrawn successfully.');
+        setPendingApplication(null);
+        setView('scheme');
+      } else {
+        showToast(data.error || 'Could not withdraw application.');
+      }
+    } catch {
+      showToast('Network error while withdrawing application.');
+    }
+  };
+
+  const handleCopyReferral = (text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedReferral(true);
+      showToast('Partner referral link copied to clipboard!');
+      setTimeout(() => setCopiedReferral(false), 2500);
     }
   };
 
@@ -176,17 +359,53 @@ function CityPartnerPortalContent() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
-            {view === 'application' && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setView('scheme')}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+                view === 'scheme'
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Scheme Details
+            </button>
+
+            {!partnerData && (
               <button
                 type="button"
-                onClick={() => setView('scheme')}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setView('application')}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+                  view === 'application'
+                    ? 'bg-emerald-700 text-white border-emerald-700'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>View Scheme Details</span>
+                Apply for City
               </button>
             )}
+
+            {(partnerData || pendingApplication) && (
+              <button
+                type="button"
+                onClick={() => setView('console')}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
+                  view === 'console'
+                    ? 'bg-emerald-700 text-white border-emerald-700'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <span>Partner Console</span>
+                {partnerData && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+                {pendingApplication && !partnerData && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                )}
+              </button>
+            )}
+
             <Link
               href="/"
               className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 inline-flex items-center gap-1.5 transition-colors"
@@ -199,9 +418,294 @@ function CityPartnerPortalContent() {
       </header>
 
       <main className="flex-1 max-w-5xl w-full mx-auto py-8 px-4 sm:px-6 space-y-8">
-        {view === 'scheme' ? (
+        {view === 'console' ? (
           /* =========================================================
-             STEP 1: FULL SCHEME ELABORATION & ESTIMATED WEEKLY EARNINGS
+             VIEW MODE 3: CITY PARTNER CONSOLE & TERRITORY OPERATIONS
+             ========================================================= */
+          <div className="space-y-6">
+            {partnerData ? (
+              <>
+                {/* Active City Partner Hero Card */}
+                <div className="bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#064E3B] text-white rounded-3xl p-6 sm:p-8 shadow-lg space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>Approved Exclusive Territory Partner</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-lg bg-white/10 border border-white/20 font-mono text-xs font-bold text-slate-200">
+                        {partnerData.partnerCode}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={checkPartnerStatus}
+                        disabled={isLoadingDashboard}
+                        title="Refresh Console Metrics"
+                        className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDashboard ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+                      {partnerData.fullName} ·{' '}
+                      <span className="text-emerald-400">{partnerData.cityName} Territory Hub</span>
+                    </h1>
+                    <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                      Exclusive City Partner for <strong>{partnerData.cityName}, {partnerData.stateRegion}</strong> ({partnerData.country}). You receive an automated 50% revenue share across all merchant subscriptions and customer order fees in this hub.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-3 text-xs text-emerald-200 font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                      <Handshake className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>50/50 Revenue Attribution Active</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>One City = One Exclusive Partner</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4 Financial & Operational Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+                    <div className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1.5">
+                      <Coins className="w-4 h-4 text-emerald-600" />
+                      <span>Partner Earnings</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-emerald-700">
+                      ₹{partnerData.totalEarned.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Next weekly payout: <strong>{partnerData.nextSettlementDate}</strong>
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+                    <div className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-[#003B8E]" />
+                      <span>Net City Platform Revenue</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-slate-900">
+                      ₹{partnerData.netEligibleRevenue.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Split: <strong>50% Partner</strong> / 50% CityKart
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+                    <div className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1.5">
+                      <Store className="w-4 h-4 text-purple-600" />
+                      <span>Active Stores</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-slate-900">
+                      {partnerData.activeMerchants}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Stores onboarded in {partnerData.cityName}
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+                    <div className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-amber-600" />
+                      <span>City Orders</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-slate-900">
+                      {partnerData.ordersThisMonth}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Local orders fulfilled this period
+                    </div>
+                  </div>
+                </div>
+
+                {/* Operations Grid: Merchant Onboarding & Referral Tooling */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left: Merchant Onboarding & Referral Link */}
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-5">
+                    <div className="space-y-1">
+                      <div className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                        <Store className="w-4 h-4" />
+                        <span>Merchant Growth &amp; Referral</span>
+                      </div>
+                      <h2 className="text-lg font-black text-slate-900">
+                        Onboard Local Merchants in {partnerData.cityName}
+                      </h2>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Share your dedicated partner onboarding link with neighborhood shop owners. Stores registered through your link are permanently attributed to your 50/50 territory share.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        Your Exclusive Merchant Referral Link
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={partnerData.referralLink}
+                          className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 select-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCopyReferral(partnerData.referralLink)}
+                          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          {copiedReferral ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copy Link</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <Link
+                        href={`/seller?refPartner=${encodeURIComponent(partnerData.partnerId)}`}
+                        className="px-5 py-2.5 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+                      >
+                        <Store className="w-3.5 h-3.5" />
+                        <span>Open Store Onboarding Portal</span>
+                        <ExternalLink className="w-3 h-3 ml-0.5" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Right: Bank Payout & Settlement KYC Summary */}
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-5">
+                    <div className="space-y-1">
+                      <div className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                        <Landmark className="w-4 h-4" />
+                        <span>Direct Bank &amp; UPI Settlement</span>
+                      </div>
+                      <h2 className="text-lg font-black text-slate-900">
+                        Weekly Automated Payouts
+                      </h2>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Your 50% territory revenue is settled weekly directly into your verified bank account via NEFT / RTGS.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Bank Name:</span>
+                        <strong className="text-slate-900 font-semibold">
+                          {partnerData.kyc?.bankName || 'State Bank of India'}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Account Number:</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {partnerData.kyc?.bankAccountNumber || 'XXXX4416'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">IFSC / Branch:</span>
+                        <span className="font-mono font-semibold text-slate-800">
+                          {partnerData.kyc?.bankIfscOrRoutingCode || 'SBIN0001234'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                        <span className="text-slate-500 font-medium">KYC Verification Status:</span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px] inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                          <span>{partnerData.kyc?.status || 'VERIFIED'}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-[#003B8E] shrink-0 mt-0.5" />
+                      <p className="text-[11px] leading-relaxed">
+                        Need to update your bank payout details or tax residency documentation? Contact Super Admin at{' '}
+                        <strong>anilkadam4444@gmail.com</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : pendingApplication ? (
+              /* Pending Application Tracker Card */
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 max-w-2xl mx-auto">
+                <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Application Status · {pendingApplication.status}</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                    City Partner Application Under Review
+                  </h2>
+                  <p className="text-xs text-slate-600">
+                    Your application for the <strong>{pendingApplication.cityName}</strong> territory has been submitted and is currently being reviewed by Citykart Super Admin.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Applicant Name:</span>
+                    <strong className="text-slate-900">{pendingApplication.fullName}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Target Territory:</span>
+                    <strong className="text-slate-900">{pendingApplication.cityName}</strong>
+                  </div>
+                  {pendingApplication.referenceId && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Reference ID:</span>
+                      <span className="font-mono font-bold text-[#003B8E]">
+                        {pendingApplication.referenceId}
+                      </span>
+                    </div>
+                  )}
+                  {pendingApplication.submittedAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Submitted At:</span>
+                      <span className="text-slate-700">
+                        {new Date(pendingApplication.submittedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={checkPartnerStatus}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh Review Status</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleWithdrawApplication(pendingApplication.id)}
+                    className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Withdraw Application
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : view === 'scheme' ? (
+          /* =========================================================
+             VIEW MODE 1: FULL SCHEME ELABORATION & EARNINGS BREAKDOWN
              ========================================================= */
           <div className="space-y-6">
             {/* Hero Scheme Card */}
@@ -344,7 +848,7 @@ function CityPartnerPortalContent() {
           </div>
         ) : (
           /* =========================================================
-             STEP 2: STREAMLINED PARTNER APPLICATION FORM
+             VIEW MODE 2: STREAMLINED PARTNER APPLICATION FORM
              (Phone already verified via OTP — asks Name & City only once)
              ========================================================= */
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 max-w-2xl mx-auto">
@@ -421,6 +925,41 @@ function CityPartnerPortalContent() {
                 />
               </div>
 
+              {/* Explicit Partner Location Permission Request Banner */}
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-slate-800 space-y-2.5 shadow-2xs">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <Navigation className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                      City Territory Location Permission Requested
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                      Allow location access to auto-detect your current canonical city and auto-select your 50/50 revenue attribution territory.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDetectPartnerGps}
+                  disabled={isDetectingGps}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                >
+                  {isDetectingGps ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Detecting Territory &amp; Precise Address...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Allow Location Permission &amp; Auto-Detect Territory</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
               <div>
                 <label
                   htmlFor="partner-target-city"
@@ -443,6 +982,11 @@ function CityPartnerPortalContent() {
                     ))}
                   </select>
                 </div>
+                {detectedPartnerStreetAddress && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 font-mono">
+                    <strong className="text-emerald-900 font-sans">Precise GPS Address Detected:</strong> {detectedPartnerStreetAddress}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -492,3 +1036,4 @@ export function CityPartnerPortal() {
     </Suspense>
   );
 }
+

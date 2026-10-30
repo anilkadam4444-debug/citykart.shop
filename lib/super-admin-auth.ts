@@ -342,11 +342,14 @@ export async function resolveSuperAdminSessionFromRequest(req: any) {
   const rawRole = String(session.user.role || 'BUYER').toUpperCase();
   const isSuperAdmin =
     isOwner ||
-    rawRole === 'SUPER_ADMIN' ||
-    matchedAuth?.role === 'super_admin';
+    (matchedAuth !== undefined &&
+      matchedAuth.status === 'ACTIVE' &&
+      (rawRole === 'SUPER_ADMIN' || matchedAuth.role === 'super_admin'));
   const isOperationalAdmin =
     !isSuperAdmin &&
-    (rawRole === 'ADMIN' || matchedAuth?.role === 'admin');
+    matchedAuth !== undefined &&
+    matchedAuth.status === 'ACTIVE' &&
+    (rawRole === 'ADMIN' || matchedAuth.role === 'admin');
 
   const uid = session.user.uid || `user_${phoneE164.replace(/\D/g, '')}`;
 
@@ -561,6 +564,22 @@ export async function revokeAdminAuthorization(params: any) {
   authRec.status = 'REVOKED';
   authRec.revokedReason = params?.reason || 'Revoked by Super Admin';
   authRec.updatedAt = new Date().toISOString();
+
+  // Invalidate in-memory user accounts and sessions for revoked administrator
+  if (serverUserAccounts.has(targetPhone)) {
+    const userAcc = serverUserAccounts.get(targetPhone)!;
+    userAcc.role = 'buyer';
+    userAcc.roles = (userAcc.roles || []).filter((r: string) => r !== 'ADMIN' && r !== 'SUPER_ADMIN');
+    if (userAcc.roles.length === 0) userAcc.roles = ['BUYER'];
+    serverUserAccounts.set(targetPhone, userAcc);
+  }
+
+  for (const [tokenKey, cachedSession] of sessionTokensMap.entries()) {
+    if (cachedSession && normalizePhoneE164(cachedSession.phoneE164) === targetPhone) {
+      sessionTokensMap.delete(tokenKey);
+    }
+  }
+
   recordAdminAuditLog('REVOKE_ADMIN', {
     targetPhone: authRec.phoneE164,
     reason: authRec.revokedReason,
@@ -584,6 +603,15 @@ export async function reactivateAdminAuthorization(params: any) {
 
   authRec.status = 'ACTIVE';
   authRec.updatedAt = new Date().toISOString();
+
+  // Restore administrative role in serverUserAccounts
+  if (serverUserAccounts.has(targetPhone)) {
+    const userAcc = serverUserAccounts.get(targetPhone)!;
+    userAcc.role = authRec.role === 'super_admin' ? 'super_admin' : 'admin';
+    userAcc.roles = Array.from(new Set([...(userAcc.roles || []), authRec.role.toUpperCase(), 'BUYER'])) as any;
+    serverUserAccounts.set(targetPhone, userAcc);
+  }
+
   recordAdminAuditLog('REACTIVATE_ADMIN', {
     targetPhone: authRec.phoneE164,
     reason: params?.reason || 'Reactivated by Super Admin',

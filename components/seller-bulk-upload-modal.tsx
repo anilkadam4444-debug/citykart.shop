@@ -37,10 +37,12 @@ import {
   generateCSVContent,
   generateSampleCSVTemplate,
   isValidImageUrl,
+  normalizeImageUrlInput,
   parseCSVText,
   ParsedProductRow,
   resolveCategoryFromInput,
 } from '@/lib/csv-parser';
+import { buildAuthenticatedHeaders } from '@/lib/firebase';
 import { ProductStudioArtwork } from './product-studio-artwork';
 
 export type ImportMode = 'ADD_NEW' | 'UPDATE_EXISTING';
@@ -167,7 +169,16 @@ export function SellerBulkUploadModal({
   const processUploadedFile = (file: File) => {
     setFileReadError(null);
 
-    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
+    const lowerName = (file.name || '').toLowerCase();
+    const isSupportedExt =
+      lowerName.endsWith('.csv') ||
+      lowerName.endsWith('.tsv') ||
+      lowerName.endsWith('.txt') ||
+      lowerName.endsWith('.xlsx') ||
+      lowerName.endsWith('.xls') ||
+      file.type === 'text/csv';
+
+    if (!isSupportedExt) {
       setFileReadError('Please upload a valid .csv file exported from Excel or Google Sheets.');
       return;
     }
@@ -188,33 +199,53 @@ export function SellerBulkUploadModal({
           return;
         }
 
+        // Detect binary .xlsx ZIP header (PK\x03\x04)
+        if (text.startsWith('PK\x03\x04')) {
+          setFileReadError(
+            'This file is a binary Excel (.xlsx) workbook. Please save or export it as "CSV (Comma delimited) (.csv)" from Excel or Google Sheets and upload the .csv file.'
+          );
+          return;
+        }
+
         const rawMatrix = parseCSVText(text);
         if (rawMatrix.length < 2) {
           setFileReadError('The uploaded CSV file must contain a header row and at least one product data row.');
           return;
         }
 
-        const headers = rawMatrix[0].map((h) => h.trim().toLowerCase());
+        const headers = rawMatrix[0].map((h) => h.replace(/^\uFEFF/, '').trim().toLowerCase());
         const dataRows = rawMatrix.slice(1);
 
-        // Find header index helper
+        // Priority-ordered header index resolver (matches exact headers first, then substring in priority order)
         const getColIdx = (possibleNames: string[]): number => {
-          return headers.findIndex((h) => possibleNames.some((name) => h.includes(name.toLowerCase())));
+          for (const candidate of possibleNames) {
+            const target = candidate.toLowerCase();
+            const exactIdx = headers.findIndex(
+              (h) => h === target || h.startsWith(`${target} (`) || h.startsWith(`${target} [`)
+            );
+            if (exactIdx !== -1) return exactIdx;
+          }
+          for (const candidate of possibleNames) {
+            const target = candidate.toLowerCase();
+            const subIdx = headers.findIndex((h) => h.includes(target));
+            if (subIdx !== -1) return subIdx;
+          }
+          return -1;
         };
 
-        const idxName = getColIdx(['product name', 'name', 'title']);
-        const idxCategory = getColIdx(['category', 'type']);
-        const idxPrice = getColIdx(['price', 'mrp', 'cost']);
-        const idxDelivery = getColIdx(['delivery charge', 'delivery fee', 'shipping']);
-        const idxSku = getColIdx(['sku', 'code', 'product id']);
-        const idxStock = getColIdx(['stock', 'qty', 'quantity']);
+        const idxName = getColIdx(['product name', 'item name', 'product title', 'title', 'name']);
+        const idxCategory = getColIdx(['category', 'product category', 'type']);
+        const idxPrice = getColIdx(['price (inr)', 'selling price', 'price', 'mrp', 'cost']);
+        const idxDelivery = getColIdx(['delivery charge (inr)', 'delivery charge', 'delivery fee', 'shipping']);
+        const idxSku = getColIdx(['sku', 'product code', 'item code', 'product id', 'code']);
+        const idxStock = getColIdx(['stock quantity', 'available stock', 'stock', 'qty', 'quantity']);
         const idxUnit = getColIdx(['unit', 'pack size', 'weight']);
-        const idxDesc = getColIdx(['description', 'details']);
-        const idxDim = getColIdx(['dimensions', 'size']);
+        const idxDesc = getColIdx(['description', 'product description', 'details']);
+        const idxDim = getColIdx(['dimensions', 'dimension', 'product size']);
         const idxMat = getColIdx(['materials', 'material', 'ingredients']);
-        const idxVar = getColIdx(['variants', 'options']);
-        const idxImg = getColIdx(['image', 'photo', 'url']);
-        const idxStatus = getColIdx(['status', 'availability']);
+        const idxVar = getColIdx(['product variants', 'variants', 'options']);
+        const idxImg = getColIdx(['product image url', 'image url', 'image', 'photo', 'url']);
+        const idxStatus = getColIdx(['product status', 'status', 'availability']);
 
         if (idxName === -1 || idxPrice === -1) {
           setFileReadError(
@@ -227,6 +258,9 @@ export function SellerBulkUploadModal({
         const parsed: ParsedProductRow[] = [];
 
         dataRows.forEach((rowArray, idx) => {
+          if (!rowArray || rowArray.every((cell) => !cell || !cell.trim())) {
+            return;
+          }
           const rowNum = idx + 2; // Row number in spreadsheet (Header is row 1)
           const name = (rowArray[idxName] || '').trim();
           const categoryInput = idxCategory !== -1 ? (rowArray[idxCategory] || '').trim() : '';
@@ -239,7 +273,8 @@ export function SellerBulkUploadModal({
           const dimensions = idxDim !== -1 ? (rowArray[idxDim] || '').trim() : '';
           const materials = idxMat !== -1 ? (rowArray[idxMat] || '').trim() : '';
           const variantsInput = idxVar !== -1 ? (rowArray[idxVar] || '').trim() : '';
-          const customImageUrl = idxImg !== -1 ? (rowArray[idxImg] || '').trim() : '';
+          const rawImageUrl = idxImg !== -1 ? (rowArray[idxImg] || '').trim() : '';
+          const customImageUrl = normalizeImageUrlInput(rawImageUrl);
           const productStatus = idxStatus !== -1 ? (rowArray[idxStatus] || '').trim() : '';
 
           const errors: string[] = [];
@@ -262,14 +297,21 @@ export function SellerBulkUploadModal({
             errors.push('Price must be a valid positive number');
           }
 
-          // Duplicate check against existing store products
-          const effectiveSkuForCheck = sku || `SKU-${name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}`;
+          // Duplicate check against existing store products (safe against undefined sku/name)
+          const effectiveSkuForCheck =
+            sku || `SKU-${name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() || idx + 1}`;
           const normalizedSkuForCheck = effectiveSkuForCheck.toLowerCase();
           const matchedBySku = existingProducts.find(
-            (p) => p.storeId === activeStore.id && p.sku.toLowerCase() === normalizedSkuForCheck
+            (p) =>
+              p.storeId === activeStore.id &&
+              Boolean(p.sku) &&
+              String(p.sku).toLowerCase().trim() === normalizedSkuForCheck
           );
           const matchedByName = existingProducts.find(
-            (p) => p.storeId === activeStore.id && p.name.toLowerCase() === name.toLowerCase()
+            (p) =>
+              p.storeId === activeStore.id &&
+              Boolean(p.name) &&
+              String(p.name).toLowerCase().trim() === name.toLowerCase()
           );
           const matchedExisting = matchedBySku || matchedByName;
 
@@ -282,7 +324,7 @@ export function SellerBulkUploadModal({
             } else {
               resolvedDeliveryCharge = numericDelivery;
             }
-          } else if (importMode === 'UPDATE_EXISTING' && matchedExisting) {
+          } else if (matchedExisting) {
             resolvedDeliveryCharge = matchedExisting.deliveryCharge ?? 0;
           } else {
             resolvedDeliveryCharge = 0;
@@ -299,11 +341,11 @@ export function SellerBulkUploadModal({
           // Validation 4: Stock
           let resolvedStock = 10;
           if (stockInput) {
-            const numStock = Number(stockInput.replace(/[^0-9]/g, ''));
+            const numStock = Number(stockInput.replace(/[^0-9.]/g, ''));
             if (isNaN(numStock) || numStock < 0) {
-              errors.push('Stock quantity must be a non-negative integer');
+              errors.push('Stock quantity must be a non-negative number');
             } else {
-              resolvedStock = numStock;
+              resolvedStock = Math.floor(numStock);
             }
           } else {
             warnings.push('Stock not specified — defaulted to 10 units');
@@ -315,7 +357,7 @@ export function SellerBulkUploadModal({
           }
 
           // Validation 6: Duplicate SKUs within file
-          const effectiveSku = sku || `SKU-${name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}`;
+          const effectiveSku = effectiveSkuForCheck;
           const normalizedSku = effectiveSku.toLowerCase();
 
           if (sku && fileSkuTracker.has(normalizedSku)) {
@@ -325,9 +367,13 @@ export function SellerBulkUploadModal({
           }
 
           if (importMode === 'ADD_NEW' && matchedExisting) {
-            warnings.push(`Item already exists in store ("${matchedExisting.name}") — duplicate will be skipped`);
+            warnings.push(
+              `Item already exists in store ("${matchedExisting.name}") — existing listing will be updated`
+            );
           } else if (importMode === 'UPDATE_EXISTING' && !matchedExisting) {
-            errors.push(`No existing store product matched SKU "${effectiveSku}" or Name "${name}"`);
+            warnings.push(
+              `No existing store product matched SKU "${effectiveSku}" — will be added as a new product`
+            );
           }
 
           // Split variants
@@ -383,7 +429,11 @@ export function SellerBulkUploadModal({
         setParsedRows(parsed);
         setStep('PREVIEW_VALIDATE');
       } catch (err) {
-        setFileReadError('Failed to parse file. Please ensure it is a valid UTF-8 formatted CSV or Excel file.');
+        setFileReadError(
+          err instanceof Error
+            ? `Failed to parse CSV file: ${err.message}`
+            : 'Failed to parse file. Please ensure it is a valid UTF-8 formatted CSV file.'
+        );
       }
     };
 
@@ -423,12 +473,23 @@ export function SellerBulkUploadModal({
     return parsedRows;
   }, [parsedRows, previewFilter]);
 
-  const canExecuteImport = validRows.length > 0 && (quotaStatus.isUnlimited || validRows.length <= quotaStatus.remaining);
+  const netNewValidCount = useMemo(
+    () => validRows.filter((r) => !r.matchedExistingProduct).length,
+    [validRows]
+  );
+
+  const canExecuteImport =
+    validRows.length > 0 &&
+    (quotaStatus.isUnlimited ||
+      netNewValidCount <= quotaStatus.remaining ||
+      quotaStatus.remaining > 0 ||
+      validRows.some((r) => Boolean(r.matchedExistingProduct)));
 
   // Execute Bulk Upload via Server API Endpoint
   const handleExecuteImport = async () => {
     if (!canExecuteImport) return;
 
+    setFileReadError(null);
     setStep('IMPORTING_PROGRESS');
     setIsImporting(true);
     setImportProgressPercent(10);
@@ -454,14 +515,17 @@ export function SellerBulkUploadModal({
       setImportProgressPercent(35);
       setImportStatusMessage(`Submitting ${productsToUploadPayload.length} verified products to database...`);
 
+      const headers = await buildAuthenticatedHeaders();
       const res = await fetch('/api/products/bulk-upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           sellerId: activeSellerId,
           storeId: activeStore.id,
           ownerUid,
           mode: importMode,
+          planId: quotaStatus.planId,
+          store: activeStore,
           items: productsToUploadPayload,
         }),
       });
@@ -756,13 +820,33 @@ export function SellerBulkUploadModal({
                 </div>
               </div>
 
+              {/* Error Banner if API or validation failed */}
+              {fileReadError && (
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{fileReadError}</span>
+                </div>
+              )}
+
+              {/* Quota Warning Banner if net-new rows exceed remaining plan limit */}
+              {!quotaStatus.isUnlimited && netNewValidCount > quotaStatus.remaining && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <span>
+                    Your current <strong>{quotaStatus.planName}</strong> allows {quotaStatus.maxAllowed} active products ({quotaStatus.remaining} new slots remaining). Up to {quotaStatus.remaining} new products and all existing product updates will be imported.
+                  </span>
+                </div>
+              )}
+
               {/* Error Report Download Banner */}
               {(errorRows.length > 0 || warningRows.length > 0) && (
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3 text-xs text-amber-950">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
                     <span>
-                      {errorRows.length} rows have blocking errors and will be skipped during import.
+                      {errorRows.length > 0
+                        ? `${errorRows.length} rows have blocking errors and will be skipped during import.`
+                        : `${warningRows.length} rows have non-blocking notes and are ready to import.`}
                     </span>
                   </div>
                   <button
@@ -771,7 +855,7 @@ export function SellerBulkUploadModal({
                     className="px-3 py-1.5 rounded-lg bg-amber-900 hover:bg-amber-950 text-white font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download Error Report (.CSV)</span>
+                    <span>Download Report (.CSV)</span>
                   </button>
                 </div>
               )}
