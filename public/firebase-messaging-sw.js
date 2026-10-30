@@ -3,7 +3,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "AIzaSyA2u0hT4A9w4bQxX_rB8u_9x1tY7jZ8s7A",
+  apiKey: "AIzaSyDxbT6rWpl3mrVT5RcwNHVT_T_gecLubkA",
   authDomain: "urbandirectintracity.firebaseapp.com",
   projectId: "urbandirectintracity",
   storageBucket: "urbandirectintracity.firebasestorage.app",
@@ -13,10 +13,32 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+function resolveDefaultDestinationRoute(data) {
+  if (data.destinationRoute) return data.destinationRoute;
+  if (data.clickAction) return data.clickAction;
+  const recipientRole = String(data.recipientRole || 'BUYER').toUpperCase();
+  const orderId = data.orderId || data.relatedEntityId || '';
+  if (recipientRole === 'BUYER') {
+    return orderId ? `/orders?orderId=${encodeURIComponent(orderId)}` : '/orders';
+  }
+  if (recipientRole === 'SELLER') {
+    return orderId
+      ? `/?view=seller&section=orders&orderId=${encodeURIComponent(orderId)}`
+      : '/?view=seller';
+  }
+  if (recipientRole === 'PARTNER') {
+    return '/partner';
+  }
+  if (recipientRole === 'ADMIN' || recipientRole === 'SUPER_ADMIN') {
+    return '/?view=admin';
+  }
+  return '/';
+}
+
 messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {};
-  const orderId = data.orderId || 'latest';
-  const recipientRole = data.recipientRole || 'SELLER';
+  const recipientRole = data.recipientRole || 'BUYER';
+  const notificationId = data.notificationId || data.eventKey || data.orderId || 'latest';
 
   // If the FCM payload already includes a top-level `notification` block,
   // the browser displays it automatically using the `webpush.fcmOptions.link` and `tag`.
@@ -26,24 +48,22 @@ messaging.onBackgroundMessage((payload) => {
   }
 
   const notificationTitle =
-    data.title || 'New Order Update — Citykart.shop';
+    data.title || 'Citykart Notification';
   const notificationBody =
-    data.body || 'Tap to view your order details on Citykart.shop';
+    data.body || data.message || 'Tap to view your latest update on Citykart.shop';
 
-  const defaultClickAction =
-    recipientRole === 'BUYER'
-      ? `/orders?orderId=${encodeURIComponent(orderId)}`
-      : `/seller/dashboard?section=orders&orderId=${encodeURIComponent(orderId)}`;
+  const destinationRoute = resolveDefaultDestinationRoute(data);
 
   const notificationOptions = {
     body: notificationBody,
     icon: '/citykart-icon.png',
     badge: '/citykart-icon.png',
-    tag: `citykart-order-${orderId}-${recipientRole}`,
+    tag: `citykart-notif-${notificationId}-${recipientRole}`,
     renotify: false,
     data: {
       ...data,
-      clickAction: data.clickAction || defaultClickAction,
+      destinationRoute,
+      clickAction: destinationRoute,
     },
   };
 
@@ -53,16 +73,7 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const orderId = data.orderId || '';
-  const recipientRole = data.recipientRole || '';
-
-  let targetUrl = data.clickAction || '/';
-  if (!data.clickAction && orderId) {
-    targetUrl =
-      recipientRole === 'BUYER'
-        ? `/orders?orderId=${encodeURIComponent(orderId)}`
-        : `/seller/dashboard?section=orders&orderId=${encodeURIComponent(orderId)}`;
-  }
+  const targetUrl = resolveDefaultDestinationRoute(data);
 
   event.waitUntil(
     clients

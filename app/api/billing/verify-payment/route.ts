@@ -23,6 +23,7 @@ import {
   getReservedFeesForInvoice,
   markInvoicePlatformFeesPaid,
 } from '@/lib/fees';
+import { notifySellerBillingEvent } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -311,6 +312,16 @@ export async function POST(req: NextRequest) {
 
     // Mark reserved platform fees for this invoice as 'paid' across all storage tiers
     await markInvoicePlatformFeesPaid(sellerId, invoiceNumber, txId);
+
+    await notifySellerBillingEvent({
+      sellerId,
+      storeId,
+      storeName: targetStore?.name,
+      event: 'SUBSCRIPTION_ACTIVATED',
+      planOrServiceName: plan.name,
+      amountInr: totalAmount,
+      invoiceNumber: resolvedInvoiceNumber,
+    }).catch((err) => console.warn('[verify-payment] Notification warning:', err));
 
     return NextResponse.json({
       success: true,

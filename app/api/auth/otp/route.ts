@@ -14,6 +14,7 @@ import {
   verifySessionToken,
   getAuthoritativeAdminAuthorizations,
 } from '@/lib/super-admin-auth';
+import { notifyUserRegistrationCompleted } from '@/lib/notification-events';
 
 declare global {
   var __serverVerifiedOtpTokens:
@@ -507,6 +508,15 @@ export async function POST(req: NextRequest) {
       if (verificationToken) {
         verifiedTokens.delete(String(verificationToken));
       }
+
+      await notifyUserRegistrationCompleted({
+        uid: newUser.id,
+        phoneE164: newUser.phoneE164,
+        fullName: newUser.fullName,
+        role: safeRole,
+        sellerId: newUser.sellerId,
+        city: newUser.lockedCity,
+      });
 
       const sessionToken = issueSessionTokenForUser(newUser);
 

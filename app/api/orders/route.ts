@@ -13,6 +13,7 @@ import {
   sanitizeOrderForStorageAndListing,
 } from '@/lib/delivery-pin';
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/lib/super-admin-auth';
+import { notifyOrderPlaced } from '@/lib/notification-events';
 
 export async function GET() {
   const allOrders = Array.from(serverOrdersRegistry.values());
@@ -21,9 +22,20 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = rawBody?.order && typeof rawBody.order === 'object' ? rawBody.order : rawBody;
+    const customer = body?.customer || {
+      fullName: body?.customerName || body?.buyerName || '',
+      phone: body?.customerPhone || body?.buyerPhone || '',
+      phoneE164: body?.buyerPhone || body?.customerPhone || '',
+      deliveryAddress: body?.deliveryAddress || body?.address || '',
+      address: body?.deliveryAddress || body?.address || '',
+      city: body?.city || 'Nanded',
+      locality: body?.neighborhood || body?.locality || '',
+      stateRegion: body?.stateRegion || 'Maharashtra',
+      country: body?.country || 'India',
+    };
     const {
-      customer,
       storeId,
       storeData,
       sellerId,
@@ -111,6 +123,7 @@ export async function POST(req: NextRequest) {
     const newOrder: OrderRecord = {
       id: orderId,
       orderNumber: orderId,
+      buyerUid: body.buyerUid || sessionUser?.uid,
       customer: {
         fullName: String(customer.fullName).trim(),
         phone: phoneVal,
@@ -147,6 +160,8 @@ export async function POST(req: NextRequest) {
     serverOrderPinsVault.set(orderId, pin);
     const sanitized = sanitizeOrderForStorageAndListing(newOrder);
     serverOrdersRegistry.set(orderId, sanitized);
+
+    await notifyOrderPlaced(newOrder, pin);
 
     return NextResponse.json({
       ok: true,

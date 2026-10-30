@@ -56,6 +56,7 @@ import { useUrbanDirect } from '@/components/urbandirect-provider';
 import { AdminLocationManager } from '@/components/admin-location-manager';
 import { AdminPartnerManagement } from '@/components/admin-partner-management';
 import { CategoryIcon } from '@/components/category-icon';
+import { NotificationBell } from '@/components/notification-bell';
 import { auth, buildAuthenticatedHeaders, db, IS_PREVIEW_DUMMY_FIREBASE } from '@/lib/firebase';
 import {
   collection,
@@ -1992,6 +1993,26 @@ export function SuperAdminDashboard() {
                 <span>Refresh</span>
               </button>
 
+              {/* Admin / Super Admin Notification Bell & Broadcast Center */}
+              <NotificationBell
+                role={
+                  dashboardData?.adminRole === 'admin'
+                    ? 'ADMIN'
+                    : 'SUPER_ADMIN'
+                }
+                userId={
+                  dashboardData?.admin?.uid ||
+                  authenticatedUser?.uid ||
+                  authenticatedUser?.id ||
+                  'uid-8329306616'
+                }
+                phoneE164={
+                  dashboardData?.admin?.phoneE164 ||
+                  authenticatedUser?.phoneE164 ||
+                  DESIGNATED_OWNER_PHONE
+                }
+                variant="light"
+              />
             </div>
           </div>
         </header>
@@ -2904,13 +2925,13 @@ export function SuperAdminDashboard() {
               {/* Filter Bar */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="relative flex-1 min-w-[240px]">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="search"
                     value={storeSearch}
                     onChange={(e) => setStoreSearch(e.target.value)}
                     placeholder="Search by store name, seller owner, mobile number, city, state, postal code..."
-                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                    className="w-full min-h-[40px] pl-9 pr-4 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
 
@@ -2927,7 +2948,7 @@ export function SuperAdminDashboard() {
                           | 'DEMO'
                       )
                     }
-                    className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl"
+                    className="min-h-[40px] px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   >
                     <option value="ALL">All Store Statuses</option>
                     <option value="ACTIVE">Active &amp; Public</option>
@@ -2939,7 +2960,7 @@ export function SuperAdminDashboard() {
                   <select
                     value={storeCategoryFilter}
                     onChange={(e) => setStoreCategoryFilter(e.target.value)}
-                    className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl max-w-[220px]"
+                    className="min-h-[40px] px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-xl max-w-[220px] focus:outline-none focus:border-[#003B8E]"
                   >
                     <option value="ALL">All 25 Categories</option>
                     {AUTHORITATIVE_STORE_CATEGORIES.map((c) => (
@@ -3258,13 +3279,13 @@ export function SuperAdminDashboard() {
             <div className="space-y-5">
               <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="relative flex-1 min-w-[240px]">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="search"
                     value={buyerSearch}
                     onChange={(e) => setBuyerSearch(e.target.value)}
                     placeholder="Search buyers by full name, verified E.164 mobile phone, or UID..."
-                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl"
+                    className="w-full min-h-[40px] pl-9 pr-4 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
                 <select
@@ -3274,7 +3295,7 @@ export function SuperAdminDashboard() {
                       e.target.value as 'ALL' | 'ACTIVE' | 'SUSPENDED'
                     )
                   }
-                  className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl"
+                  className="min-h-[40px] px-3 py-2 text-xs font-semibold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                 >
                   <option value="ALL">All Account Statuses</option>
                   <option value="ACTIVE">Active Accounts</option>

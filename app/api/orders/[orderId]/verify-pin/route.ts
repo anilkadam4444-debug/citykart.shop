@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serverOrderPinsVault, serverOrdersRegistry } from '@/lib/orders-registry';
 import { sanitizeOrderForStorageAndListing } from '@/lib/delivery-pin';
+import { notifyOrderStatusUpdated } from '@/lib/notification-events';
 
 export async function POST(
   req: NextRequest,
@@ -51,6 +52,12 @@ export async function POST(
     });
 
     serverOrdersRegistry.set(orderId, updated);
+
+    await notifyOrderStatusUpdated({
+      order: updated,
+      nextStatus: 'DELIVERED',
+      reason: '6-digit Delivery PIN verified at doorstep',
+    });
 
     return NextResponse.json({
       ok: true,

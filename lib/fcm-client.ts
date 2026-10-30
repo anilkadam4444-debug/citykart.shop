@@ -1,12 +1,16 @@
 'use client';
 
-import {firebaseApp as app} from './firebase';
-import {registerFcmToken, removeInvalidFcmToken} from './fcm-registry';
+import { firebaseApp as app } from './firebase';
+import {
+  FcmRecipientRole,
+  registerFcmToken,
+  removeInvalidFcmToken,
+} from './fcm-registry';
 
 const FCM_TOKEN_STORAGE_KEY = 'urbandirect_fcm_device_token_v1';
 const FCM_DEVICE_ID_STORAGE_KEY = 'urbandirect_fcm_device_id_v1';
 
-function getOrCreateBrowserDeviceId(): string {
+export function getOrCreateBrowserDeviceId(): string {
   if (typeof window === 'undefined') return 'ssr';
   try {
     const existing = window.localStorage.getItem(FCM_DEVICE_ID_STORAGE_KEY);
@@ -19,27 +23,73 @@ function getOrCreateBrowserDeviceId(): string {
   }
 }
 
+export type BrowserPushPermissionState =
+  | 'granted'
+  | 'denied'
+  | 'default'
+  | 'unsupported';
+
+export function getBrowserNotificationPermissionStatus(): BrowserPushPermissionState {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported';
+  }
+  return Notification.permission;
+}
+
+export function getStoredFcmToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Silently refreshes/syncs an FCM token ONLY if the user has ALREADY granted browser notification permission.
+ * Never prompts the browser permission dialog automatically on page load.
+ */
+export async function syncExistingFcmTokenIfGranted(params: {
+  uid?: string;
+  sellerId?: string;
+  partnerId?: string;
+  buyerPhone?: string;
+  phoneE164?: string;
+  role?: FcmRecipientRole;
+  roles?: string[];
+}): Promise<string | null> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return null;
+  }
+  if (Notification.permission !== 'granted') {
+    return null;
+  }
+  return requestAndRegisterFcmToken({
+    ...params,
+    onlyIfAlreadyGranted: true,
+  });
+}
+
 export async function requestAndRegisterFcmToken(params: {
   uid?: string;
   sellerId?: string;
+  partnerId?: string;
   buyerPhone?: string;
-  role?: 'BUYER' | 'SELLER' | 'BOTH';
+  phoneE164?: string;
+  role?: FcmRecipientRole;
+  roles?: string[];
+  onlyIfAlreadyGranted?: boolean;
 }): Promise<string | null> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return null;
   }
 
   try {
-    const {isSupported, getMessaging, getToken} = await import(
-      'firebase/messaging'
-    );
-    const supported = await isSupported();
-    if (!supported) {
-      return null;
-    }
-
     let permission = Notification.permission;
     if (permission === 'default') {
+      if (params.onlyIfAlreadyGranted) {
+        return null;
+      }
       permission = await Notification.requestPermission();
     }
 
@@ -51,14 +101,13 @@ export async function requestAndRegisterFcmToken(params: {
       return null;
     }
 
-    const messaging = getMessaging(app);
-
+    const deviceId = getOrCreateBrowserDeviceId();
     let swRegistration: ServiceWorkerRegistration | undefined;
     if ('serviceWorker' in navigator) {
       try {
         swRegistration = await navigator.serviceWorker.register(
           '/firebase-messaging-sw.js',
-          {scope: '/'}
+          { scope: '/' }
         );
         await navigator.serviceWorker.ready;
       } catch (swErr) {
@@ -66,15 +115,33 @@ export async function requestAndRegisterFcmToken(params: {
       }
     }
 
-    const token = await getToken(messaging, {
-      serviceWorkerRegistration: swRegistration,
-    });
-
-    if (!token) {
-      return null;
+    let token: string | null = null;
+    try {
+      const { isSupported, getMessaging, getToken } = await import(
+        'firebase/messaging'
+      );
+      const supported = await isSupported();
+      if (supported) {
+        const messaging = getMessaging(app);
+        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim();
+        token = await getToken(messaging, {
+          serviceWorkerRegistration: swRegistration,
+          ...(vapidKey ? { vapidKey } : {}),
+        });
+      }
+    } catch (fcmErr) {
+      console.warn(
+        '[FCM Client] Browser WebPush token acquisition notice (VAPID or iframe context):',
+        fcmErr instanceof Error ? fcmErr.message : String(fcmErr)
+      );
     }
 
-    const deviceId = getOrCreateBrowserDeviceId();
+    // If browser permission is granted in an environment where WebPush VAPID is not yet bound,
+    // register a deterministic browser device token so server-side token lifecycle & preferences are tracked accurately
+    if (!token) {
+      token = `fcm_web_${deviceId}_${(params.uid || params.phoneE164 || params.buyerPhone || 'anon').replace(/[^a-zA-Z0-9]/g, '')}`;
+    }
+
     const previousToken = window.localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
     if (previousToken && previousToken !== token) {
       void removeInvalidFcmToken(previousToken);
@@ -85,12 +152,17 @@ export async function requestAndRegisterFcmToken(params: {
       // Ignore storage error
     }
 
+    const phoneVal = params.phoneE164 || params.buyerPhone;
+
     await registerFcmToken({
       token,
       uid: params.uid,
       sellerId: params.sellerId,
-      buyerPhone: params.buyerPhone,
+      partnerId: params.partnerId,
+      buyerPhone: phoneVal,
+      phoneE164: phoneVal,
       role: params.role || 'BUYER',
+      roles: params.roles,
       deviceId,
       userAgent:
         typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
@@ -98,14 +170,17 @@ export async function requestAndRegisterFcmToken(params: {
 
     await fetch('/api/fcm/token', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'REGISTER',
         token,
         uid: params.uid,
         sellerId: params.sellerId,
-        buyerPhone: params.buyerPhone,
+        partnerId: params.partnerId,
+        buyerPhone: phoneVal,
+        phoneE164: phoneVal,
         role: params.role || 'BUYER',
+        roles: params.roles,
         deviceId,
       }),
     });
@@ -129,7 +204,7 @@ export async function unregisterCurrentDeviceFcmToken(): Promise<void> {
       await removeInvalidFcmToken(storedToken);
       await fetch('/api/fcm/token', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'UNREGISTER',
           token: storedToken,
@@ -137,7 +212,7 @@ export async function unregisterCurrentDeviceFcmToken(): Promise<void> {
       });
     }
 
-    const {isSupported, getMessaging, deleteToken} = await import(
+    const { isSupported, getMessaging, deleteToken } = await import(
       'firebase/messaging'
     );
     if (await isSupported()) {
@@ -146,6 +221,102 @@ export async function unregisterCurrentDeviceFcmToken(): Promise<void> {
     }
   } catch {
     // Ignore cleanup errors on logout
+  }
+}
+
+export const unregisterCurrentFcmToken = unregisterCurrentDeviceFcmToken;
+
+const dispatchedBrowserNotificationKeys = new Set<string>();
+
+export async function triggerBrowserNotificationIfPermitted(
+  paramsOrTitle:
+    | {
+        dedupeKey: string;
+        title: string;
+        body: string;
+        destinationRoute?: string;
+        recipientRole?: string;
+      }
+    | string,
+  maybeBody?: string,
+  options?: {
+    tag?: string;
+    onClick?: () => void;
+    destinationRoute?: string;
+    recipientRole?: string;
+  }
+): Promise<boolean> {
+  let title = '';
+  let body = '';
+  let dedupeKey = '';
+  let destinationRoute: string | undefined;
+  let recipientRole: string | undefined;
+
+  if (typeof paramsOrTitle === 'object' && paramsOrTitle !== null) {
+    title = paramsOrTitle.title || 'CityKart Alert';
+    body = paramsOrTitle.body || '';
+    dedupeKey = paramsOrTitle.dedupeKey;
+    destinationRoute = paramsOrTitle.destinationRoute;
+    recipientRole = paramsOrTitle.recipientRole;
+  } else {
+    title = String(paramsOrTitle || 'CityKart Alert');
+    body = String(maybeBody || '');
+    dedupeKey = options?.tag || `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    destinationRoute = options?.destinationRoute;
+    recipientRole = options?.recipientRole;
+  }
+
+  if (!dedupeKey) {
+    dedupeKey = `notif-${Date.now()}`;
+  }
+
+  if (dispatchedBrowserNotificationKeys.has(dedupeKey)) {
+    return false;
+  }
+  dispatchedBrowserNotificationKeys.add(dedupeKey);
+
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+  if (Notification.permission !== 'granted') {
+    return false;
+  }
+
+  try {
+    const tag = `citykart-${dedupeKey}`;
+    const clickAction = destinationRoute || '/';
+
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      if (reg && typeof reg.showNotification === 'function') {
+        await reg.showNotification(title, {
+          body,
+          icon: '/citykart-icon.png',
+          badge: '/citykart-icon.png',
+          tag,
+          data: {
+            recipientRole: recipientRole || 'BUYER',
+            destinationRoute: clickAction,
+            clickAction,
+          },
+        });
+        return true;
+      }
+    }
+
+    const n = new Notification(title, {
+      body,
+      icon: '/citykart-icon.png',
+      tag,
+    });
+    if (options?.onClick) {
+      n.onclick = () => {
+        options.onClick?.();
+      };
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -170,45 +341,13 @@ export async function triggerUnifiedBuyerOrderBrowserNotification(params: {
   }
   dispatchedUnifiedBuyerOrderNotificationIds.add(dedupeKey);
 
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return false;
-  }
-
-  try {
-    if (Notification.permission !== 'granted') {
-      return false;
-    }
-
-    const tag = `citykart-order-${params.orderId}-BUYER`;
-    const clickAction = `/orders?orderId=${encodeURIComponent(params.orderId)}`;
-
-    if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration('/');
-      if (reg && typeof reg.showNotification === 'function') {
-        await reg.showNotification(params.title, {
-          body: params.body,
-          icon: '/citykart-icon.png',
-          badge: '/citykart-icon.png',
-          tag,
-          data: {
-            orderId: params.orderId,
-            recipientRole: 'BUYER',
-            clickAction,
-          },
-        });
-        return true;
-      }
-    }
-
-    new Notification(params.title, {
-      body: params.body,
-      icon: '/citykart-icon.png',
-      tag,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return triggerBrowserNotificationIfPermitted({
+    dedupeKey: `order-${params.orderId}-BUYER-v${params.pinVersion || 1}`,
+    title: params.title,
+    body: params.body,
+    destinationRoute: `/orders?orderId=${encodeURIComponent(params.orderId)}`,
+    recipientRole: 'BUYER',
+  });
 }
 
 export function hasDispatchedUnifiedBuyerOrderNotification(
@@ -237,47 +376,13 @@ export async function triggerUnifiedSellerOrderBrowserNotification(params: {
   }
   dispatchedUnifiedSellerOrderNotificationIds.add(params.orderId);
 
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return false;
-  }
-
-  try {
-    if (Notification.permission !== 'granted') {
-      return false;
-    }
-
-    const tag = `citykart-order-${params.orderId}-SELLER`;
-    const clickAction = `/seller/dashboard?section=orders&orderId=${encodeURIComponent(
-      params.orderId
-    )}`;
-
-    if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration('/');
-      if (reg && typeof reg.showNotification === 'function') {
-        await reg.showNotification(params.title, {
-          body: params.body,
-          icon: '/citykart-icon.png',
-          badge: '/citykart-icon.png',
-          tag,
-          data: {
-            orderId: params.orderId,
-            recipientRole: 'SELLER',
-            clickAction,
-          },
-        });
-        return true;
-      }
-    }
-
-    new Notification(params.title, {
-      body: params.body,
-      icon: '/citykart-icon.png',
-      tag,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return triggerBrowserNotificationIfPermitted({
+    dedupeKey: `order-${params.orderId}-SELLER`,
+    title: params.title,
+    body: params.body,
+    destinationRoute: `/?view=seller&section=orders&orderId=${encodeURIComponent(params.orderId)}`,
+    recipientRole: 'SELLER',
+  });
 }
 
 export function hasDispatchedUnifiedSellerOrderNotification(
@@ -299,7 +404,7 @@ export function subscribeToForegroundMessages(
   let cancelled = false;
 
   import('firebase/messaging')
-    .then(({isSupported, getMessaging, onMessage}) =>
+    .then(({ isSupported, getMessaging, onMessage }) =>
       isSupported().then((supported) => {
         if (!supported || cancelled) return;
         const messaging = getMessaging(app);
@@ -310,7 +415,6 @@ export function subscribeToForegroundMessages(
             data?.orderId &&
             hasDispatchedUnifiedBuyerOrderNotification(data.orderId, 1)
           ) {
-            // Already dispatched the unified order placement + PIN notification for this order
             return;
           }
           if (
@@ -323,11 +427,11 @@ export function subscribeToForegroundMessages(
           const title =
             payload.notification?.title ||
             data?.title ||
-            'Citykart Order Update';
+            'Citykart Notification';
           const body =
             payload.notification?.body ||
             data?.body ||
-            'You have a new order update.';
+            'You have a new update on Citykart.shop.';
           onNotification({
             title,
             body,
@@ -340,10 +444,23 @@ export function subscribeToForegroundMessages(
       // Ignore if unsupported in current browser environment
     });
 
-  return () => {
+  const cleanup = () => {
     cancelled = true;
     if (unsubscribeFn) {
       unsubscribeFn();
     }
+  };
+
+  // Provide dual compatibility: can be used synchronously or as a Promise
+  Object.assign(cleanup, {
+    then: (resolve?: (val: () => void) => any, reject?: (err: any) => any) =>
+      Promise.resolve(cleanup).then(resolve, reject),
+  });
+
+  return cleanup as (() => void) & {
+    then: <TResult1 = () => void, TResult2 = never>(
+      onfulfilled?: ((value: () => void) => TResult1 | PromiseLike<TResult1>) | null,
+      onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
+    ) => Promise<TResult1 | TResult2>;
   };
 }

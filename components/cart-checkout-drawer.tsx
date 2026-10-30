@@ -1127,20 +1127,21 @@ export function CartCheckoutDrawer({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Full name *
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Full name <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="text"
                       required
+                      placeholder="Enter recipient full name"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Mobile number *
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Mobile number <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="tel"
@@ -1148,7 +1149,7 @@ export function CartCheckoutDrawer({
                       placeholder="+91 98204 51290"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:border-[#003B8E]"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15"
                     />
                   </div>
                 </div>
@@ -1156,7 +1157,7 @@ export function CartCheckoutDrawer({
                 <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2 min-w-0">
                     <Lock className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
-                    <span className="text-slate-700 truncate">
+                    <span className="text-slate-800 truncate">
                       Intra-city delivery locked to{' '}
                       <strong className="font-bold text-[#003B8E]">
                         {city}
@@ -1170,7 +1171,7 @@ export function CartCheckoutDrawer({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
                       Country (Locked)
                     </label>
                     <input
@@ -1178,11 +1179,11 @@ export function CartCheckoutDrawer({
                       required
                       readOnly
                       value={country}
-                      className="w-full px-3 py-2 text-xs bg-slate-100 text-slate-600 border border-slate-200 rounded-xl cursor-not-allowed"
+                      className="w-full min-h-[42px] px-3 py-2 text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 rounded-xl cursor-not-allowed"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
                       State / Region (Locked)
                     </label>
                     <input
@@ -1190,14 +1191,14 @@ export function CartCheckoutDrawer({
                       required
                       readOnly
                       value={stateRegion}
-                      className="w-full px-3 py-2 text-xs bg-slate-100 text-slate-600 border border-slate-200 rounded-xl cursor-not-allowed"
+                      className="w-full min-h-[42px] px-3 py-2 text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 rounded-xl cursor-not-allowed"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
                       City / Town (Locked)
                     </label>
                     <input
@@ -1205,50 +1206,53 @@ export function CartCheckoutDrawer({
                       required
                       readOnly
                       value={city}
-                      className="w-full px-3 py-2 text-xs bg-slate-100 font-bold text-[#003B8E] border border-blue-200 rounded-xl cursor-not-allowed"
+                      className="w-full min-h-[44px] px-3 py-2 text-xs bg-blue-50/60 font-bold text-[#003B8E] border border-blue-200 rounded-xl cursor-not-allowed"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Locality / Area *
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Locality / Area <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="text"
                       required
+                      placeholder="e.g. Bandra West"
                       value={locality}
                       onChange={(e) => setLocality(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                      className="w-full min-h-[44px] px-3 py-2 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Postal code *
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Postal code <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="text"
                       required
+                      placeholder="e.g. 400050"
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:border-[#003B8E]"
+                      className="w-full min-h-[44px] px-3 py-2 text-xs sm:text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Street address, flat / building number *
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    Street address, flat / building number <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="text"
                     required
+                    placeholder="Enter flat no., building name, street & landmark"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
                     Delivery notes (Optional)
                   </label>
                   <input
@@ -1256,7 +1260,7 @@ export function CartCheckoutDrawer({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Example: Call on mobile at gate or ring bell #402"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15"
                   />
                 </div>
 

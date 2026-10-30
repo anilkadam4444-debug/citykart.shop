@@ -34,6 +34,7 @@ import {
   readPartnerOnboardingContext,
   PARTNER_OTP_ROUTE,
 } from '@/lib/partner-onboarding-context';
+import { NotificationBell } from './notification-bell';
 
 interface PartnerConsoleData {
   partnerId: string;
@@ -95,6 +96,7 @@ function CityPartnerPortalContent() {
   const [submissionSuccess, setSubmissionSuccess] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedReferral, setCopiedReferral] = useState(false);
+  const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
   const [detectedPartnerStreetAddress, setDetectedPartnerStreetAddress] = useState<string>('');
 
   const handleDetectPartnerGps = () => {
@@ -405,6 +407,19 @@ function CityPartnerPortalContent() {
                 )}
               </button>
             )}
+
+            <NotificationBell
+              role="PARTNER"
+              userId={authenticatedUser?.uid || authenticatedUser?.id || partnerData?.partnerId}
+              phoneE164={
+                partnerData?.phoneE164 ||
+                authenticatedUser?.phoneE164 ||
+                phoneE164 ||
+                undefined
+              }
+              partnerId={partnerData?.partnerId || pendingApplication?.id}
+              variant="light"
+            />
 
             <Link
               href="/"
@@ -910,9 +925,9 @@ function CityPartnerPortalContent() {
               <div>
                 <label
                   htmlFor="partner-legal-name"
-                  className="text-xs font-bold text-slate-700 block mb-1.5"
+                  className="text-xs font-bold text-slate-800 block mb-1.5"
                 >
-                  Full Legal Name *
+                  Full Legal Name <span className="text-rose-600">*</span>
                 </label>
                 <input
                   id="partner-legal-name"
@@ -921,21 +936,21 @@ function CityPartnerPortalContent() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full legal name as per PAN / ID"
-                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15"
+                  className="w-full min-h-[44px] px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
                 />
               </div>
 
               {/* Explicit Partner Location Permission Request Banner */}
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-slate-800 space-y-2.5 shadow-2xs">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <div className="p-4 rounded-xl bg-emerald-50/90 border border-emerald-200 text-xs text-slate-800 space-y-3 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
                     <Navigation className="w-4 h-4 text-white" />
                   </div>
                   <div>
                     <div className="font-bold text-slate-900 text-xs sm:text-sm">
                       City Territory Location Permission Requested
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">
+                    <p className="text-xs text-slate-700 leading-relaxed mt-0.5">
                       Allow location access to auto-detect your current canonical city and auto-select your 50/50 revenue attribution territory.
                     </p>
                   </div>
@@ -944,16 +959,16 @@ function CityPartnerPortalContent() {
                   type="button"
                   onClick={handleDetectPartnerGps}
                   disabled={isDetectingGps}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                 >
                   {isDetectingGps ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Detecting Territory &amp; Precise Address...</span>
                     </>
                   ) : (
                     <>
-                      <Navigation className="w-3.5 h-3.5" />
+                      <Navigation className="w-4 h-4" />
                       <span>Allow Location Permission &amp; Auto-Detect Territory</span>
                     </>
                   )}
@@ -963,27 +978,27 @@ function CityPartnerPortalContent() {
               <div>
                 <label
                   htmlFor="partner-target-city"
-                  className="text-xs font-bold text-slate-700 block mb-1.5"
+                  className="text-xs font-bold text-slate-800 block mb-1.5"
                 >
-                  Target Canonical City (50/50 Territory) *
+                  Target Canonical City (50/50 Territory) <span className="text-rose-600">*</span>
                 </label>
                 <div className="relative">
-                  <MapPin className="w-4 h-4 text-emerald-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <MapPin className="w-4 h-4 text-emerald-700 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     id="partner-target-city"
                     value={selectedCityId}
                     onChange={(e) => setSelectedCityId(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full min-h-[44px] pl-10 pr-8 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
                   >
                     {CURATED_CANONICAL_CITIES.map((c) => (
-                      <option key={c.cityId} value={c.cityId}>
+                      <option key={c.cityId} value={c.cityId} className="text-slate-900 bg-white">
                         {c.cityName}, {c.stateRegion} ({c.country})
                       </option>
                     ))}
                   </select>
                 </div>
                 {detectedPartnerStreetAddress && (
-                  <div className="mt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 font-mono">
+                  <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 font-mono">
                     <strong className="text-emerald-900 font-sans">Precise GPS Address Detected:</strong> {detectedPartnerStreetAddress}
                   </div>
                 )}
@@ -992,7 +1007,7 @@ function CityPartnerPortalContent() {
               <div>
                 <label
                   htmlFor="partner-growth-plan"
-                  className="text-xs font-bold text-slate-700 block mb-1.5"
+                  className="text-xs font-bold text-slate-800 block mb-1.5"
                 >
                   Local Merchant Onboarding Experience (Optional)
                 </label>
@@ -1002,14 +1017,14 @@ function CityPartnerPortalContent() {
                   value={localGrowthPlan}
                   onChange={(e) => setLocalGrowthPlan(e.target.value)}
                   placeholder="Briefly share your local network or plan to onboard retail stores in your city..."
-                  className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-600"
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-black text-sm shadow-sm transition-colors cursor-pointer"
+                className="w-full min-h-[48px] py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-black text-sm shadow-sm transition-colors cursor-pointer"
               >
                 {isSubmitting
                   ? 'Submitting Partner Application...'

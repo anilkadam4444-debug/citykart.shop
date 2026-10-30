@@ -14,6 +14,7 @@ import {
   verifySellerOrDeliveryOrderAccess,
 } from '@/lib/delivery-pin';
 import { generateDynamicUpiQrForOrder } from '@/lib/upi-qr';
+import { notifyOrderPaymentUpdated } from '@/lib/notification-events';
 
 async function loadOrderById(orderId: string): Promise<OrderRecord | null> {
   const fromMem = serverOrdersRegistry.get(orderId);
@@ -166,6 +167,13 @@ export async function POST(
 
     const sanitized = sanitizeOrderForStorageAndListing(updatedOrder);
     serverOrdersRegistry.set(orderId, sanitized);
+
+    await notifyOrderPaymentUpdated({
+      order: sanitized,
+      paymentStatus,
+      collectionMethod: resolvedCollectionMethod,
+      referenceNote,
+    });
 
     await recordDeliveryPinAuditLog({
       orderId: existingOrder.id,

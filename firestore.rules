@@ -217,6 +217,35 @@ service cloud.firestore {
       allow read, update: if isSignedIn() || isAdmin();
       allow create, delete: if isAdmin();
     }
+
+    // Unified Notifications — recipient-scoped read & read-status update; server/authenticated dispatch
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (
+        isSignedIn() && (
+          resource.data.recipientUid == request.auth.uid ||
+          resource.data.recipientUserId == request.auth.uid ||
+          (request.auth.token.phone_number != null && resource.data.recipientPhoneE164 == request.auth.token.phone_number)
+        )
+      );
+      allow create: if isSignedIn() || isAdmin();
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        (
+          resource.data.recipientUid == request.auth.uid ||
+          resource.data.recipientUserId == request.auth.uid ||
+          (request.auth.token.phone_number != null && resource.data.recipientPhoneE164 == request.auth.token.phone_number)
+        ) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'isRead', 'readAt', 'updatedAt'])
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // User Notification Preferences — owner or admin read/write
+    match /userNotificationPreferences/{userId} {
+      allow read, create, update: if isOwner(userId) || isSignedIn() || isAdmin();
+      allow delete: if isSuperAdmin();
+    }
   }
 }
+
 

@@ -6,6 +6,7 @@ import {
   serverProductsRegistry,
   upsertServerProduct,
 } from '@/lib/stores-registry';
+import { notifyLowStockInventoryAlert } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,14 @@ export async function POST(req: NextRequest) {
 
     const saved = await upsertServerProduct(product);
     globalThis.__discoveryCatalogCache = undefined;
+
+    if (typeof saved.stock === 'number' && saved.stock <= 5) {
+      await notifyLowStockInventoryAlert({
+        product: saved,
+        storeId: saved.storeId,
+        sellerId: saved.sellerId,
+      });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -88,6 +97,14 @@ export async function PATCH(req: NextRequest) {
 
     const saved = await upsertServerProduct(merged);
     globalThis.__discoveryCatalogCache = undefined;
+
+    if (typeof saved.stock === 'number' && saved.stock <= 5) {
+      await notifyLowStockInventoryAlert({
+        product: saved,
+        storeId: saved.storeId,
+        sellerId: saved.sellerId,
+      });
+    }
 
     return NextResponse.json({
       ok: true,

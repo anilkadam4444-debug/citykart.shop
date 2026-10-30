@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --test-concurrency=1 scripts/audit-verification.test.mjs scripts/partner-program.test.mjs scripts/revenue-attribution-verification.test.mjs scripts/e2e-partner-console.test.mjs scripts/admin-onboarding-operations.test.mjs"
+    "test": "node --test --test-concurrency=1 scripts/audit-verification.test.mjs scripts/partner-program.test.mjs scripts/revenue-attribution-verification.test.mjs scripts/e2e-partner-console.test.mjs scripts/admin-onboarding-operations.test.mjs scripts/e2e-notifications.test.mjs"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.11.0",

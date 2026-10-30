@@ -6,6 +6,7 @@ import {
 import { findCanonicalCityById } from '@/lib/global-locations-data';
 
 import { partnerApplications, PartnerApplication } from '@/lib/partner-applications-registry';
+import { notifyPartnerLifecycleEvent } from '@/lib/notification-events';
 
 export async function verifyAuthenticatedCaller(req: NextRequest) {
   return resolveSuperAdminSessionFromRequest(req);
@@ -75,6 +76,16 @@ export async function POST(req: NextRequest) {
         );
       }
       partnerApplications.delete(applicationId);
+      await notifyPartnerLifecycleEvent({
+        applicationId: app.id,
+        referenceId: app.referenceId,
+        phoneE164: app.phoneE164,
+        fullName: app.fullLegalName || app.fullName,
+        cityId: app.cityId,
+        cityName: app.cityName,
+        event: 'WITHDRAWN',
+      }).catch((err) => console.warn('[partners/applications] Notification warning:', err));
+
       return NextResponse.json({ ok: true, message: 'Application withdrawn.' });
     }
 
@@ -161,6 +172,16 @@ export async function POST(req: NextRequest) {
     };
 
     partnerApplications.set(appId, newApp);
+
+    await notifyPartnerLifecycleEvent({
+      applicationId: newApp.id,
+      referenceId: newApp.referenceId,
+      phoneE164: newApp.phoneE164,
+      fullName: newApp.fullLegalName || newApp.fullName,
+      cityId: newApp.cityId,
+      cityName: newApp.cityName,
+      event: 'SUBMITTED',
+    }).catch((err) => console.warn('[partners/applications] Notification warning:', err));
 
     return NextResponse.json({
       ok: true,

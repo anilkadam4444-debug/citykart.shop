@@ -1,9 +1,24 @@
 import type {Metadata, Viewport} from 'next';
+import {Plus_Jakarta_Sans, Space_Mono} from 'next/font/google';
 
 import './globals.css';
 import {UrbanDirectProvider} from '@/components/urbandirect-provider';
 import {SITE_CONFIG} from '@/lib/seo-config';
 import {generateOrganizationSchema, generateWebsiteSchema} from '@/lib/seo-schema';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
+  display: 'swap',
+});
+
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-space-mono',
+  display: 'swap',
+});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -74,10 +89,10 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   const organizationSchema = generateOrganizationSchema();
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${plusJakartaSans.variable} ${spaceMono.variable}`}>
       <body
         suppressHydrationWarning
-        className="bg-[#F8FAFC] text-slate-900 antialiased selection:bg-[#003B8E] selection:text-white font-sans"
+        className="bg-[#F8FAFC] text-[#0F172A] antialiased selection:bg-[#003B8E] selection:text-white font-sans"
       >
         <script
           key="website-schema"

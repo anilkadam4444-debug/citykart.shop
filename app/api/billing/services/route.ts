@@ -11,6 +11,7 @@ import {
   ValueAddedServiceType,
 } from '@/lib/revenue-model';
 import { verifyAuthenticatedCaller } from '@/lib/super-admin-auth';
+import { notifySellerBillingEvent } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,6 +161,15 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      await notifySellerBillingEvent({
+        sellerId: String(sellerId).trim(),
+        storeId: String(storeId).trim(),
+        event: 'SERVICE_BOOKED',
+        planOrServiceName: serviceDef.title,
+        amountInr: totalAmount,
+        invoiceNumber: transaction.invoiceNumber,
+      }).catch((err) => console.warn('[billing/services] Notification warning:', err));
+
       return NextResponse.json({
         success: true,
         serviceOrder,
@@ -307,6 +317,15 @@ export async function POST(req: NextRequest) {
         // Graceful fallback if Firestore client write is unavailable
       }
     }
+
+    await notifySellerBillingEvent({
+      sellerId: String(sellerId).trim(),
+      storeId: String(storeId).trim(),
+      event: 'SERVICE_BOOKED',
+      planOrServiceName: serviceDef.title,
+      amountInr: totalAmount,
+      invoiceNumber,
+    }).catch((err) => console.warn('[billing/services] Notification warning:', err));
 
     return NextResponse.json({
       success: true,

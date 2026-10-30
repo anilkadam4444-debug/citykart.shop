@@ -9,6 +9,7 @@ import {
   upsertServerStore,
 } from '@/lib/stores-registry';
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/lib/super-admin-auth';
+import { notifyStoreOnboardingOrModeration } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isNewStore = !serverStoresRegistry.has(store.id);
+
     const token =
       req.headers.get('x-urbandirect-session') ||
       req.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -47,6 +50,14 @@ export async function POST(req: NextRequest) {
     };
 
     await upsertServerStore(enrichedStore, seller);
+
+    if (isNewStore) {
+      await notifyStoreOnboardingOrModeration({
+        store: enrichedStore,
+        seller,
+        event: 'STORE_CREATED',
+      });
+    }
 
     // Also link the store & seller to the user account in serverUserAccounts if present
     const targetPhone =

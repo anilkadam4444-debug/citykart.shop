@@ -75,6 +75,7 @@ import {
 } from '@/lib/location-service';
 import {checkProductQuota} from '@/lib/entitlements';
 import {UpiQrCodeCard} from './upi-qr-code-card';
+import {NotificationBell} from './notification-bell';
 
 interface MerchantStudioProps {
   mode?: 'DASHBOARD' | 'ONBOARDING_ONLY';
@@ -1444,6 +1445,16 @@ export function MerchantStudio({
               <span className="font-mono">{authenticatedUser.phoneE164}</span>
             </div>
           )}
+
+          <NotificationBell
+            role={isAdmin ? 'ADMIN' : 'SELLER'}
+            userId={authenticatedUser?.uid || authenticatedUser?.id}
+            phoneE164={authenticatedUser?.phoneE164 || activeSeller?.phoneE164}
+            sellerId={activeSellerId}
+            storeId={primarySellerStore?.id}
+            storeIds={userOwnedStores.map((s) => s.id)}
+            variant="light"
+          />
 
           {onBackToShopping && (
             <button
@@ -3092,10 +3103,10 @@ export function MerchantStudio({
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-900 mb-1">
-                      Product Name *
+                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                      Product Name <span className="text-rose-600">*</span>
                     </label>
-                    <p className="text-[11px] text-stone-500 mb-1.5">
+                    <p className="text-xs text-slate-600 mb-1.5">
                       Enter a clear title for buyers, including brand or unit weight (e.g. Organic Whole Wheat Atta 5kg).
                     </p>
                     <input
@@ -3104,16 +3115,16 @@ export function MerchantStudio({
                       placeholder="e.g. Fresh Farm Whole Milk (1 Litre)"
                       value={draft.name}
                       onChange={(e) => updateDraftField('name', e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900 focus:bg-white"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 shadow-2xs"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-stone-900 mb-1">
-                        Price (INR ₹) *
+                      <label className="block text-xs font-bold text-slate-900 mb-1">
+                        Price (INR ₹) <span className="text-rose-600">*</span>
                       </label>
-                      <p className="text-[11px] text-stone-500 mb-1.5">
+                      <p className="text-[11px] text-slate-600 mb-1.5">
                         Retail selling price charged to local buyers.
                       </p>
                       <input
@@ -3125,15 +3136,15 @@ export function MerchantStudio({
                         onChange={(e) =>
                           updateDraftField('price', e.target.value)
                         }
-                        className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg font-mono tabular-nums focus:outline-none focus:border-stone-900 focus:bg-white"
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl font-mono tabular-nums focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 shadow-2xs"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-stone-900 mb-1">
-                        Delivery Charge (₹) *
+                      <label className="block text-xs font-bold text-slate-900 mb-1">
+                        Delivery Charge (₹) <span className="text-rose-600">*</span>
                       </label>
-                      <p className="text-[11px] text-stone-500 mb-1.5">
+                      <p className="text-[11px] text-slate-600 mb-1.5">
                         Applied per unit. Enter 0 for Free Delivery.
                       </p>
                       <input
@@ -3145,15 +3156,15 @@ export function MerchantStudio({
                         onChange={(e) =>
                           updateDraftField('deliveryCharge', e.target.value)
                         }
-                        className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg font-mono tabular-nums focus:outline-none focus:border-stone-900 focus:bg-white"
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl font-mono tabular-nums focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 shadow-2xs"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-stone-900 mb-1">
-                        Quantity in Stock *
+                      <label className="block text-xs font-bold text-slate-900 mb-1">
+                        Quantity in Stock <span className="text-rose-600">*</span>
                       </label>
-                      <p className="text-[11px] text-stone-500 mb-1.5">
+                      <p className="text-[11px] text-slate-600 mb-1.5">
                         Units ready for immediate delivery.
                       </p>
                       <input
@@ -3165,16 +3176,16 @@ export function MerchantStudio({
                         onChange={(e) =>
                           updateDraftField('stock', e.target.value)
                         }
-                        className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg font-mono tabular-nums focus:outline-none focus:border-stone-900 focus:bg-white"
+                        className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl font-mono tabular-nums focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 shadow-2xs"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-900 mb-1">
-                      Store Category *
+                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                      Store Category <span className="text-rose-600">*</span>
                     </label>
-                    <p className="text-[11px] text-stone-500 mb-1.5">
+                    <p className="text-xs text-slate-600 mb-1.5">
                       Assign to one of the 25 official Citykart product categories.
                     </p>
                     <select
@@ -3185,10 +3196,10 @@ export function MerchantStudio({
                           e.target.value as StoreCategoryId
                         )
                       }
-                      className="w-full px-3.5 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg focus:outline-none focus:border-stone-900 focus:bg-white"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 shadow-2xs"
                     >
                       {AUTHORITATIVE_STORE_CATEGORIES.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
+                        <option key={cat.id} value={cat.id} className="text-slate-900 bg-white">
                           {cat.order}. {cat.name}
                         </option>
                       ))}
@@ -3432,19 +3443,19 @@ export function MerchantStudio({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-stone-800 mb-1">
+                  <label className="block text-xs font-bold text-slate-900 mb-1">
                     Store name
                   </label>
                   <input
                     type="text"
                     value={settingsName}
                     onChange={(e) => setSettingsName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-stone-800 mb-1">
+                  <label className="block text-xs font-bold text-slate-900 mb-1">
                     Store category
                   </label>
                   <select
@@ -3452,10 +3463,10 @@ export function MerchantStudio({
                     onChange={(e) =>
                       setSettingsCategoryId(e.target.value as StoreCategoryId)
                     }
-                    className="w-full px-3 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   >
                     {AUTHORITATIVE_STORE_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
+                      <option key={cat.id} value={cat.id} className="text-slate-900 bg-white">
                         {cat.order}. {cat.name}
                       </option>
                     ))}
@@ -3465,18 +3476,18 @@ export function MerchantStudio({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-stone-800 mb-1">
+                  <label className="block text-xs font-bold text-slate-900 mb-1">
                     Short store description
                   </label>
                   <input
                     type="text"
                     value={settingsSpecialty}
                     onChange={(e) => setSettingsSpecialty(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[#FAF9F6] border border-stone-300 rounded-lg"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-stone-800 mb-1">
+                  <label className="block text-xs font-bold text-slate-900 mb-1">
                     Merchant UPI ID (for Delivery QR Code)
                   </label>
                   <input
@@ -3484,7 +3495,7 @@ export function MerchantStudio({
                     value={settingsUpiHandle}
                     onChange={(e) => setSettingsUpiHandle(e.target.value)}
                     placeholder="e.g. yourstore@okicici"
-                    className="w-full px-3 py-2 text-xs font-mono bg-[#FAF9F6] border border-stone-300 rounded-lg"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E]"
                   />
                 </div>
               </div>

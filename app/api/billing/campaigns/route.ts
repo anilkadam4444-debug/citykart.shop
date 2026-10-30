@@ -38,6 +38,7 @@ import {
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
 import { MerchantSubscription } from '@/lib/revenue-model';
+import { notifySellerBillingEvent } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -911,6 +912,23 @@ export async function POST(req: NextRequest) {
           reason: `Campaign ${campaignId} moderated: status=${status || existing.status}, approvalStatus=${approvalStatus || existing.approvalStatus}.${adminNotes ? ` Notes: ${adminNotes}` : ''}`,
         });
 
+        await notifySellerBillingEvent({
+          sellerId: existing.sellerId,
+          storeId: existing.storeId,
+          storeName: existing.storeName,
+          event:
+            approvalStatus === 'REJECTED' || status === 'REJECTED'
+              ? 'CAMPAIGN_REJECTED'
+              : 'CAMPAIGN_APPROVED',
+          planOrServiceName:
+            existing.targetProductName ||
+            existing.placementLabel ||
+            existing.storeName,
+          amountInr: existing.budgetInr,
+          invoiceNumber: existing.invoiceNumber,
+          reason: adminNotes ? String(adminNotes) : undefined,
+        }).catch((err) => console.warn('[campaigns] Moderation notification warning:', err));
+
         return NextResponse.json({
           ok: true,
           success: true,
@@ -1113,6 +1131,16 @@ export async function POST(req: NextRequest) {
           console.warn('[campaigns/verify] Firestore write warning:', err);
         }
       }
+
+      await notifySellerBillingEvent({
+        sellerId: activatedCampaign.sellerId,
+        storeId: activatedCampaign.storeId,
+        storeName: activatedCampaign.storeName,
+        event: 'CAMPAIGN_ACTIVATED',
+        planOrServiceName: `${activatedCampaign.placementLabel || 'Sponsored Campaign'} — ${activatedCampaign.targetProductName || activatedCampaign.storeName}`,
+        amountInr: activatedCampaign.budgetInr,
+        invoiceNumber: transaction.invoiceNumber,
+      }).catch((err) => console.warn('[campaigns] Activation notification warning:', err));
 
       return NextResponse.json({
         ok: true,
@@ -1540,6 +1568,16 @@ export async function POST(req: NextRequest) {
         console.warn('[campaigns] Firestore persist notice:', err);
       }
     }
+
+    await notifySellerBillingEvent({
+      sellerId,
+      storeId,
+      storeName: campaign.storeName,
+      event: 'CAMPAIGN_ACTIVATED',
+      planOrServiceName: `${placementLabel} — ${campaign.targetProductName || campaign.storeName}`,
+      amountInr: totalAmountInr,
+      invoiceNumber,
+    }).catch((err) => console.warn('[campaigns] Sandbox notification warning:', err));
 
     return NextResponse.json({
       ok: true,

@@ -796,30 +796,30 @@ export function MobileOtpAuthModal({
             <form onSubmit={handleRequestOtp} className="space-y-4">
               {/* Country Calling-Code Selector */}
               <div className="space-y-1.5 relative">
-                <label className="block text-xs font-semibold text-slate-800">
+                <label className="block text-xs font-bold text-slate-800">
                   Country calling code
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsCountryDropdownOpen((v) => !v)}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl flex items-center justify-between text-slate-900 hover:border-[#003B8E] transition-colors cursor-pointer"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-xl flex items-center justify-between text-slate-900 hover:border-[#003B8E] transition-colors cursor-pointer shadow-2xs"
                 >
-                  <span className="font-semibold">
+                  <span className="font-semibold text-slate-900">
                     {selectedCountry.name} ({selectedCountry.dialCode})
                   </span>
-                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                  <ChevronDown className="w-4 h-4 text-slate-600" />
                 </button>
 
                 {isCountryDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-2 space-y-2">
+                  <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-slate-300 rounded-xl shadow-xl p-2 space-y-2">
                     <div className="relative">
-                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="search"
                         value={countrySearch}
                         onChange={(e) => setCountrySearch(e.target.value)}
-                        placeholder="Search country or code (e.g., +91, +1, +44, +61, +971)..."
-                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#003B8E]"
+                        placeholder="Search country or code (e.g., +91, +1, +44)..."
+                        className="w-full pl-8 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-[#003B8E]"
                       />
                     </div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
@@ -833,12 +833,12 @@ export function MobileOtpAuthModal({
                             setCountrySearch('');
                             setErrorMsg(null);
                           }}
-                          className="w-full px-3 py-2 text-left text-xs hover:bg-slate-100 flex items-center justify-between rounded-lg cursor-pointer"
+                          className="w-full px-3 py-2.5 text-left text-xs hover:bg-slate-100 flex items-center justify-between rounded-lg cursor-pointer"
                         >
-                          <span className="text-slate-900 font-medium">
+                          <span className="text-slate-900 font-semibold">
                             {c.name}
                           </span>
-                          <span className="font-mono text-slate-600">
+                          <span className="font-mono font-bold text-slate-700">
                             {c.dialCode}
                           </span>
                         </button>
@@ -852,12 +852,12 @@ export function MobileOtpAuthModal({
               <div className="space-y-1.5">
                 <label
                   htmlFor="auth-mobile-number"
-                  className="block text-xs font-semibold text-slate-800"
+                  className="block text-xs font-bold text-slate-800"
                 >
-                  Mobile number
+                  Mobile number <span className="text-rose-600">*</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="px-3.5 py-2.5 text-xs font-mono font-bold bg-blue-50/80 border border-blue-200/80 rounded-xl text-[#003B8E] shrink-0">
+                  <div className="min-h-[44px] px-3.5 py-2.5 text-xs font-mono font-bold bg-blue-50 border border-blue-200 rounded-xl text-[#003B8E] inline-flex items-center shrink-0">
                     {selectedCountry.dialCode}
                   </div>
                   <input
@@ -875,7 +875,7 @@ export function MobileOtpAuthModal({
                         ? 'e.g. 98765 43210'
                         : 'Enter mobile number'
                     }
-                    className="w-full px-3.5 py-2.5 text-sm font-mono bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:bg-white transition-colors"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 transition-colors shadow-2xs"
                   />
                 </div>
               </div>
@@ -1089,9 +1089,9 @@ export function MobileOtpAuthModal({
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor="otp-code-input"
-                    className="block text-xs font-semibold text-slate-800"
+                    className="block text-xs font-bold text-slate-800"
                   >
-                    6-digit verification code
+                    6-digit verification code <span className="text-rose-600">*</span>
                   </label>
                 </div>
                 <input
@@ -1106,9 +1106,9 @@ export function MobileOtpAuthModal({
                     setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))
                   }
                   placeholder="••••••"
-                  className="w-full px-4 py-3 text-center text-lg tracking-[0.35em] font-mono font-bold bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:bg-white transition-colors"
+                  className="w-full min-h-[48px] px-4 py-3 text-center text-xl tracking-[0.35em] font-mono font-bold text-slate-900 placeholder:text-slate-400 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 transition-colors shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-600">
                   Enter the 6-digit SMS verification code sent to your mobile phone.
                 </p>
               </div>
@@ -1118,7 +1118,7 @@ export function MobileOtpAuthModal({
                 disabled={
                   isSubmitting || otpCode.replace(/\D/g, '').length !== 6
                 }
-                className="w-full py-3 px-4 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-[#003B8E] hover:bg-[#002D6E] disabled:bg-slate-300 disabled:text-slate-600 text-white text-xs sm:text-sm font-bold transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
                 {isSubmitting ? (
                   <>
@@ -1141,14 +1141,14 @@ export function MobileOtpAuthModal({
                     setErrorMsg(null);
                     setConsoleNotice(null);
                   }}
-                  className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                  className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Change mobile number</span>
                 </button>
 
                 {resendSeconds > 0 ? (
-                  <span className="text-slate-500 font-mono tabular-nums">
+                  <span className="text-slate-600 font-mono tabular-nums font-medium">
                     Resend code in {resendSeconds}s
                   </span>
                 ) : (
@@ -1156,7 +1156,7 @@ export function MobileOtpAuthModal({
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => handleRequestOtp()}
-                    className="font-semibold text-[#003B8E] underline cursor-pointer"
+                    className="font-bold text-[#003B8E] underline cursor-pointer"
                   >
                     Resend code
                   </button>
@@ -1171,9 +1171,9 @@ export function MobileOtpAuthModal({
               <div>
                 <label
                   htmlFor="profile-fullname-input"
-                  className="block text-xs font-semibold text-slate-800 mb-1"
+                  className="block text-xs font-bold text-slate-800 mb-1"
                 >
-                  Your full name *
+                  Your full name <span className="text-rose-600">*</span>
                 </label>
                 <input
                   id="profile-fullname-input"
@@ -1182,7 +1182,7 @@ export function MobileOtpAuthModal({
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Example: Priya Sharma"
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:bg-white transition-colors"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#003B8E] focus:ring-2 focus:ring-[#003B8E]/15 transition-colors shadow-2xs"
                 />
               </div>
 

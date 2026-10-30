@@ -17,6 +17,10 @@ import {
 import { INITIAL_ORDERS, INITIAL_STORES } from '@/lib/initial-data';
 import { serverStoresRegistry } from '@/lib/stores-registry';
 import { serverOrdersRegistry } from '@/lib/orders-registry';
+import {
+  notifyPartnerLifecycleEvent,
+  notifyPartnerSettlementEvent,
+} from '@/lib/notification-events';
 
 declare global {
   var __serverPartnerLifecycleOverrides:
@@ -372,6 +376,19 @@ export async function POST(req: NextRequest) {
           cityName,
         },
       });
+      await notifyPartnerLifecycleEvent({
+        partnerId: `partner_${appId}`,
+        applicationId: appId,
+        referenceId: record.referenceId,
+        phoneE164: record.phoneE164,
+        fullName,
+        cityId,
+        cityName,
+        event: 'DIRECT_ONBOARD',
+        reason: `Directly onboarded exclusive City Partner ${fullName} for ${cityName}.`,
+        actorUid: adminUid,
+      }).catch((err) => console.warn('[admin/partners] Notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         message: `Partner ${fullName} directly onboarded for ${cityName}.`,
@@ -452,6 +469,24 @@ export async function POST(req: NextRequest) {
           status: effectiveStatus,
         },
       });
+      if (
+        effectiveStatus === 'APPROVED' ||
+        effectiveStatus === 'REJECTED' ||
+        effectiveStatus === 'NEEDS_MORE_INFO'
+      ) {
+        await notifyPartnerLifecycleEvent({
+          partnerId: `partner_${app.id}`,
+          applicationId: app.id,
+          referenceId: app.referenceId,
+          phoneE164: app.phoneE164,
+          fullName: app.fullLegalName || app.fullName,
+          cityId: app.cityId,
+          cityName: app.cityName,
+          event: effectiveStatus,
+          reason: String(resolvedRejection || resolvedNotes || ''),
+          actorUid: adminUid,
+        }).catch((err) => console.warn('[admin/partners] Notification warning:', err));
+      }
       return NextResponse.json({
         ok: true,
         message: `Application ${effectiveStatus.toLowerCase().replace(/_/g, ' ')}.`,
@@ -591,6 +626,28 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      const lifecycleEventMap: Record<
+        string,
+        'SUSPENDED' | 'REACTIVATED' | 'DEACTIVATED' | 'CITY_REASSIGNED'
+      > = {
+        SUSPEND_PARTNER: 'SUSPENDED',
+        REACTIVATE_PARTNER: 'REACTIVATED',
+        DEACTIVATE_PARTNER: 'DEACTIVATED',
+        REASSIGN_PARTNER_CITY: 'CITY_REASSIGNED',
+      };
+      await notifyPartnerLifecycleEvent({
+        partnerId: canonicalPartnerId,
+        applicationId: app.id,
+        referenceId: app.referenceId,
+        phoneE164: app.phoneE164,
+        fullName: app.fullLegalName || app.fullName,
+        cityId: app.cityId,
+        cityName: app.cityName,
+        event: lifecycleEventMap[action],
+        reason: reasonText,
+        actorUid: adminUid,
+      }).catch((err) => console.warn('[admin/partners] Notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         partnerId: canonicalPartnerId,
@@ -699,6 +756,17 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      await notifyPartnerSettlementEvent({
+        settlementId,
+        partnerId: partner.id,
+        partnerName: partner.fullName,
+        partnerPhoneE164: partner.phoneE164,
+        cityName: partner.assignedCityName,
+        periodMonth,
+        finalPayableAmount,
+        event: 'STATEMENT_GENERATED',
+      }).catch((err) => console.warn('[admin/partners] Notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         settlement: statement,
@@ -735,6 +803,17 @@ export async function POST(req: NextRequest) {
         targetEntityName: `${statement.partnerName} (${statement.periodMonth})`,
         reason: `Approved monthly settlement statement ${settlementId} for manual bank payout.`,
       });
+
+      await notifyPartnerSettlementEvent({
+        settlementId,
+        partnerId: statement.partnerId,
+        partnerName: statement.partnerName,
+        partnerPhoneE164: statement.partnerPhoneE164,
+        cityName: statement.cityName,
+        periodMonth: statement.periodMonth,
+        finalPayableAmount: statement.finalPayableAmount,
+        event: 'STATEMENT_APPROVED',
+      }).catch((err) => console.warn('[admin/partners] Notification warning:', err));
 
       return NextResponse.json({
         ok: true,
@@ -845,6 +924,19 @@ export async function POST(req: NextRequest) {
           paymentMethod,
         },
       });
+
+      await notifyPartnerSettlementEvent({
+        settlementId,
+        partnerId: statement.partnerId,
+        partnerName: statement.partnerName,
+        partnerPhoneE164: statement.partnerPhoneE164,
+        cityName: statement.cityName,
+        periodMonth: statement.periodMonth,
+        finalPayableAmount: statement.finalPayableAmount,
+        payoutAmount: amountPaid,
+        paymentReferenceNumber,
+        event: 'PAYOUT_RECORDED',
+      }).catch((err) => console.warn('[admin/partners] Notification warning:', err));
 
       return NextResponse.json({
         ok: true,

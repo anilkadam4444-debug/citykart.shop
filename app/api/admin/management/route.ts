@@ -8,6 +8,7 @@ import {
   updateAdminAuthorization,
   verifyAdminRequest,
 } from '@/lib/super-admin-auth';
+import { notifyAdminAndSuperAdminGovernance } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
       }
 
+      await notifyAdminAndSuperAdminGovernance({
+        action: 'INVITE_ADMIN',
+        targetId: result.record?.phoneE164 || phoneE164,
+        targetName: name || phoneE164,
+        targetPhoneE164: result.record?.phoneE164 || phoneE164,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason: `Designated ${role} (${designation || 'Admin'})`,
+      }).catch((err) => console.warn('[admin/management] Notification warning:', err));
+
       const allAdmins = await getAuthoritativeAdminAuthorizations();
       return NextResponse.json({
         ok: true,
@@ -123,6 +134,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
       }
 
+      await notifyAdminAndSuperAdminGovernance({
+        action: 'REVOKE_ADMIN',
+        targetId: phoneE164,
+        targetName: result.record?.name || phoneE164,
+        targetPhoneE164: phoneE164,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason: revokeReason,
+      }).catch((err) => console.warn('[admin/management] Notification warning:', err));
+
       const allAdmins = await getAuthoritativeAdminAuthorizations();
       return NextResponse.json({
         ok: true,
@@ -147,6 +168,16 @@ export async function POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
       }
+
+      await notifyAdminAndSuperAdminGovernance({
+        action: 'REACTIVATE_ADMIN',
+        targetId: phoneE164,
+        targetName: result.record?.name || phoneE164,
+        targetPhoneE164: phoneE164,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason: reactivateReason,
+      }).catch((err) => console.warn('[admin/management] Notification warning:', err));
 
       const allAdmins = await getAuthoritativeAdminAuthorizations();
       return NextResponse.json({
@@ -174,6 +205,16 @@ export async function POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
       }
+
+      await notifyAdminAndSuperAdminGovernance({
+        action: 'UPDATE_ADMIN',
+        targetId: phoneE164,
+        targetName: result.record?.name || phoneE164,
+        targetPhoneE164: phoneE164,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason: `Updated administrator profile (${result.record?.designation || designation || 'Admin'})`,
+      }).catch((err) => console.warn('[admin/management] Notification warning:', err));
 
       const allAdmins = await getAuthoritativeAdminAuthorizations();
       return NextResponse.json({

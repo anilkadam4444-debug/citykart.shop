@@ -57,6 +57,7 @@ import { CAMPAIGNS_STORAGE_KEY } from '@/lib/entitlements';
 import { FeaturedCampaign } from '@/lib/revenue-model';
 import { HamburgerNavigationDrawer } from '@/components/hamburger-navigation-drawer';
 import { StoreRatingBadge, OrderStoreRatingWidget } from '@/components/store-star-rating';
+import { NotificationBell } from '@/components/notification-bell';
 
 type BuyerViewMode = 'BUYER_HOME' | 'STORE_PAGE' | 'MY_ORDERS';
 
@@ -941,6 +942,14 @@ export default function UrbanDirectPlatform() {
                 <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
               )}
             </button>
+
+            {/* Buyer Notification Bell & Center */}
+            <NotificationBell
+              role="BUYER"
+              userId={authenticatedUser?.uid || authenticatedUser?.id}
+              phoneE164={authenticatedUser?.phoneE164}
+              variant="light"
+            />
 
             {/* High-Intent Cart Button */}
             <button

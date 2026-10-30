@@ -575,9 +575,61 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "recipientPhoneE164", "eventType", "title", "message", "isRead", "createdAt"]
+    },
+    "UnifiedNotificationRecord": {
+      "title": "Unified Notification Record",
+      "description": "Role-scoped, persistent in-app and FCM push notification record for Buyers, Sellers, Partners, Admins, and Super Admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventKey": { "type": "string" },
+        "recipientUserId": { "type": "string" },
+        "recipientUid": { "type": "string" },
+        "recipientPhoneE164": { "type": "string" },
+        "recipientSellerId": { "type": "string" },
+        "recipientPartnerId": { "type": "string" },
+        "recipientRole": { "type": "string", "enum": ["BUYER", "SELLER", "PARTNER", "ADMIN", "SUPER_ADMIN"] },
+        "category": { "type": "string", "enum": ["ORDER_DELIVERY", "PAYMENT_BILLING", "STORE_CATALOGUE", "PARTNER_OPERATIONS", "ACCOUNT_SECURITY", "SYSTEM_GOVERNANCE", "MARKETING_GROWTH"] },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "priority": { "type": "string", "enum": ["LOW", "NORMAL", "HIGH", "URGENT"] },
+        "status": { "type": "string", "enum": ["UNREAD", "READ", "ARCHIVED"] },
+        "isRead": { "type": "boolean" },
+        "destinationRoute": { "type": "string" },
+        "relatedEntityType": { "type": "string" },
+        "relatedEntityId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "readAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "recipientUserId", "recipientRole", "category", "type", "title", "message", "priority", "status", "isRead", "destinationRoute", "createdAt", "updatedAt"]
+    },
+    "UserNotificationPreferences": {
+      "title": "User Notification Preferences",
+      "description": "Per-user channel and category notification preference controls.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "uid": { "type": "string" },
+        "phoneE164": { "type": "string" },
+        "inAppEnabled": { "type": "boolean" },
+        "browserPushEnabled": { "type": "boolean" },
+        "marketingEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "inAppEnabled", "browserPushEnabled", "marketingEnabled", "updatedAt"]
     }
   },
   "firestore": {
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/UnifiedNotificationRecord" },
+      "description": "Unified persistent notifications across Buyer, Seller, Partner, Admin, and Super Admin roles."
+    },
+    "/userNotificationPreferences/{userId}": {
+      "schema": { "$ref": "#/entities/UserNotificationPreferences" },
+      "description": "Per-user notification channel and category preferences."
+    },
     "/sellerNotifications/{notificationId}": {
       "schema": { "$ref": "#/entities/SellerNotification" },
       "description": "In-app order alert notifications for registered sellers."

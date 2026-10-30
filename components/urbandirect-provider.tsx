@@ -20,6 +20,10 @@ import {
   normalizeCityId,
 } from '@/lib/catalog-data';
 import { buildAuthenticatedHeaders } from '@/lib/firebase';
+import {
+  syncExistingFcmTokenIfGranted,
+  unregisterCurrentFcmToken,
+} from '@/lib/fcm-client';
 import { MobileOtpAuthModal, OtpAuthContextMode } from './mobile-otp-auth-modal';
 
 export const AUTH_USER_STORAGE_KEY = 'urbandirect_user';
@@ -645,6 +649,33 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
     }
   }, [authenticatedUser, customerLocation]);
 
+  // Sync already-granted or cached FCM token with server when authenticatedUser changes (never auto-requests permission on page load)
+  useEffect(() => {
+    if (!authenticatedUser) return;
+    const uid = authenticatedUser.uid || authenticatedUser.id;
+    const phone = authenticatedUser.phoneE164;
+    if (!uid && !phone) return;
+    syncExistingFcmTokenIfGranted({
+      userId: uid || phone,
+      phoneE164: phone,
+      sellerId: authenticatedUser.sellerId,
+      storeIds: authenticatedUser.storeIds,
+      partnerId: (authenticatedUser as any).partnerId,
+      role:
+        authenticatedUser.activeRole ||
+        (authenticatedUser.role
+          ? (authenticatedUser.role.toUpperCase() as any)
+          : 'BUYER'),
+      roles: authenticatedUser.roles as any,
+    }).catch(() => {});
+  }, [
+    authenticatedUser?.id,
+    authenticatedUser?.uid,
+    authenticatedUser?.phoneE164,
+    authenticatedUser?.sellerId,
+    authenticatedUser?.activeRole,
+  ]);
+
   // Remove any cross-city items from cart if city is locked
   useEffect(() => {
     if (!hasSelectedCity || cart.length === 0) return;
@@ -1143,6 +1174,7 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
 
   const handleSignOutOtpSession = useCallback(() => {
     if (typeof window !== 'undefined') {
+      unregisterCurrentFcmToken().catch(() => {});
       localStorage.removeItem('urbandirect_session_token');
       localStorage.removeItem(AUTH_USER_STORAGE_KEY);
       document.cookie = 'urbandirect_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
@@ -1726,9 +1758,40 @@ export function UrbanDirectProvider({ children }: { children: React.ReactNode })
         return nextStores;
       });
 
+      if (typeof window !== 'undefined') {
+        const ratedOrder = orders.find((o) => o.id === orderId);
+        const resolvedStoreId = targetStoreId || ratedOrder?.storeId;
+        if (resolvedStoreId) {
+          buildAuthenticatedHeaders({ 'Content-Type': 'application/json' })
+            .then((headers) =>
+              fetch('/api/notifications', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                  action: 'CUSTOMER_INTERACTION',
+                  storeId: resolvedStoreId,
+                  buyerName:
+                    authenticatedUser?.fullName ||
+                    ratedOrder?.customer?.fullName ||
+                    'Verified Buyer',
+                  buyerPhone:
+                    authenticatedUser?.phoneE164 || ratedOrder?.customer?.phone,
+                  interactionType: 'CUSTOMER_REVIEW',
+                  rating: clampedRating,
+                  messageText:
+                    comment ||
+                    `Rated order #${orderId} ${clampedRating}/5 stars.`,
+                  orderId,
+                }),
+              })
+            )
+            .catch(() => {});
+        }
+      }
+
       showToast('Thank you! Your store star rating has been submitted.');
     },
-    [orders, showToast]
+    [orders, authenticatedUser, showToast]
   );
 
   const handleToggleCategoryStatus = useCallback((categoryId: StoreCategoryId) => {

@@ -56,6 +56,11 @@ import {
   updateAuthoritativePlatformSettings,
   verifyAdminRequest,
 } from '@/lib/super-admin-auth';
+import {
+  notifyAdminAndSuperAdminGovernance,
+  notifyProductModeration,
+  notifyStoreOnboardingOrModeration,
+} from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,6 +126,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
         }
 
+        await notifyAdminAndSuperAdminGovernance({
+          action: 'INVITE_ADMIN',
+          targetId: result.record?.phoneE164 || phoneE164,
+          targetName: name || phoneE164,
+          targetPhoneE164: result.record?.phoneE164 || phoneE164,
+          actorUid: adminUid,
+          actorPhone: adminPhone || undefined,
+          reason: `Designated ${role} (${designation || 'Admin'})`,
+        }).catch((err) => console.warn('[admin/action] Notification warning:', err));
+
         const allAdmins = await getAuthoritativeAdminAuthorizations();
         return NextResponse.json({
           ok: true,
@@ -145,6 +160,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
         }
 
+        await notifyAdminAndSuperAdminGovernance({
+          action: 'REVOKE_ADMIN',
+          targetId: phoneE164,
+          targetName: result.record?.name || phoneE164,
+          targetPhoneE164: phoneE164,
+          actorUid: adminUid,
+          actorPhone: adminPhone || undefined,
+          reason: revokeReason,
+        }).catch((err) => console.warn('[admin/action] Notification warning:', err));
+
         const allAdmins = await getAuthoritativeAdminAuthorizations();
         return NextResponse.json({
           ok: true,
@@ -168,6 +193,16 @@ export async function POST(req: NextRequest) {
         if (!result.ok) {
           return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
         }
+
+        await notifyAdminAndSuperAdminGovernance({
+          action: 'REACTIVATE_ADMIN',
+          targetId: phoneE164,
+          targetName: result.record?.name || phoneE164,
+          targetPhoneE164: phoneE164,
+          actorUid: adminUid,
+          actorPhone: adminPhone || undefined,
+          reason: reactivateReason,
+        }).catch((err) => console.warn('[admin/action] Notification warning:', err));
 
         const allAdmins = await getAuthoritativeAdminAuthorizations();
         return NextResponse.json({
@@ -194,6 +229,16 @@ export async function POST(req: NextRequest) {
         if (!result.ok) {
           return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
         }
+
+        await notifyAdminAndSuperAdminGovernance({
+          action: 'UPDATE_ADMIN',
+          targetId: phoneE164,
+          targetName: result.record?.name || phoneE164,
+          targetPhoneE164: phoneE164,
+          actorUid: adminUid,
+          actorPhone: adminPhone || undefined,
+          reason: `Updated administrator profile (${result.record?.designation || designation || 'Admin'})`,
+        }).catch((err) => console.warn('[admin/action] Notification warning:', err));
 
         const allAdmins = await getAuthoritativeAdminAuthorizations();
         return NextResponse.json({
@@ -292,6 +337,17 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      const targetStoreForNotify: LocalStore =
+        existingRegistryStore ||
+        INITIAL_STORES.find((s) => s.id === storeId) ||
+        ({ id: storeId, name: storeName } as LocalStore);
+      await notifyStoreOnboardingOrModeration({
+        store: targetStoreForNotify,
+        event: isSuspending ? 'STORE_SUSPENDED' : 'STORE_RESTORED',
+        reason,
+        actorUid: adminUid,
+      }).catch((err) => console.warn('[admin/action] Store notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         storeId,
@@ -365,6 +421,17 @@ export async function POST(req: NextRequest) {
         status: 'SUCCESS',
         reason,
       });
+
+      const targetStoreForVerify: LocalStore =
+        existingRegistryStore ||
+        INITIAL_STORES.find((s) => s.id === storeId) ||
+        ({ id: storeId, name: storeName } as LocalStore);
+      await notifyStoreOnboardingOrModeration({
+        store: targetStoreForVerify,
+        event: 'STORE_VERIFIED',
+        reason,
+        actorUid: adminUid,
+      }).catch((err) => console.warn('[admin/action] Store verify notification warning:', err));
 
       return NextResponse.json({
         ok: true,
@@ -512,6 +579,13 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      await notifyStoreOnboardingOrModeration({
+        store: storeRecord,
+        event: 'STORE_DELETED',
+        reason,
+        actorUid: adminUid,
+      }).catch((err) => console.warn('[admin/action] Store delete notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         storeId,
@@ -620,6 +694,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      await notifyAdminAndSuperAdminGovernance({
+        action: isSuspending ? 'SUSPEND_BUYER' : 'RESTORE_BUYER',
+        targetId: userId || phoneE164,
+        targetName: fullName,
+        targetPhoneE164: phoneE164 || undefined,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason,
+      }).catch((err) => console.warn('[admin/action] Buyer governance notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         userId: userId || phoneE164,
@@ -705,6 +789,25 @@ export async function POST(req: NextRequest) {
           isAvailable: !isUnpublishing,
         },
       });
+
+      const targetProduct: Product =
+        existingRegistryProduct ||
+        INITIAL_PRODUCTS.find((p) => p.id === productId) ||
+        ({
+          id: productId,
+          name: productName,
+          storeId: String(body.storeId || 'store-1'),
+        } as Product);
+      const targetStoreForProduct =
+        serverStoresRegistry.get(targetProduct.storeId) ||
+        INITIAL_STORES.find((s) => s.id === targetProduct.storeId) ||
+        null;
+      await notifyProductModeration({
+        product: targetProduct,
+        store: targetStoreForProduct,
+        event: isUnpublishing ? 'PRODUCT_UNPUBLISHED' : 'PRODUCT_RESTORED',
+        reason,
+      }).catch((err) => console.warn('[admin/action] Product moderation notification warning:', err));
 
       return NextResponse.json({
         ok: true,
@@ -972,6 +1075,15 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      await notifyAdminAndSuperAdminGovernance({
+        action: 'UPDATE_SUBSCRIPTION_PLAN',
+        targetId: planId,
+        targetName: syncedPlan.name,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason: `Monthly ₹${syncedPlan.monthlyPriceInr} / Annual ₹${syncedPlan.annualPriceInr}`,
+      }).catch((err) => console.warn('[admin/action] Subscription plan notification warning:', err));
+
       return NextResponse.json({
         ok: true,
         plan: syncedPlan,
@@ -1120,6 +1232,15 @@ export async function POST(req: NextRequest) {
           fcmPushNotificationsEnabled: updated.fcmPushNotificationsEnabled,
         },
       });
+
+      await notifyAdminAndSuperAdminGovernance({
+        action: 'UPDATE_PLATFORM_SETTINGS',
+        targetId: 'global',
+        targetName: updated.platformName,
+        actorUid: adminUid,
+        actorPhone: adminPhone || undefined,
+        reason,
+      }).catch((err) => console.warn('[admin/action] Platform settings notification warning:', err));
 
       return NextResponse.json({
         ok: true,

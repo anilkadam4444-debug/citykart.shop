@@ -867,7 +867,7 @@ export function CascadingLocationSelector({
       {shouldShowLocality && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           <div className="space-y-1">
-            <label className="block text-xs font-semibold text-slate-700">
+            <label className="block text-xs font-bold text-slate-800">
               {localityLabel}
             </label>
             <input
@@ -878,12 +878,12 @@ export function CascadingLocationSelector({
                 emitChange({ locality: e.target.value });
               }}
               placeholder="e.g. Vazirabad, Bandra West, Downtown, Kothrud"
-              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-[#003B8E]"
+              className="w-full min-h-[42px] py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-500 shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-[#003B8E]/15 focus:border-[#003B8E]"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-semibold text-slate-700">
+            <label className="block text-xs font-bold text-slate-800">
               {currentCountry.postalLabel}
             </label>
             <input
@@ -894,7 +894,7 @@ export function CascadingLocationSelector({
                 emitChange({ postalCode: e.target.value });
               }}
               placeholder={`e.g. ${currentCountry.code === 'IN' ? '431601' : currentCountry.code === 'US' ? '10012' : 'Postcode'}`}
-              className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 shadow-2xs focus:outline-hidden focus:ring-1 focus:ring-[#003B8E]"
+              className="w-full min-h-[42px] py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs font-mono font-medium text-slate-900 placeholder:text-slate-500 shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-[#003B8E]/15 focus:border-[#003B8E]"
             />
           </div>
         </div>
@@ -902,14 +902,14 @@ export function CascadingLocationSelector({
 
       {/* CANONICAL ID BADGE & ACTIVE SUMMARY */}
       {selectedCityName && (
-        <div className="p-3 bg-blue-50/60 border border-blue-200/70 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             <MapPin className="w-3.5 h-3.5 text-[#003B8E] shrink-0" />
-            <span className="font-semibold text-slate-900">
+            <span className="font-bold text-slate-900">
               {selectedCityName}, {selectedRegionName}, {currentCountry.name}
             </span>
           </div>
-          <div className="font-mono text-[11px] text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+          <div className="font-mono text-[11px] font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-300">
             ID: {selectedCityId || normalizeCanonicalLocationId(currentCountry.name, selectedRegionName, selectedCityName)}
           </div>
         </div>
@@ -919,10 +919,10 @@ export function CascadingLocationSelector({
       {isMissingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <h4 className="font-bold text-sm text-slate-900">Request Medium or Large City Activation</h4>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-600 mt-0.5">
                   Request activation of a medium or large city in {currentCountry.name}. New city activation is controlled by Admin approval.
                 </p>
               </div>
@@ -933,28 +933,28 @@ export function CascadingLocationSelector({
                   setCustomLocationError(null);
                   setCustomLocationNotice(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
+                className="text-slate-500 hover:text-slate-800 text-lg font-bold cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {customLocationError && (
-              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs font-medium">
                 {customLocationError}
               </div>
             )}
 
             {customLocationNotice && (
-              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
+              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium">
                 {customLocationNotice}
               </div>
             )}
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  Medium or Large City Name *
+                <label className="block text-slate-800 font-bold mb-1">
+                  Medium or Large City Name <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -962,13 +962,13 @@ export function CascadingLocationSelector({
                   value={customCityInput}
                   onChange={(e) => setCustomCityInput(e.target.value)}
                   placeholder="e.g. Mumbai, Pune, Thane, Nashik"
-                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
+                  className="w-full min-h-[42px] p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-500 font-medium focus:outline-hidden focus:border-[#003B8E]"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  {currentCountry.regionLabel} *
+                <label className="block text-slate-800 font-bold mb-1">
+                  {currentCountry.regionLabel} <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -976,13 +976,13 @@ export function CascadingLocationSelector({
                   value={customRegionInput || selectedRegionName}
                   onChange={(e) => setCustomRegionInput(e.target.value)}
                   placeholder={`e.g. ${selectedRegionName}`}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
+                  className="w-full min-h-[42px] p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-500 font-medium focus:outline-hidden focus:border-[#003B8E]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="block text-slate-800 font-bold mb-1">
                     {currentCountry.districtLabel} (Optional)
                   </label>
                   <input
@@ -990,12 +990,12 @@ export function CascadingLocationSelector({
                     value={customDistrictInput}
                     onChange={(e) => setCustomDistrictInput(e.target.value)}
                     placeholder="e.g. Nanded District"
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
+                    className="w-full min-h-[42px] p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-500 focus:outline-hidden focus:border-[#003B8E]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="block text-slate-800 font-bold mb-1">
                     {currentCountry.postalLabel} (Optional)
                   </label>
                   <input
@@ -1003,14 +1003,14 @@ export function CascadingLocationSelector({
                     value={customPostalInput}
                     onChange={(e) => setCustomPostalInput(e.target.value)}
                     placeholder="e.g. 431601"
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
+                    className="w-full min-h-[42px] p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-500 font-mono focus:outline-hidden focus:border-[#003B8E]"
                   />
                 </div>
               </div>
 
               {requesterRole === 'SELLER' && (
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="block text-slate-800 font-bold mb-1">
                     Contact Phone (For verification review)
                   </label>
                   <input
@@ -1018,7 +1018,7 @@ export function CascadingLocationSelector({
                     value={customPhoneInput}
                     onChange={(e) => setCustomPhoneInput(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 font-mono focus:outline-hidden focus:border-[#003B8E] focus:bg-white"
+                    className="w-full min-h-[42px] p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-500 font-mono focus:outline-hidden focus:border-[#003B8E]"
                   />
                 </div>
               )}
@@ -1031,7 +1031,7 @@ export function CascadingLocationSelector({
                     setCustomLocationError(null);
                     setCustomLocationNotice(null);
                   }}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 cursor-pointer"
+                  className="min-h-[40px] px-4 py-2 rounded-lg border border-slate-300 text-slate-800 font-semibold hover:bg-slate-50 cursor-pointer"
                 >
                   Close
                 </button>
@@ -1039,7 +1039,7 @@ export function CascadingLocationSelector({
                   type="button"
                   onClick={handleSubmitMissingLocation}
                   disabled={isSubmittingCustom}
-                  className="px-5 py-2 rounded-lg bg-[#003B8E] text-white font-semibold hover:bg-[#002D6E] disabled:opacity-50 cursor-pointer"
+                  className="min-h-[40px] px-5 py-2 rounded-lg bg-[#003B8E] text-white font-bold hover:bg-[#002D6E] disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingCustom ? 'Submitting...' : 'Submit for Admin Approval'}
                 </button>

@@ -33,6 +33,7 @@ import { useUrbanDirect } from '@/components/urbandirect-provider';
 import { formatPaymentMethodLabel, OrderRecord, OrderStatus } from '@/lib/catalog-data';
 import { UpiQrCodeCard } from '@/components/upi-qr-code-card';
 import { OrderStoreRatingWidget, StoreRatingBadge } from '@/components/store-star-rating';
+import { NotificationBell } from '@/components/notification-bell';
 
 export default function BuyerOrdersPage() {
   const {
@@ -309,6 +310,12 @@ export default function BuyerOrdersPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <NotificationBell
+              role="BUYER"
+              userId={authenticatedUser?.uid || authenticatedUser?.id}
+              phoneE164={authenticatedUser?.phoneE164}
+              variant="light"
+            />
             {!authenticatedUser ? (
               <button
                 onClick={() => openOtpAuthModal({ defaultJourney: 'BUYER' })}

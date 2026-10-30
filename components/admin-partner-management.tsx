@@ -559,13 +559,13 @@ export function AdminPartnerManagement({
           {/* Search & Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="search"
                 value={appSearch}
                 onChange={(e) => setAppSearch(e.target.value)}
                 placeholder="Search applicant name, CKP ref, phone..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300"
+                className="w-full min-h-[40px] pl-9 pr-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 placeholder:text-slate-500 font-medium focus:outline-none focus:border-[#003B8E]"
               />
             </div>
 
@@ -576,7 +576,7 @@ export function AdminPartnerManagement({
                   e.target.value as 'ALL' | PartnerApplicationStatus
                 )
               }
-              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 font-semibold"
+              className="min-h-[40px] px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 font-semibold focus:outline-none focus:border-[#003B8E]"
             >
               <option value="ALL">All Statuses</option>
               <option value="pending_review">Pending Review</option>
@@ -591,7 +591,7 @@ export function AdminPartnerManagement({
             <select
               value={appCityFilter}
               onChange={(e) => setAppCityFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 font-semibold"
+              className="min-h-[40px] px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 font-semibold focus:outline-none focus:border-[#003B8E]"
             >
               <option value="ALL">All Requested Cities</option>
               {distinctApplicationCities.map(([cId, cLabel]) => (
@@ -605,7 +605,7 @@ export function AdminPartnerManagement({
               type="date"
               value={appDateFilter}
               onChange={(e) => setAppDateFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 font-mono"
+              className="min-h-[40px] px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 font-mono font-medium focus:outline-none focus:border-[#003B8E]"
             />
           </div>
 

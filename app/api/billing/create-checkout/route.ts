@@ -18,6 +18,7 @@ import {
   verifyAuthenticatedCaller,
 } from '@/lib/super-admin-auth';
 import { reserveSellerOutstandingFeesForInvoice } from '@/lib/fees';
+import { notifySellerBillingEvent } from '@/lib/notification-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -198,6 +199,16 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      await notifySellerBillingEvent({
+        sellerId,
+        storeId,
+        storeName: targetStore?.name,
+        event: 'SUBSCRIPTION_ACTIVATED',
+        planOrServiceName: plan.name,
+        amountInr: 0,
+        invoiceNumber,
+      }).catch((err) => console.warn('[create-checkout] Notification warning:', err));
+
       return NextResponse.json({
         success: true,
         directActivation: true,
@@ -286,6 +297,16 @@ export async function POST(req: NextRequest) {
           // Ignore Firestore error when using server registry
         }
       }
+
+      await notifySellerBillingEvent({
+        sellerId,
+        storeId,
+        storeName: targetStore?.name,
+        event: 'SUBSCRIPTION_ACTIVATED',
+        planOrServiceName: plan.name,
+        amountInr: totalAmount,
+        invoiceNumber,
+      }).catch((err) => console.warn('[create-checkout] Notification warning:', err));
 
       return { sandboxSubscription, sandboxTransaction };
     };
